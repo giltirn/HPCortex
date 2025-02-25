@@ -2,7 +2,7 @@ SUBDIRS =
 AM_CPPFLAGS = -I$(top_srcdir)/include
 LDADD = ../src/libmlcortex.la
 testdir = $(prefix)/test
-test_PROGRAMS = test_dynamic_model test_basic test_one_hidden_layer test_simple_linear test_pipeline_1d 
+test_PROGRAMS = test_dynamic_model test_basic test_one_hidden_layer test_simple_linear test_simple_linear_pipeline test_pipeline_1d 
 test_dynamic_model_SOURCES = test_dynamic_model.cpp 
 test_dynamic_model_LDADD = $(LDADD)
 test_basic_SOURCES = test_basic.cpp 
@@ -11,6 +11,8 @@ test_one_hidden_layer_SOURCES = test_one_hidden_layer.cpp
 test_one_hidden_layer_LDADD = $(LDADD)
 test_simple_linear_SOURCES = test_simple_linear.cpp 
 test_simple_linear_LDADD = $(LDADD)
+test_simple_linear_pipeline_SOURCES = test_simple_linear_pipeline.cpp 
+test_simple_linear_pipeline_LDADD = $(LDADD)
 test_pipeline_1d_SOURCES = test_pipeline_1d.cpp 
 test_pipeline_1d_LDADD = $(LDADD)
 

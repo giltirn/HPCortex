@@ -3,6 +3,171 @@
 #include<Tensors.hpp>
 #include<Layers.hpp>
 
+//This is a pipeline parallelized cost function wrapper. The user must provide a PipelineBlock containing the layers on the current rank, each terminating
+//with an InputLayer.
+//call_batch_size must be provided indicating the batch size acted on by each rank in each cycle; it must be a divisor of the total batch size
+template<typename PipelineBlockType, typename CostFunc>
+class BatchPipelineCostFuncWrapper{
+  PipelineBlockType &block;
+  
+  CostFunc cost;
+  int nparam;
+  int value_lag;
+  int deriv_lag;
+
+  int rank;
+
+  int call_batch_size;
+  
+  Vector deriv_store;
+public:
+  BatchPipelineCostFuncWrapper(PipelineBlockType &block, int call_batch_size, const CostFunc &cost = CostFunc()): cost(cost), block(block), nparam(block.nparams()),
+														  value_lag(block.valueLag()), deriv_lag(block.derivLag()),
+														  call_batch_size(call_batch_size)
+  {
+    MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+  }
+
+
+  
+  double loss(const Matrix &x, const Matrix &y){
+    int dim = y.size(0);
+    int global_batch_size = y.size(1);
+    int nrank = block.pipelineDepth();
+
+    assert( global_batch_size % call_batch_size == 0);
+    int navg = global_batch_size / call_batch_size;
+
+    Matrix x_dummy(x.size(0),call_batch_size,0.0);
+    Matrix y_dummy(y.size(0),call_batch_size,0.0);
+    
+    deriv_store = Vector(nparam, 0.);    
+
+    double out = 0.;
+
+    //compute the total required number of calls
+    //3 ranks
+    //Value:
+    //iter    rank->
+    //        0     1      2     ret
+    //0                   <0|     -
+    //1            <0-    <1|     -
+    //2      <0-   <1-    <2|     0
+    //3      <1-   <2-    <3|     1
+    //etc
+    
+    //value lag: 3
+
+    //Deriv:
+    //iter    rank->
+    //        0     1      2     ret
+    //0       
+    //1       
+    //2      |0>   
+    //3      |1>   -0>
+    //4      |2>   -1>    -0>    0
+    //5            -2>    -1>    1
+    //6                   -2>    2
+    //etc
+
+    //deriv lag: 5
+
+    int dcount = 0; //number of derivatives that have been computed. When this is equal to navg we terminate
+    int iter =0;
+    while(dcount < navg){
+      Matrix x_iter = iter < navg ? x.peekColumns(iter * call_batch_size, (iter+1)* call_batch_size - 1) : x_dummy;
+      Matrix ypred = block.value(x_iter);
+      
+      int i_vpipe = iter-(value_lag-1);
+      int i_dpipe = iter-(deriv_lag-1);
+
+      //start recording loss
+      Matrix y_iter(y_dummy);
+      if(i_vpipe >= 0 && i_vpipe < navg){
+	y_iter = y.peekColumns(i_vpipe * call_batch_size, (i_vpipe+1) * call_batch_size - 1);
+	double dloss = cost.loss(y_iter, ypred);
+	if(!rank) std::cout << i_vpipe << " dloss=" << dloss << std::endl;
+	out += dloss;
+      }
+	
+      //once we start getting values back we need to feed them back to the derivs
+      if(i_vpipe >= 0){
+	Matrix layer_deriv = cost.layer_deriv(y_iter , ypred);
+	Vector cost_deriv(nparam,0.);    //zero initialize
+	block.deriv(cost_deriv, layer_deriv);
+	
+	if(i_dpipe >= 0){
+	  ++dcount;
+	  deriv_store += cost_deriv;
+	}
+      }
+
+      ++iter;
+    }
+
+    //Make sure all the ranks get the right output and derivative
+    MPI_Bcast(deriv_store.data(), deriv_store.data_len(), MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&out, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+    deriv_store *= 1./navg;
+    return out / navg;
+  }
+  
+  Vector deriv() const{ return deriv_store; }
+
+  void update(const Vector &new_params){
+    block.update(new_params);
+  }
+  void step(const Vector &derivs, double eps){
+    block.step(derivs,eps);
+  }
+  int nparams(){ return nparam; }
+
+  Vector getParams(){
+    Vector out(nparams());
+    block.getParams(out);
+    return out;
+  }
+
+  Matrix predict(const Matrix &x){
+    int global_batch_size = x.size(1);
+    int nrank = block.pipelineDepth();
+
+    assert( global_batch_size % call_batch_size == 0);
+    int navg = global_batch_size / call_batch_size;
+
+    Matrix x_dummy(x.size(0),call_batch_size,0.0);
+
+    int iters = navg + value_lag -1; //exit when i_vpipe = iter-(value_lag-1) = navg, i.e  iter == navg + (value_lag-1)
+
+    Matrix out;
+    
+    for(int iter=0;iter<iters;iter++){
+      Matrix x_iter = iter < navg ? x.peekColumns(iter * call_batch_size, (iter+1)* call_batch_size - 1) : x_dummy;
+      Matrix ypred = block.value(x_iter);
+
+      if(iter == 0 && !rank) out = Matrix(ypred.size(0),global_batch_size);
+      
+      int i_vpipe = iter-(value_lag-1);      
+      if(i_vpipe >= 0 && !rank)
+	out.pokeColumns(i_vpipe * call_batch_size, (i_vpipe+1) * call_batch_size - 1, ypred);
+    }
+
+    int osize[2] = {out.size(0),out.size(1)};
+    MPI_Bcast(osize, 2, MPI_INT, 0, MPI_COMM_WORLD);
+    if(rank != 0) out = Matrix(osize[0],osize[1]);    
+    
+    //Make sure all the ranks get the right output
+    MPI_Bcast(out.data(), out.data_len(), MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+    return out;
+  }
+};
+
+
+
+//This is a pipelined loss function wrapper. Using it requires careful coordination as the returned value is not the loss for the provided inputs but a delayed result
+//from an earlier iteration. Specifically, the output of loss will be the loss for the call valueLag() calls previously, and that for deriv derivLag() calls previously
 template<typename PipelineBlockType, typename CostFunc>
 class PipelineCostFuncWrapper{
   PipelineBlockType &block;
@@ -96,13 +261,23 @@ public:
     }else return Vector(nparam,-1.); //indicate that these derivs are invalid
   }
   
-  
+  void update(const Vector &new_params){
+    block.update(new_params);
+  }
+  void step(const Vector &derivs, double eps){
+    block.step(derivs,eps);
+  }
+  int nparams(){ return nparam; }
+
+  Vector getParams(){
+    Vector out(nparams());
+    block.getParams(out);
+    return out;
+  } 
 };
 
-template<typename BlockStore>
-class PipelineBlock{
-  BlockStore block; //this chain should terminate on an InputLayer. This represents the work done on this rank
-
+class PipelineCommunicator{
+protected:
   int rank; //current rank
   int next_rank; //rank of next comm layer, -1 indicates this is the last
   int prev_rank; //rank of previous comm layer, -1 indicates this is the first
@@ -110,20 +285,25 @@ class PipelineBlock{
   bool is_first;
   bool is_last;
   
-  int batch_size;
-  int input_features; //features of data
-  int this_features; //features of this layer
-  int next_features; //features of output of layer to the right
-  
-  int nparam; //total #params
-  int stage_off; //offset within parameter vector associated with this block
-  
-  Matrix prev_in; //input for forwards propagation
+public:
+  PipelineCommunicator(){
+    //Prepare rank information
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    
+    int nranks;
+    MPI_Comm_size(MPI_COMM_WORLD, &nranks);
 
-  //storage for backpropagation
-  Matrix prev_above_deriv;
-  Vector prev_cost_deriv_passright;
-  
+    next_rank = rank+1;
+    prev_rank = rank-1;
+    if(next_rank == nranks) next_rank = -1;
+    pipeline_depth = nranks;
+
+    is_first = prev_rank == -1;
+    is_last = next_rank == -1;
+  }
+
+  int pipelineDepth() const{ return pipeline_depth; }
+
   inline static MPI_Request send(const Matrix &mat, int to){
     MPI_Request req;		
     MPI_Isend(mat.data(), mat.data_len(), MPI_DOUBLE, to, 0, MPI_COMM_WORLD, &req);
@@ -184,31 +364,38 @@ class PipelineBlock{
     else if(is_first) reqs.push_back(recv(*recv_first,pipeline_depth-1));
   }
 
+};
+  
+
+template<typename BlockStore>
+class PipelineBlock: public PipelineCommunicator{
+  BlockStore block; //this chain should terminate on an InputLayer. This represents the work done on this rank
+  
+  int batch_size;
+  int input_features; //features of data
+  int this_features; //features of this layer
+  int next_features; //features of output of layer to the right
+  
+  int nparam; //total #params
+  int stage_off; //offset within parameter vector associated with this block
+  
+  Matrix prev_in; //input for forwards propagation
+
+  //storage for backpropagation
+  Matrix prev_above_deriv;
+  Vector prev_cost_deriv_passright;  
+
   int dcalls;
   
 public:
   
   PipelineBlock(BlockStore &&_block, int batch_size, int input_features, int this_features, int next_features): block(std::move(_block)), batch_size(batch_size), input_features(input_features), this_features(this_features), next_features(next_features), dcalls(0){
-    
-    //Prepare rank information
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    
-    int nranks;
-    MPI_Comm_size(MPI_COMM_WORLD, &nranks);
-
-    next_rank = rank+1;
-    prev_rank = rank-1;
-    if(next_rank == nranks) next_rank = -1;
-    pipeline_depth = nranks;
-
-    is_first = prev_rank == -1;
-    is_last = next_rank == -1;
 
     //Compute parameter information
-    std::vector<int> block_params(nranks, 0);
+    std::vector<int> block_params(pipeline_depth, 0);
     block_params[rank] = block.v.nparams();
     
-    MPI_Allreduce(MPI_IN_PLACE, block_params.data(), nranks, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, block_params.data(), pipeline_depth, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     //Compute block param offset
     stage_off = 0;
@@ -216,7 +403,7 @@ public:
 
     //Compute total params
     nparam = 0;
-    for(int i=0;i<nranks;i++) nparam += block_params[i];
+    for(int i=0;i<pipeline_depth;i++) nparam += block_params[i];
     
     //Setup storage
     prev_in = Matrix(this_features, batch_size, 0.);
@@ -232,11 +419,11 @@ public:
   
   int nparams() const{ return nparam; }
 
-  int pipelineDepth() const{ return pipeline_depth; }
-
-  //Amount of iterations before you get the return value for the first item back
+  //Amount of iterations at which you get the return value for the first item back
+  //i.e.  iteration  i -> i-(value_lag - 1)    with i=0,1,2...
   int valueLag() const{ return pipeline_depth; }
-  //Amount of iterations before you get the derivative for the first item back
+  //Amount of iterations at which you get the derivative for the first item back
+  //i.e.  iteration  i -> i-(deriv_lag - 1)    with i=0,1,2...
   int derivLag() const{ return 2*pipeline_depth - 1; }
 
   //We assume every node in the group has access to the same x value called in the same order
@@ -425,13 +612,21 @@ public:
     //if(rank == 0) std::cout << "RANK 0 CALL " << dcalls << " RECEIVED COST DERIV: " << cost_deriv << std::endl;
   }
 
-  // inline void update(int off, const Vector &new_params){}
+  //Update the parameters. It is assumed that all ranks have the same input 'new_params'
+  inline void update(const Vector &new_params){
+    block.v.update(stage_off, new_params);
+  }
 
-  // inline void step(int off, const Vector &derivs, double eps){}
-  
-  // inline int nparams(){ return 0; }
-
-  // inline void getParams(Vector &into, int off){}  
+  //Step down the gradient. Assumed that all ranks have the same input 'new_params'
+  inline void step(const Vector &derivs, double eps){
+    block.v.step(stage_off, derivs, eps);
+  }    
+  //Get the parameters for the complete model. Each rank will get the same result
+  inline void getParams(Vector &into){
+    into = Vector(nparam, 0.);
+    block.v.getParams(into, stage_off);
+    MPI_Allreduce(MPI_IN_PLACE, into.data(),into.data_len(), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  }  
   
 };
 
@@ -439,3 +634,4 @@ template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
 auto pipeline_block(U &&u, int batch_size, int input_features, int this_features, int next_features)->PipelineBlock<DDST(u)>{
   return PipelineBlock<DDST(u)>(std::forward<U>(u),batch_size,input_features, this_features, next_features);
 }
+

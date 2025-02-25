@@ -12,7 +12,7 @@ struct XYpair{
 template<typename T, typename LRscheduler>
 void optimizeGradientDescent(T &model, const std::vector<XYpair> &data, const LRscheduler &lr, int nepoch){
   std::default_random_engine gen(1234);
-  std::uniform_int_distribution<int> dist(0,data.size());
+  std::uniform_int_distribution<int> dist(0,data.size()-1);
 
   int ndata = data.size();
   
@@ -45,8 +45,10 @@ struct AdamParams{ //NB, alpha comes from the learning scheduler
   
 template<typename T, typename LRscheduler>
 void optimizeAdam(T &model, const std::vector<XYpair> &data, const LRscheduler &lr, const AdamParams &ap, int nepoch){
+  assert(data.size() > 0);
+  
   std::default_random_engine gen(1234);
-  std::uniform_int_distribution<int> dist(0,data.size());
+  std::uniform_int_distribution<int> dist(0,data.size()-1);
 
   int nparam = model.nparams();
   Vector m(nparam,0.0);

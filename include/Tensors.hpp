@@ -96,6 +96,23 @@ public:
     for(int i=0;i<size0;i++) out(i)=this->operator()(i,col);
     return out;
   }
+
+  Matrix peekColumns(int col_start, int col_end) const{
+    Matrix out(size0, col_end-col_start+1);
+    for(int i=0;i<size0;i++){
+      int jj=0;
+      for(int j=col_start;j<=col_end;j++)      
+	out(i,jj++)=this->operator()(i,j);
+    }
+    return out;
+  }
+  void pokeColumns(int col_start, int col_end, const Matrix &cols){
+    for(int i=0;i<size0;i++)
+      for(int j=col_start;j<=col_end;j++)      
+	this->operator()(i,j) = cols(i,j-col_start);
+  }
+
+  
   double const* data() const{ return vals.data(); }
   double* data(){ return vals.data(); }
   size_t data_len() const{ return vals.size(); }
@@ -127,6 +144,11 @@ Vector operator+(const Vector &a, const Vector &b){
     out(i) = a(i) + b(i);
   return out;
 }
+Vector & operator+=(Vector &a, const Vector &b){
+  for(int i=0;i<a.size(0);i++)
+    a(i) += b(i);
+  return a;
+}
 Vector operator-(const Vector &a, const Vector &b){
   Vector out(a.size(0));
   for(int i=0;i<a.size(0);i++)
@@ -137,4 +159,9 @@ Vector operator*(double eps, const Vector &b){
   Vector out(b.size(0));
   for(int i=0;i<b.size(0);i++)
     out(i) = eps * b(i);
+}
+Vector & operator*=(Vector &a, double eps){
+  for(int i=0;i<a.size(0);i++)
+    a(i) *= eps;
+  return a;
 }

@@ -131,6 +131,48 @@ void testPipeline(){
     }
   }
 
+
+  if(1){ //test batched cost
+    if(!rank) std::cout << "Testing batch loss pipeline" << std::endl;
+
+    int glob_batch_size = 6*nranks;
+    int call_batch_size = 2;
+    
+    auto p = pipeline_block( dnn_layer(input_layer(), winit,binit) , call_batch_size, input_features, 1, rank == nranks -1 ? 0 : 1);
+    BatchPipelineCostFuncWrapper<decltype(p),MSEcostFunc> pc(p, call_batch_size);
+
+    Matrix x(input_features, glob_batch_size);
+    Matrix y(1, glob_batch_size);
+
+    for(int i=0;i<glob_batch_size;i++){
+      x.pokeColumn(i,Vector(1,i+1));
+
+      double ival = i+1;
+      for(int r=0;r<nranks;r++)
+	ival = B + A*ival;
+
+      //Add noise
+      y.pokeColumn(i, Vector(1, 1.05*ival) );
+    }
+    
+    //Build the same model on just this rank
+    LayerWrapper test_model = enwrap( input_layer() );
+    for(int r=0;r<nranks;r++) test_model = enwrap( dnn_layer(std::move(test_model), winit,binit) ); 
+    auto test_cost = mse_cost(test_model);
+
+
+    double loss_expect = test_cost.loss(x,y);
+    Vector deriv_expect = test_cost.deriv();
+
+    double loss_got = pc.loss(x,y);
+    Vector deriv_got = pc.deriv();
+
+    if(!rank){
+      std::cout << "Loss - got " << loss_got << " expect " << loss_expect << std::endl;
+      std::cout << "Deriv - got " << deriv_got << " expect " << deriv_expect << std::endl;
+    }
+  }
+  
 }
 
 
