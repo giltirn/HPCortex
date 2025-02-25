@@ -64,7 +64,9 @@ void testOneHiddenLayer(){
 
   DecayScheduler lr(0.001, 0.1);
   AdamParams ap;
-  optimizeAdam(model, data, lr, ap, 200);
+  AdamOptimizer<DecayScheduler> opt(ap,lr);
+  
+  train(model, data, opt, 200);
 
   std::cout << "Final params" << std::endl;
   Vector final_p = model.getParams();

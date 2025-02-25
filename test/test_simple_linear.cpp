@@ -21,7 +21,9 @@ void testSimpleLinear(){
     
   auto model = mse_cost( dnn_layer(input_layer(), winit, binit) );
   DecayScheduler lr(0.01, 0.1);
-  optimizeGradientDescent(model, data, lr, 200);
+  GradientDescentOptimizer<DecayScheduler> opt(lr);
+  
+  train(model, data, opt, 200);
 
   std::cout << "Final params" << std::endl;
   Vector final_p = model.getParams();

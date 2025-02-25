@@ -54,15 +54,16 @@ void testSimpleLinearPipeline(){
   
   DecayScheduler lr(0.001, 0.1);
   AdamParams ap;
-
+  AdamOptimizer<DecayScheduler> opt(ap,lr);
+  
   Vector expect_p;
   if(!rank){
     std::cout << "Training rank local model for comparison" << std::endl;
-    optimizeAdam(full_cost, data, lr, ap, 50);
+    train(full_cost, data, opt, 50);
     expect_p = full_cost.getParams();
   }
   
-  optimizeAdam(cost, data, lr, ap, 50);
+  train(cost, data, opt, 50);
 
   Vector final_p = cost.getParams();
   std::vector<Matrix> predict(nbatch);
