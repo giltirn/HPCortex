@@ -1,5 +1,4 @@
 #pragma once
-#include<mpi.h>
 #include <Tensors.hpp>
 #include <InstanceStorage.hpp>
 #include <ActivationFuncs.hpp>
@@ -61,7 +60,6 @@ class DNNlayer{
   RingBuffer<Matrix> activation_buf;
   size_t calls;
 
-  int rank;
   bool pipeline_mode;
 public:
   typedef LeafTag tag;
@@ -70,9 +68,7 @@ public:
     leaf(std::move(leaf)), weights(weights), bias(bias),
     size0(weights.size(0)), size1(weights.size(1)),
     activation_func(activation_func), leaf_buf(1), calls(0), pipeline_mode(false)
-  {
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  }
+  {  }
   DNNlayer(const DNNlayer &r) = delete;
   DNNlayer(DNNlayer &&r) = default;
   

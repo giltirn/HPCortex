@@ -1,7 +1,7 @@
 #pragma once
-#include<mpi.h>
 #include<Tensors.hpp>
 #include<Layers.hpp>
+#include<Comms.hpp>
 
 //This is a pipeline parallelized cost function wrapper. The user must provide a PipelineBlock containing the layers on the current rank, each terminating
 //with an InputLayer.
@@ -106,8 +106,8 @@ public:
     }
 
     //Make sure all the ranks get the right output and derivative
-    MPI_Bcast(deriv_store.data(), deriv_store.data_len(), MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&out, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    assert( MPI_Bcast(deriv_store.data(), deriv_store.data_len(), MPI_DOUBLE, 0, communicators().pipelineCommunicator()) == MPI_SUCCESS );
+    assert( MPI_Bcast(&out, 1, MPI_DOUBLE, 0, communicators().pipelineCommunicator()) == MPI_SUCCESS );
 
     deriv_store *= 1./navg;
     return out / navg;
@@ -154,11 +154,11 @@ public:
     }
 
     int osize[2] = {out.size(0),out.size(1)};
-    MPI_Bcast(osize, 2, MPI_INT, 0, MPI_COMM_WORLD);
+    assert( MPI_Bcast(osize, 2, MPI_INT, 0, communicators().pipelineCommunicator()) == MPI_SUCCESS );
     if(rank != 0) out = Matrix(osize[0],osize[1]);    
     
     //Make sure all the ranks get the right output
-    MPI_Bcast(out.data(), out.data_len(), MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    assert( MPI_Bcast(out.data(), out.data_len(), MPI_DOUBLE, 0, communicators().pipelineCommunicator()) == MPI_SUCCESS );
 
     return out;
   }
@@ -189,7 +189,7 @@ public:
 											value_lag(block.valueLag()), deriv_lag(block.derivLag()),
 											yval_buf_v(block.valueLag()),
 											calls(0){
-    MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+    rank = communicators().pipelineRank();
   }
 
 
@@ -284,14 +284,12 @@ protected:
   int pipeline_depth; //number of ranks in the pipeline
   bool is_first;
   bool is_last;
-  
 public:
   PipelineCommunicator(){
     //Prepare rank information
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    rank = communicators().pipelineRank();
     
-    int nranks;
-    MPI_Comm_size(MPI_COMM_WORLD, &nranks);
+    int nranks = communicators().pipelineNrank();
 
     next_rank = rank+1;
     prev_rank = rank-1;
@@ -306,22 +304,24 @@ public:
 
   inline static MPI_Request send(const Matrix &mat, int to){
     MPI_Request req;		
-    MPI_Isend(mat.data(), mat.data_len(), MPI_DOUBLE, to, 0, MPI_COMM_WORLD, &req);
+    assert( MPI_Isend(mat.data(), mat.data_len(), MPI_DOUBLE, to, 0, communicators().pipelineCommunicator(), &req) == MPI_SUCCESS );
     return req;
   }
   inline static MPI_Request recv(Matrix &mat, int from){
     MPI_Request req;		
-    MPI_Irecv(mat.data(), mat.data_len(), MPI_DOUBLE, from, 0, MPI_COMM_WORLD, &req);
+    assert( MPI_Irecv(mat.data(), mat.data_len(), MPI_DOUBLE, from, 0, communicators().pipelineCommunicator(), &req) == MPI_SUCCESS );
     return req;
   }
-  inline static MPI_Request send(const Vector &mat, int to){
+  template<typename T>
+  inline static MPI_Request send(const T &mat, int to){
     MPI_Request req;		
-    MPI_Isend(mat.data(), mat.data_len(), MPI_DOUBLE, to, 0, MPI_COMM_WORLD, &req);
+    assert( MPI_Isend(mat.data(), mat.data_len(), MPI_DOUBLE, to, 0, communicators().pipelineCommunicator(), &req) == MPI_SUCCESS );
     return req;
   }
-  inline static MPI_Request recv(Vector &mat, int from){
+  template<typename T>
+  inline static MPI_Request recv(T &mat, int from){
     MPI_Request req;		
-    MPI_Irecv(mat.data(), mat.data_len(), MPI_DOUBLE, from, 0, MPI_COMM_WORLD, &req);
+    assert( MPI_Irecv(mat.data(), mat.data_len(), MPI_DOUBLE, from, 0, communicators().pipelineCommunicator(), &req) == MPI_SUCCESS );
     return req;
   }
 
@@ -395,7 +395,7 @@ public:
     std::vector<int> block_params(pipeline_depth, 0);
     block_params[rank] = block.v.nparams();
     
-    MPI_Allreduce(MPI_IN_PLACE, block_params.data(), pipeline_depth, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    assert( MPI_Allreduce(MPI_IN_PLACE, block_params.data(), pipeline_depth, MPI_INT, MPI_SUM, communicators().pipelineCommunicator()) == 0);
 
     //Compute block param offset
     stage_off = 0;
@@ -444,7 +444,7 @@ public:
     Matrix out = block.v.value(is_last ? in : prev_in);
     passLeft(reqs,          &out,     &out,
 	          &prev_in, &prev_in);    
-    MPI_Waitall(reqs.size(), reqs.data(), MPI_STATUSES_IGNORE);
+    assert( MPI_Waitall(reqs.size(), reqs.data(), MPI_STATUSES_IGNORE) == MPI_SUCCESS );
     
     return out; //note, output only meaningful on first node   
   }
@@ -607,7 +607,7 @@ public:
     //if last our cost derivative is fully populated, so we send it back to rank 0 for output
     passLeftLastToFirst(reqs, &pass_cost_deriv, &cost_deriv);
     
-    MPI_Waitall(reqs.size(), reqs.data(), MPI_STATUSES_IGNORE);
+    assert( MPI_Waitall(reqs.size(), reqs.data(), MPI_STATUSES_IGNORE) == MPI_SUCCESS );
 
     //if(rank == 0) std::cout << "RANK 0 CALL " << dcalls << " RECEIVED COST DERIV: " << cost_deriv << std::endl;
   }
@@ -625,7 +625,7 @@ public:
   inline void getParams(Vector &into){
     into = Vector(nparam, 0.);
     block.v.getParams(into, stage_off);
-    MPI_Allreduce(MPI_IN_PLACE, into.data(),into.data_len(), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    assert( MPI_Allreduce(MPI_IN_PLACE, into.data(),into.data_len(), MPI_DOUBLE, MPI_SUM, communicators().pipelineCommunicator()) == MPI_SUCCESS );
   }  
   
 };

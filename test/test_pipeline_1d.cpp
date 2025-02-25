@@ -3,17 +3,16 @@
 #include <Pipelining.hpp>
 #include <Optimizers.hpp>  
 #include <DynamicModel.hpp>
+#include <Comms.hpp>
 
 void testPipeline(){
-  int nranks;
-  MPI_Comm_size(MPI_COMM_WORLD, &nranks);
-
-  int rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  communicators().enableGlobalPipelining(); //put all the ranks into a single pipeline
+    
+  int nranks = communicators().pipelineNrank();
+  int rank = communicators().pipelineRank();
   
   int batch_size = 1;
-  int input_features = 1;
-  
+  int input_features = 1; 
 
   double B=0.15;
   double A=3.14;
@@ -177,11 +176,10 @@ void testPipeline(){
 
 
 int main(int argc, char** argv){
-  MPI_Init(&argc, &argv);
+  initialize(argc, argv);
 
   testPipeline();
 
-  MPI_Finalize();
   return 0;
 }
 

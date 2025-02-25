@@ -1,6 +1,7 @@
 #include <Layers.hpp>
 #include <LossFunctions.hpp>
 #include <Optimizers.hpp>  
+#include <Comms.hpp>
 
 void testSimpleLinear(){
   //Test f(x) = 0.2*x + 0.3;
@@ -30,10 +31,9 @@ void testSimpleLinear(){
 }
 
 int main(int argc, char** argv){
-  MPI_Init(&argc, &argv);
+  initialize(argc, argv);
   
   testSimpleLinear();
 
-  MPI_Finalize();
   return 0;
 }

@@ -4,15 +4,14 @@
 #include <Pipelining.hpp>  
 #include <DynamicModel.hpp>
 #include <ActivationFuncs.hpp>
+#include <Comms.hpp>
 
 void testSimpleLinearPipeline(){
   //Test f(x) = 0.2*x + 0.3;
+  communicators().enableGlobalPipelining(); //put all the ranks into a single pipeline
   
-  int nranks;
-  MPI_Comm_size(MPI_COMM_WORLD, &nranks);
-
-  int rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  int nranks = communicators().pipelineNrank();
+  int rank = communicators().pipelineRank();
 
   int call_batch_size = 2;
   int glob_batch_size = 6 * nranks;
@@ -80,10 +79,9 @@ void testSimpleLinearPipeline(){
 }
 
 int main(int argc, char** argv){
-  MPI_Init(&argc, &argv);
+  initialize(argc, argv);
   
   testSimpleLinearPipeline();
 
-  MPI_Finalize();
   return 0;
 }

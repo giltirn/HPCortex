@@ -4,6 +4,7 @@
 #include <array>
 #include <memory>
 #include <cassert>
+#include <iostream>
 
 template<size_t dim>
 inline size_t tensorSize(const std::array<int,dim> &dims){

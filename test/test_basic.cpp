@@ -1,6 +1,7 @@
 #include <Layers.hpp>
 #include <LossFunctions.hpp>
 #include <Optimizers.hpp>  
+#include <Comms.hpp>
 
 void basicTests(){
   typedef std::vector<double> vecD;
@@ -68,10 +69,9 @@ void basicTests(){
 }
 
 int main(int argc, char** argv){
-  MPI_Init(&argc, &argv);
+  initialize(argc,argv);
   
   basicTests();
 
-  MPI_Finalize();
   return 0;
 }

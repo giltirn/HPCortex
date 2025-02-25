@@ -1,4 +1,5 @@
 #include<DynamicModel.hpp>
+#include <Comms.hpp>
 
 void testDynamicModel(){
   double B=0;
@@ -31,10 +32,9 @@ void testDynamicModel(){
 }
 
 int main(int argc, char** argv){
-  MPI_Init(&argc, &argv);
+  initialize(argc, argv);
   
   testDynamicModel();
   
-  MPI_Finalize();
   return 0;
 }

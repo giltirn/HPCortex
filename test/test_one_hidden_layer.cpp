@@ -1,6 +1,7 @@
 #include <Layers.hpp>
 #include <LossFunctions.hpp>
 #include <Optimizers.hpp>  
+#include <Comms.hpp>
 
 void testOneHiddenLayer(){
   //Test f(x) = 0.2*x + 0.3;
@@ -79,10 +80,9 @@ void testOneHiddenLayer(){
 }
 
 int main(int argc, char** argv){
-  MPI_Init(&argc, &argv);
+  initialize(argc, argv);
   
   testOneHiddenLayer();
   
-  MPI_Finalize();
   return 0;
 }
