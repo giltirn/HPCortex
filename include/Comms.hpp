@@ -48,9 +48,12 @@ private:
     if(is_pipeline_leader){
       assert( MPI_Comm_rank(batch_comm, &batch_rank) == MPI_SUCCESS );
       assert( MPI_Comm_size(batch_comm, &batch_nrank) == MPI_SUCCESS );
-    }else{
-      batch_rank = -1;
-      batch_nrank = -1;
+    }
+
+    //Ensure that all ranks in the pipeline know how what batch rank and how many batch ranks there are, even if they are not part of the group
+    if(pipeline_nrank>1){
+      assert( MPI_Bcast(&batch_nrank, 1, MPI_INT, 0, pipeline_comm) == MPI_SUCCESS );
+      assert( MPI_Bcast(&batch_rank, 1, MPI_INT, 0, pipeline_comm) == MPI_SUCCESS );
     }
       
   }
@@ -59,39 +62,47 @@ private:
     if(is_pipeline_leader) assert( MPI_Comm_free(&batch_comm) == MPI_SUCCESS );
     MPI_Comm_free(&pipeline_comm);
   }
-public:
-  Communicators(int argc, char** argv){
-    MPI_Init(&argc, &argv);
-    MPI_Errhandler_set(MPI_COMM_WORLD, MPI_ERRORS_RETURN);
-      
-    //By default the setup is just for batch parallelism, with an MPI communicator spanning all nodes and
-    //the pipeline communicators local to each node.
 
-    assert( MPI_Comm_rank(MPI_COMM_WORLD, &world_rank) == MPI_SUCCESS );
-    assert( MPI_Comm_size(MPI_COMM_WORLD, &world_nrank) == MPI_SUCCESS );
-    
-    //duplicate comm world to the batch communicator
-    assert( MPI_Comm_dup(MPI_COMM_WORLD, &batch_comm) == MPI_SUCCESS );
-
-    //setup communicator spanning just this rank
+  static void createCommJustThisRank(int world_rank, MPI_Comm &comm){
     MPI_Group world_group;
     assert( MPI_Comm_group(MPI_COMM_WORLD, &world_group) == MPI_SUCCESS );
     
     MPI_Group this_rank_group;
     assert( MPI_Group_incl(world_group, 1, &world_rank, &this_rank_group) == MPI_SUCCESS );
 
-    assert( MPI_Comm_create(MPI_COMM_WORLD, this_rank_group, &pipeline_comm) == MPI_SUCCESS );
+    assert( MPI_Comm_create(MPI_COMM_WORLD, this_rank_group, &comm) == MPI_SUCCESS );
+    
+    assert( MPI_Group_free(&world_group) == MPI_SUCCESS );
+    assert( MPI_Group_free(&this_rank_group) == MPI_SUCCESS );
+  }
 
+  void enableDDPnoPipeliningInternal(){
+    //duplicate comm world to the batch communicator
+    assert( MPI_Comm_dup(MPI_COMM_WORLD, &batch_comm) == MPI_SUCCESS );
+
+    //setup communicator spanning just this rank
+    createCommJustThisRank(world_rank, pipeline_comm);
+    
     pipeline_rank = 0;
     batch_rank = world_rank;
 
     pipeline_nrank = 1;
     is_pipeline_leader = true;
     batch_nrank = world_nrank;
-    
-    assert( MPI_Group_free(&world_group) == MPI_SUCCESS );
-    assert( MPI_Group_free(&this_rank_group) == MPI_SUCCESS );
   }
+public:
+  Communicators(int argc, char** argv){
+    MPI_Init(&argc, &argv);
+    MPI_Errhandler_set(MPI_COMM_WORLD, MPI_ERRORS_RETURN);
+      
+    assert( MPI_Comm_rank(MPI_COMM_WORLD, &world_rank) == MPI_SUCCESS );
+    assert( MPI_Comm_size(MPI_COMM_WORLD, &world_nrank) == MPI_SUCCESS );
+
+    //By default the setup is just for batch parallelism, with an MPI communicator spanning all nodes and
+    //the pipeline communicators local to each node.
+    enableDDPnoPipeliningInternal();
+  }
+   
   ~Communicators(){
     freeCommunicators();
     MPI_Finalize();
@@ -115,7 +126,12 @@ public:
   inline int pipelineNrank() const{
     return pipeline_nrank;
   }
-
+  //This rank is the leader of the pipeline subcommunicator
+  //MPI calls between different pipeline blocks should only occur on the leader ranks
+  inline bool isPipelineLeader() const{
+    return is_pipeline_leader;
+  }
+  
   inline MPI_Comm & pipelineCommunicator(){ return pipeline_comm; }
   inline MPI_Comm & batchCommunicator(){ return batch_comm; }
   
@@ -175,7 +191,27 @@ public:
     is_pipeline_leader = pipeline_rank == 0;
     setupBatchCommunicator();
   }
+
+  //each rank is now an island...
+  void disableParallelism(){
+    freeCommunicators();
+    createCommJustThisRank(world_rank, pipeline_comm);
+    createCommJustThisRank(world_rank, batch_comm);
+        
+    pipeline_rank = 0;
+    batch_rank = 0;
+
+    pipeline_nrank = 1;
+    is_pipeline_leader = true;
+    batch_nrank = 1;
+  }
+  //(default) batch parallelism, with an MPI communicator spanning all nodes and the pipeline communicators local to each node.  
+  void enableDDPnoPipelining(){
+    freeCommunicators();
+    enableDDPnoPipeliningInternal();
+  }
     
+  
   void reportSetup(){
     for(int w=0;w<world_nrank;w++){
       assert( MPI_Barrier(MPI_COMM_WORLD) == MPI_SUCCESS );

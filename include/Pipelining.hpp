@@ -86,7 +86,7 @@ public:
       if(i_vpipe >= 0 && i_vpipe < navg){
 	y_iter = y.peekColumns(i_vpipe * call_batch_size, (i_vpipe+1) * call_batch_size - 1);
 	double dloss = cost.loss(y_iter, ypred);
-	if(!rank) std::cout << i_vpipe << " dloss=" << dloss << std::endl;
+	//if(!rank) std::cout << i_vpipe << " dloss=" << dloss << std::endl;
 	out += dloss;
       }
 	

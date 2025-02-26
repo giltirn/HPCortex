@@ -9,6 +9,7 @@
 void testSimpleLinearPipeline(){
   //Test f(x) = 0.2*x + 0.3;
   communicators().enableGlobalPipelining(); //put all the ranks into a single pipeline
+  communicators().reportSetup();
   
   int nranks = communicators().pipelineNrank();
   int rank = communicators().pipelineRank();
@@ -51,23 +52,24 @@ void testSimpleLinearPipeline(){
   for(int i=0;i<nranks-1;i++)
     full_model = enwrap( dnn_layer(std::move(full_model), winit, binit, ReLU()) );
   auto full_cost = mse_cost(full_model);
-  
+
   DecayScheduler lr(0.001, 0.1);
   AdamParams ap;
   AdamOptimizer<DecayScheduler> opt(ap,lr);
-  
-  Vector expect_p;
-  if(!rank){
-    std::cout << "Training rank local model for comparison" << std::endl;
-    train(full_cost, data, opt, 50);
-    expect_p = full_cost.getParams();
-  }
-  
-  train(cost, data, opt, 50);
 
+  //Train pipeline
+  train(cost, data, opt, 50);
   Vector final_p = cost.getParams();
   std::vector<Matrix> predict(nbatch);
   for(int i=0;i<nbatch;i++) predict[i] = cost.predict(data[i].x);
+
+  std::cout << "Training rank local model for comparison" << std::endl;  
+  communicators().disableParallelism();
+  communicators().reportSetup();
+  train(full_cost, data, opt, 50);
+  Vector expect_p = full_cost.getParams();
+
+  MPI_Barrier(MPI_COMM_WORLD);
   
   if(!rank){
     std::cout << "Final params " << final_p << " expect " << expect_p << std::endl;

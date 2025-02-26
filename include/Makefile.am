@@ -1,1 +1,1 @@
-nobase_include_HEADERS = Pipelining.hpp DynamicModel.hpp Layers.hpp Optimizers.hpp InstanceStorage.hpp ActivationFuncs.hpp LossFunctions.hpp RingBuffer.hpp Tensors.hpp 
+nobase_include_HEADERS = Pipelining.hpp DynamicModel.hpp Comms.hpp Batching.hpp Layers.hpp Optimizers.hpp InstanceStorage.hpp ActivationFuncs.hpp LossFunctions.hpp RingBuffer.hpp Tensors.hpp 

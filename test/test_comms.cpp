@@ -27,4 +27,18 @@ int main(int argc, char** argv){
   if(!world_rank) std::cout << "All ranks in one pipeline" << std::endl << std::flush;
   communicators().enableGlobalPipelining();
   communicators().reportSetup();
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  
+  if(!world_rank) std::cout << "Disable all parallelism" << std::endl << std::flush;
+  communicators().disableParallelism();
+  communicators().reportSetup();
+
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  
+  if(!world_rank) std::cout << "Restore default setup" << std::endl << std::flush;
+  communicators().enableDDPnoPipelining();
+  communicators().reportSetup();
+
 }

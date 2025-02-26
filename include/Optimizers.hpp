@@ -2,6 +2,8 @@
 #include <random>
 #include <algorithm>
 #include <Tensors.hpp>
+#include <Comms.hpp>
+#include <Batching.hpp>
 
 template<typename LRscheduler>
 class GradientDescentOptimizer{
@@ -97,23 +99,45 @@ std::vector<double> train(ModelType &model, const std::vector<XYpair> &data, Opt
   std::vector<int> didx(ndata);
   for(int i=0;i<ndata;i++) didx[i] = i;
 
-  std::vector<double> losses(ndata*nepoch);
+  int nparam = model.nparams();
+
+  int blocksize = communicators().batchNrank();
+  int nblocks = (ndata + blocksize - 1) / blocksize; //round up
+  int me = communicators().batchRank(); //all ranks in a pipeline will have the same value for the batch rank, but only the pipeline leader should communicate
+
+  bool do_print = me == 0 && communicators().isPipelineLeader();
+
+  if(do_print) std::cout << "Training with DDP over " << blocksize << " ranks with " << nblocks << " per epoch" << std::endl;
   
+  std::vector<double> losses(nblocks*nepoch);
+    
   for(int epoch=0;epoch<nepoch;epoch++){
     optimizer.epochStart(epoch);
     std::random_shuffle ( didx.begin(), didx.end(), [&](const int l){ return dist(gen); }  );
 
-    for(int ii=0;ii<ndata;ii++){
-      int i = didx[ii];
-      double loss = model.loss(data[i].x, data[i].y);
-      std::cout << epoch << "-" << ii << " : "<< loss << std::endl;
+    for(int block=0;block<nblocks;block++){
+      int blocksize_actual = std::min(ndata - block*blocksize, blocksize);
 
+      double loss = 0;
+      Vector deriv(nparam, 0.);
+      
+      if(me < blocksize_actual){ //if not enough data to have all ranks do work in this block
+	int ii = block*blocksize + me;
+	int i = didx[ii];
+	loss = model.loss(data[i].x, data[i].y);
+	deriv = model.deriv();
+      }
+      batchAverage(&loss,1,false); //no need to bcast the loss to the pipeline ranks
+      batchAverage(deriv.data(),deriv.data_len(),true); //share the deriv over all pipeline ranks
+           
+      if(do_print) std::cout << epoch << "-" << block << " : "<< loss << std::endl;
+      
       double eps;
-      Vector direction = optimizer.descentProfile(eps, model.deriv());
+      Vector direction = optimizer.descentProfile(eps,deriv);
       
       model.step( direction, eps );
 
-      losses[ii+ndata*epoch] = loss;
+      losses[block+nblocks*epoch] = loss;
     }
   }
   return losses;
