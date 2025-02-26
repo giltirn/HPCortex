@@ -36,6 +36,12 @@ public:
     return leaf.v.value(x);
   }
 
+  Vector predict(const Vector &x){
+    Matrix b(x.size(0),1);
+    b.pokeColumn(0,x);
+    return predict(b).peekColumn(0);    
+  }
+  
   void update(const Vector &new_params){
     leaf.v.update(0, new_params);
   }

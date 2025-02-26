@@ -86,28 +86,56 @@ public:
 };
 
 struct XYpair{
+  Vector x;
+  Vector y;
+};
+struct batchedXYpair{
   Matrix x;
   Matrix y;
 };
-template<typename ModelType, typename Optimizer>
-std::vector<double> train(ModelType &model, const std::vector<XYpair> &data, Optimizer &optimizer, int nepoch){
-  std::default_random_engine gen(1234); //important that every rank shuffles in the same way
-  std::uniform_int_distribution<int> dist(0,data.size()-1);
 
-  int ndata = data.size();
+
+batchedXYpair batchData(int* indices, int batch_size, const std::vector<XYpair> &data){
+  assert(data.size()>0);
+  int x_features = data[0].x.size(0);
+  int y_features = data[0].y.size(0);
+  
+  batchedXYpair out;
+  out.x = Matrix(x_features, batch_size);
+  out.y = Matrix(y_features, batch_size);
+
+  for(int b=0;b<batch_size;b++){
+    int i = indices[b];
+    out.x.pokeColumn(b, data[i].x);
+    out.y.pokeColumn(b, data[i].y);
+  }
+  return out;
+}
+
+
+template<typename ModelType, typename Optimizer>
+std::vector<double> train(ModelType &model, const std::vector<XYpair> &data, Optimizer &optimizer, int nepoch, int batch_size){
+  std::default_random_engine gen(1234); //important that every rank shuffles in the same way
+
+  //We want to divide the data evenly over batches. This means we may need to discard some data
+  int nbatch = data.size() / batch_size;
+  int ndata = nbatch * batch_size;
+  std::uniform_int_distribution<int> dist(0,ndata-1);
   
   std::vector<int> didx(ndata);
   for(int i=0;i<ndata;i++) didx[i] = i;
 
   int nparam = model.nparams();
 
+  //For DDP we solve blocks of batches in parallel
   int blocksize = communicators().batchNrank();
-  int nblocks = (ndata + blocksize - 1) / blocksize; //round up
+  int nblocks = (nbatch + blocksize - 1) / blocksize; //round up
   int me = communicators().batchRank(); //all ranks in a pipeline will have the same value for the batch rank, but only the pipeline leader should communicate
 
   bool do_print = me == 0 && communicators().isPipelineLeader();
 
-  if(do_print) std::cout << "Training with DDP over " << blocksize << " ranks with " << nblocks << " per epoch" << std::endl;
+  if(do_print) std::cout << "Training with " << ndata << " data samples divided into " << nbatch << " batches of size " << batch_size
+			 << " using DDP over " << blocksize << " ranks with " << nblocks << " iterations per epoch" << std::endl;
   
   std::vector<double> losses(nblocks*nepoch);
     
@@ -116,15 +144,18 @@ std::vector<double> train(ModelType &model, const std::vector<XYpair> &data, Opt
     std::random_shuffle ( didx.begin(), didx.end(), [&](const int l){ return dist(gen); }  );
 
     for(int block=0;block<nblocks;block++){
-      int blocksize_actual = std::min(ndata - block*blocksize, blocksize);
+      int blocksize_actual = std::min(nbatch - block*blocksize, blocksize);
 
       double loss = 0;
       Vector deriv(nparam, 0.);
       
       if(me < blocksize_actual){ //if not enough data to have all ranks do work in this block
-	int ii = block*blocksize + me;
-	int i = didx[ii];
-	loss = model.loss(data[i].x, data[i].y);
+	int bidx = block*blocksize + me; //which batch are we doing?
+
+	//Get the batch
+	batchedXYpair bxy = batchData(didx.data() + bidx*batch_size, batch_size, data);
+	
+	loss = model.loss(bxy.x, bxy.y);
 	deriv = model.deriv();
       }
       batchAverage(&loss,1,false); //no need to bcast the loss to the pipeline ranks

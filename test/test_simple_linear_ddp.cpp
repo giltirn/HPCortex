@@ -15,8 +15,8 @@ void testSimpleLinearDDP(){
     double eps = 2.0/(ndata - 1);
     double x = -1.0 + i*eps; //normalize x to within +-1
 
-    data[i].x = Matrix(1,1,x);
-    data[i].y = Matrix(1,1,0.2*x + 0.3);
+    data[i].x = Vector(1,x);
+    data[i].y = Vector(1,0.2*x + 0.3);
   }
 
   Vector params_local; //params from training on just this rank
@@ -28,7 +28,7 @@ void testSimpleLinearDDP(){
     DecayScheduler lr(0.01, 0.1);
     GradientDescentOptimizer<DecayScheduler> opt(lr);
     
-    train(model, data, opt, 200);
+    train(model, data, opt, 200, 1);
     params_local = model.getParams();
   }
   Vector params_global; //params from DDP training 
@@ -40,7 +40,7 @@ void testSimpleLinearDDP(){
     DecayScheduler lr(0.01, 0.1);
     GradientDescentOptimizer<DecayScheduler> opt(lr);
     
-    train(model, data, opt, 200);
+    train(model, data, opt, 200, 1);
     params_global = model.getParams();
   }
   std::cout << "Params got " << params_global << " expect " << params_local << std::endl;

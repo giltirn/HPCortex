@@ -20,24 +20,16 @@ void testSimpleLinearPipeline(){
   int nbatch = 10;
 
   int ndata = nbatch * glob_batch_size;
-  std::vector<XYpair> data(nbatch);
-  int i=0;
-  for(int b=0;b<nbatch;b++){
-    data[b].x = Matrix(1, glob_batch_size);
-    data[b].y = Matrix(1, glob_batch_size);
+  std::vector<XYpair> data(ndata);
+
+  for(int i=0;i<ndata;i++){
+    double eps = 2.0/(ndata - 1);
+    double x = -1.0 + i*eps; //normalize x to within +-1
+    double y = 0.2*x + 0.3;
     
-    for(int g=0;g<glob_batch_size;g++){
-      double eps = 2.0/(ndata - 1);
-      double x = -1.0 + i*eps; //normalize x to within +-1
-      double y = 0.2*x + 0.3;
-
-      data[b].x(0,g) = x;
-      data[b].y(0,g) = y;
-
-      ++i;
-    }
+    data[i].x = Vector(1,x);
+    data[i].y = Vector(1,y);
   }
-
    
   Matrix winit(1,1,0.1);
   Vector binit(1,0.01);
@@ -58,15 +50,15 @@ void testSimpleLinearPipeline(){
   AdamOptimizer<DecayScheduler> opt(ap,lr);
 
   //Train pipeline
-  train(cost, data, opt, 50);
+  train(cost, data, opt, 50, glob_batch_size);
   Vector final_p = cost.getParams();
-  std::vector<Matrix> predict(nbatch);
-  for(int i=0;i<nbatch;i++) predict[i] = cost.predict(data[i].x);
+  std::vector<Vector> predict(ndata);
+  for(int i=0;i<ndata;i++) predict[i] = cost.predict(data[i].x);
 
   std::cout << "Training rank local model for comparison" << std::endl;  
   communicators().disableParallelism();
   communicators().reportSetup();
-  train(full_cost, data, opt, 50);
+  train(full_cost, data, opt, 50, glob_batch_size);
   Vector expect_p = full_cost.getParams();
 
   MPI_Barrier(MPI_COMM_WORLD);

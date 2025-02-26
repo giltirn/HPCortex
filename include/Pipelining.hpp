@@ -162,6 +162,13 @@ public:
 
     return out;
   }
+  //note this call is inefficient as we need to do call_batch_size work for only one data. Use the matrix version if this matters
+  Vector predict(const Vector &x){
+    Matrix b(x.size(0),call_batch_size,0.);  
+    b.pokeColumn(0,x);
+    return predict(b).peekColumn(0);    
+  }
+  
 };
 
 
