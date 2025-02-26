@@ -59,18 +59,12 @@ public:
 
   inline int size(int i) const{ return vals.size(); }
 
-  double const* data() const{ return vals.data(); }
-  double* data(){ return vals.data(); }
-  size_t data_len() const{ return vals.size(); }
+  inline double const* data() const{ return vals.data(); }
+  inline double* data(){ return vals.data(); }
+  inline size_t data_len() const{ return vals.size(); }
 };
 
-std::ostream & operator<<(std::ostream &os, const Vector &v){
-  if(v.size(0)==0){ os << "()"; return os; }    
-  os << "(" << v(0);
-  for(int i=1;i<v.size(0);i++) os << ", " << v(i);
-  os << ")";
-  return os;  
-}
+std::ostream & operator<<(std::ostream &os, const Vector &v);
 
 struct Matrix{
   std::vector<double> vals;
@@ -87,82 +81,31 @@ public:
 
   inline int size(int i) const{ return i==0 ? size0 : size1; }
 
-  void pokeColumn(int col, const Vector &data){
-    assert(data.size(0) == size0);
-    for(int i=0;i<size0;i++)
-      this->operator()(i,col) = data(i);
-  }
-  Vector peekColumn(int col) const{
-    Vector out(size0);
-    for(int i=0;i<size0;i++) out(i)=this->operator()(i,col);
-    return out;
-  }
+  //Insert 'data' as column 'col' of this matrix
+  void pokeColumn(int col, const Vector &data);
+  //Retrieve column 'col' of this matrix
+  Vector peekColumn(int col) const;
 
-  Matrix peekColumns(int col_start, int col_end) const{
-    Matrix out(size0, col_end-col_start+1);
-    for(int i=0;i<size0;i++){
-      int jj=0;
-      for(int j=col_start;j<=col_end;j++)      
-	out(i,jj++)=this->operator()(i,j);
-    }
-    return out;
-  }
-  void pokeColumns(int col_start, int col_end, const Matrix &cols){
-    for(int i=0;i<size0;i++)
-      for(int j=col_start;j<=col_end;j++)      
-	this->operator()(i,j) = cols(i,j-col_start);
-  }
-
+  //Retrieve multiple columns as a new matrix
+  Matrix peekColumns(int col_start, int col_end) const;
+  //Insert multiple columns, collected as a matrix 'cols', into this matrix
+  void pokeColumns(int col_start, int col_end, const Matrix &cols);
   
-  double const* data() const{ return vals.data(); }
-  double* data(){ return vals.data(); }
-  size_t data_len() const{ return vals.size(); }
-   
+  inline double const* data() const{ return vals.data(); }
+  inline double* data(){ return vals.data(); }
+  inline size_t data_len() const{ return vals.size(); }   
 };
 
-std::ostream & operator<<(std::ostream &os, const Matrix &v){
-  if(v.size(0)==0 || v.size(1) == 0){ os << "||"; return os; }
-  for(int r=0;r<v.size(0);r++){
-    os << "|" << v(r,0);
-    for(int i=1;i<v.size(1);i++) os << ", " << v(r,i);
-    os << "|";
-    if(r != v.size(0)-1) os << std::endl;
-  }
-  return os;  
-}
+std::ostream & operator<<(std::ostream &os, const Matrix &v);
 
+Vector operator*(const Matrix &A, const Vector &x);
 
-Vector operator*(const Matrix &A, const Vector &x){
-  Vector out(A.size(0), 0.);
-  for(int i=0;i<A.size(0);i++)
-    for(int j=0;j<A.size(1);j++)
-      out(i) += A(i,j) * x(j);
-  return out;
-}
-Vector operator+(const Vector &a, const Vector &b){
-  Vector out(a.size(0));
-  for(int i=0;i<a.size(0);i++)
-    out(i) = a(i) + b(i);
-  return out;
-}
-Vector & operator+=(Vector &a, const Vector &b){
-  for(int i=0;i<a.size(0);i++)
-    a(i) += b(i);
-  return a;
-}
-Vector operator-(const Vector &a, const Vector &b){
-  Vector out(a.size(0));
-  for(int i=0;i<a.size(0);i++)
-    out(i) = a(i) - b(i);
-  return out;
-}
-Vector operator*(double eps, const Vector &b){
-  Vector out(b.size(0));
-  for(int i=0;i<b.size(0);i++)
-    out(i) = eps * b(i);
-}
-Vector & operator*=(Vector &a, double eps){
-  for(int i=0;i<a.size(0);i++)
-    a(i) *= eps;
-  return a;
-}
+Vector operator+(const Vector &a, const Vector &b);
+
+Vector & operator+=(Vector &a, const Vector &b);
+
+Vector operator-(const Vector &a, const Vector &b);
+
+Vector operator*(double eps, const Vector &b);
+
+Vector & operator*=(Vector &a, double eps);

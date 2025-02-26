@@ -309,16 +309,6 @@ public:
 
   int pipelineDepth() const{ return pipeline_depth; }
 
-  inline static MPI_Request send(const Matrix &mat, int to){
-    MPI_Request req;		
-    assert( MPI_Isend(mat.data(), mat.data_len(), MPI_DOUBLE, to, 0, communicators().pipelineCommunicator(), &req) == MPI_SUCCESS );
-    return req;
-  }
-  inline static MPI_Request recv(Matrix &mat, int from){
-    MPI_Request req;		
-    assert( MPI_Irecv(mat.data(), mat.data_len(), MPI_DOUBLE, from, 0, communicators().pipelineCommunicator(), &req) == MPI_SUCCESS );
-    return req;
-  }
   template<typename T>
   inline static MPI_Request send(const T &mat, int to){
     MPI_Request req;		
