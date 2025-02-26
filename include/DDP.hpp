@@ -2,11 +2,11 @@
 #include <Comms.hpp>
 #include <Tensors.hpp>
 
-void batchAverage(double* data, size_t len, bool pipeline_bcast = false){
+void ddpAverage(double* data, size_t len, bool pipeline_bcast = false){
   //Communicate only on the pipeline leaders
   if(communicators().isPipelineLeader()){
-    int nrank = communicators().batchNrank();
-    assert( MPI_Allreduce(MPI_IN_PLACE, data, len, MPI_DOUBLE, MPI_SUM, communicators().batchCommunicator()) == MPI_SUCCESS );
+    int nrank = communicators().ddpNrank();
+    assert( MPI_Allreduce(MPI_IN_PLACE, data, len, MPI_DOUBLE, MPI_SUM, communicators().ddpCommunicator()) == MPI_SUCCESS );
     for(size_t i=0;i<len;i++) data[i] /= nrank;
   }
   //Broadcast to pipeline members (e.g. for parameter update)

@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <Tensors.hpp>
 #include <Comms.hpp>
-#include <Batching.hpp>
+#include <DDP.hpp>
 
 template<typename LRscheduler>
 class GradientDescentOptimizer{
@@ -128,9 +128,9 @@ std::vector<double> train(ModelType &model, const std::vector<XYpair> &data, Opt
   int nparam = model.nparams();
 
   //For DDP we solve blocks of batches in parallel
-  int blocksize = communicators().batchNrank();
+  int blocksize = communicators().ddpNrank();
   int nblocks = (nbatch + blocksize - 1) / blocksize; //round up
-  int me = communicators().batchRank(); //all ranks in a pipeline will have the same value for the batch rank, but only the pipeline leader should communicate
+  int me = communicators().ddpRank(); //all ranks in a pipeline will have the same value for the ddp rank, but only the pipeline leader should communicate
 
   bool do_print = me == 0 && communicators().isPipelineLeader();
 
@@ -158,8 +158,8 @@ std::vector<double> train(ModelType &model, const std::vector<XYpair> &data, Opt
 	loss = model.loss(bxy.x, bxy.y);
 	deriv = model.deriv();
       }
-      batchAverage(&loss,1,false); //no need to bcast the loss to the pipeline ranks
-      batchAverage(deriv.data(),deriv.data_len(),true); //share the deriv over all pipeline ranks
+      ddpAverage(&loss,1,false); //no need to bcast the loss to the pipeline ranks
+      ddpAverage(deriv.data(),deriv.data_len(),true); //share the deriv over all pipeline ranks
            
       if(do_print) std::cout << epoch << "-" << block << " : "<< loss << std::endl;
       
