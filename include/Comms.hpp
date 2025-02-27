@@ -7,6 +7,9 @@ class Communicators{
   MPI_Comm ddp_comm;
   int world_rank;
   int world_nrank;
+  int node_rank;
+  int node_nrank;
+  
   int pipeline_rank;
   int pipeline_nrank;
   bool is_pipeline_leader; //indicate this rank is the head of the pipeline and thus part of the ddp communicator
@@ -28,19 +31,32 @@ public:
   Communicators(int argc, char** argv);
   
   ~Communicators();
-    
+
+  //Ranks within MPI_COMM_WORLD
   inline int worldRank() const{
     return world_rank;
   }
   inline int worldNrank() const{
     return world_nrank;
   }
+
+  //Ranks on this node
+  inline int nodeRank() const{
+    return node_rank;
+  }
+  inline int nodeNrank() const{
+    return node_nrank;
+  }
+
+  //Ranks within DDP subgroup  
   inline int ddpRank() const{
     return ddp_rank;
   }
   inline int ddpNrank() const{
     return ddp_nrank;
   }
+
+  //Ranks within pipeline subgroup
   inline int pipelineRank() const{
     return pipeline_rank;
   }

@@ -83,6 +83,14 @@ Communicators::Communicators(int argc, char** argv){
   assert( MPI_Comm_rank(MPI_COMM_WORLD, &world_rank) == MPI_SUCCESS );
   assert( MPI_Comm_size(MPI_COMM_WORLD, &world_nrank) == MPI_SUCCESS );
 
+  //Figure out node-local rank
+  MPI_Comm comm_local;
+  assert( MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0,
+				MPI_INFO_NULL, &comm_local) == MPI_SUCCESS );
+  assert( MPI_Comm_size(comm_local, &node_nrank) == MPI_SUCCESS );
+  assert( MPI_Comm_rank(comm_local, &node_rank) == MPI_SUCCESS );
+  MPI_Comm_free(&comm_local);
+  
   //By default the setup is just for DDP, with an MPI communicator spanning all nodes and
   //the pipeline communicators local to each node.
   enableDDPnoPipeliningInternal();
@@ -175,6 +183,7 @@ void Communicators::reportSetup(){
     assert( MPI_Barrier(MPI_COMM_WORLD) == MPI_SUCCESS );
     if(w == world_rank)
       std::cout << "world:" << world_rank << "/" << world_nrank
+		<< " node:" << node_rank << "/" << node_nrank
 		<< " ddp:" << ddp_rank << "/" << ddp_nrank
 		<< " pipeline:" << pipeline_rank << "/" << pipeline_nrank
 		<< std::endl << std::flush;
