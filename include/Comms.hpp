@@ -97,3 +97,6 @@ Communicators & communicators();
 
 //Initialize the library communications
 void initializeComms(int argc, char** argv);
+
+//A unique index for this rank
+inline int UniqueID(){ return communicators().worldRank(); }

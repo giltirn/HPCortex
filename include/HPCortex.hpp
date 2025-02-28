@@ -7,4 +7,5 @@
 #include <Optimizers.hpp>
 #include <DynamicModel.hpp>
 #include <Pipelining.hpp>  
-
+#include <Timing.hpp>
+#include<MemoryManager.hpp>

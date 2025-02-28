@@ -141,12 +141,14 @@ inline void acceleratorCopySynchronise(void) { cudaStreamSynchronize(copyStream)
 #define thread_num(a) omp_get_thread_num()
 #define thread_max(a) omp_get_max_threads()
 #define set_threads(a) omp_set_num_threads(a)
+#define in_thread_parallel_region(a) omp_in_parallel()
 #else
 #define DO_PRAGMA_(x) 
 #define DO_PRAGMA(x) 
 #define thread_num(a) (0)
 #define thread_max(a) (1)
-#define set_threads(a) 
+#define set_threads(a)
+#define in_thread_parallel_region(a) (false)
 #endif
 
 #define thread_for( i, num, ... )  \

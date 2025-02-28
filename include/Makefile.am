@@ -1,1 +1,1 @@
-nobase_include_HEADERS = Accelerator.hpp Pipelining.hpp DynamicModel.hpp Comms.hpp HPCortex.hpp Layers.hpp Optimizers.hpp InstanceStorage.hpp ActivationFuncs.hpp LossFunctions.hpp DDP.hpp RingBuffer.hpp Init.hpp Tensors.hpp 
+nobase_include_HEADERS = Accelerator.hpp Pipelining.hpp Timing.hpp DynamicModel.hpp Comms.hpp HPCortex.hpp Layers.hpp MemoryManager.hpp Optimizers.hpp InstanceStorage.hpp ActivationFuncs.hpp LossFunctions.hpp DDP.hpp RingBuffer.hpp Init.hpp Tensors.hpp 
