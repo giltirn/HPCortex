@@ -202,7 +202,7 @@ Communicators & communicators(){
   return *c;
 }
 
-void initialize(int argc, char** argv){
+void initializeComms(int argc, char** argv){
   auto &c = _communicators_internal();
   if(c) return; 
   c.reset(new Communicators(argc, argv));

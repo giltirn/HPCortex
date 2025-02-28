@@ -1,9 +1,4 @@
-#include <Layers.hpp>
-#include <LossFunctions.hpp>
-#include <Pipelining.hpp>
-#include <Optimizers.hpp>  
-#include <DynamicModel.hpp>
-#include <Comms.hpp>
+#include <HPCortex.hpp>
 
 void testPipeline(){
   communicators().enableGlobalPipelining(); //put all the ranks into a single pipeline

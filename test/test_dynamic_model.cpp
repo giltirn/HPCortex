@@ -1,5 +1,4 @@
-#include<DynamicModel.hpp>
-#include <Comms.hpp>
+#include <HPCortex.hpp>
 
 void testDynamicModel(){
   double B=0;

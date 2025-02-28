@@ -96,4 +96,4 @@ public:
 Communicators & communicators();
 
 //Initialize the library communications
-void initialize(int argc, char** argv);
+void initializeComms(int argc, char** argv);

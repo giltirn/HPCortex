@@ -1,9 +1,6 @@
-#include <Layers.hpp>
-#include <LossFunctions.hpp>
-#include <Optimizers.hpp>  
-#include <Comms.hpp>
+#include <HPCortex.hpp>
 
-void testSimpleLinear(){
+void testSimpleLinear(){  
   //Test f(x) = 0.2*x + 0.3;
 
   Matrix winit(1,1,0.0);

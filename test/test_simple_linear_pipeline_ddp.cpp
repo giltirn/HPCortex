@@ -1,10 +1,4 @@
-#include <Layers.hpp>
-#include <LossFunctions.hpp>
-#include <Optimizers.hpp>
-#include <Pipelining.hpp>  
-#include <DynamicModel.hpp>
-#include <ActivationFuncs.hpp>
-#include <Comms.hpp>
+#include <HPCortex.hpp>
 
 void testSimpleLinearPipelineDDP(){
   //Test f(x) = 0.2*x + 0.3;
