@@ -75,6 +75,7 @@ Vector operator*(double eps, const Vector &b){
   Vector out(b.size(0));
   for(int i=0;i<b.size(0);i++)
     out(i) = eps * b(i);
+  return out;
 }
 Vector & operator*=(Vector &a, double eps){
   for(int i=0;i<a.size(0);i++)

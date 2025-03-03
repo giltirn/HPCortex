@@ -5,7 +5,8 @@
 #include<cstdio>
 #include<fstream>
 #include<sstream>
-#include <sys/mman.h>
+#include<sys/mman.h>
+#include<iostream>
 
 static inline void* mmap_alloc(const size_t byte_size){
   void *p = mmap (NULL, byte_size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, (off_t)0);

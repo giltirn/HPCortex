@@ -78,7 +78,7 @@ void Communicators::enableDDPnoPipeliningInternal(){
 
 Communicators::Communicators(int argc, char** argv){
   MPI_Init(&argc, &argv);
-  MPI_Errhandler_set(MPI_COMM_WORLD, MPI_ERRORS_RETURN);
+  MPI_Comm_set_errhandler(MPI_COMM_WORLD, MPI_ERRORS_RETURN);
       
   assert( MPI_Comm_rank(MPI_COMM_WORLD, &world_rank) == MPI_SUCCESS );
   assert( MPI_Comm_size(MPI_COMM_WORLD, &world_nrank) == MPI_SUCCESS );

@@ -39,8 +39,14 @@ public:
     memcpy(_size,dims.data(),Dim*sizeof(int));
     assert(tensorSize(dims) == init_vals.size());
   }  
-  inline double & operator()(const Coord &coord){ return vals[compute_off<Dim>(coord.data(), size)]; }
-  inline double operator()(const Coord &coord) const{ return vals[compute_off<Dim>(coord.data(), size)]; }
+  inline double & operator()(const Coord &coord){
+    size_t off = compute_off<Dim>(coord.data(), _size);
+    return vals[off];
+  }
+  inline double operator()(const Coord &coord) const{
+    size_t off = compute_off<Dim>(coord.data(), _size);
+    return vals[off];
+  }
 
   inline int size(int i) const{ return _size[i]; }
 

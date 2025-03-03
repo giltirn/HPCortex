@@ -1,9 +1,10 @@
 #pragma once
-
+#include <HPCortexConfig.h>
 #include<strings.h>
 #include<cstdlib>
 #include<memory.h>
-
+#include<stdio.h>
+#include<cassert>
 //Functionality for writing generic GPU kernels with CPU fallback
 //Adapted from Peter Boyle's Grid library https://github.com/paboyle/Grid
 
@@ -17,7 +18,6 @@ void acceleratorReport();
 
 /////////////////////////// CUDA ////////////////////////////////////////////////////////
 #ifdef USE_CUDA
-
 #include <cuda.h>
 
 #ifdef __CUDA_ARCH__
@@ -33,11 +33,11 @@ extern cudaStream_t computeStream; //stream for computation
 
 //Baseline call allows for up to 3 dimensions
 template<typename lambda>  __global__
-void LambdaApply(uint64_t num1, uint64_t num2, uint64_t num3, lambda Lambda)
+void LambdaApply(uint64_t num1, uint64_t num2, uint64_t num3, uint64_t block2, lambda Lambda)
 {
-  uint64_t x = threadIdx.x;
-  uint64_t y = threadIdx.y + blockDim.y*blockIdx.y;
-  uint64_t z = threadIdx.z + blockDim.z*blockIdx.z;
+  uint64_t x = threadIdx.x; //all of num1 within the block
+  uint64_t y = threadIdx.y + block2*blockIdx.x; //note ordering of cu_blocks indices below
+  uint64_t z = blockIdx.y;
   
   if ( (x < num1) && (y<num2) && (z<num3) ) {
     Lambda(x,y,z);
@@ -56,7 +56,7 @@ void LambdaApply(uint64_t num1, uint64_t num2, uint64_t num3, lambda Lambda)
 		    };							\
       dim3 cu_threads(num1,block2,1);			\
       dim3 cu_blocks ((num2+block2-1)/block2,num3,1);				\
-      LambdaApply<<<cu_blocks,cu_threads,0,computeStream>>>(num1,num2,num3,lambda); \
+      LambdaApply<<<cu_blocks,cu_threads,0,computeStream>>>(num1,num2,num3,block2,lambda); \
     }									\
   }
 
@@ -79,7 +79,7 @@ inline void *acceleratorAllocHost(size_t bytes)
   auto err = cudaMallocHost((void **)&ptr,bytes);
   if( err != cudaSuccess ) {
     ptr = (void *) NULL;
-    printf(" cudaMallocHost failed for %d %s \n",bytes,cudaGetErrorString(err));
+    printf(" cudaMallocHost failed for %lu %s \n",bytes,cudaGetErrorString(err));
     assert(0);
   }
   return ptr;
@@ -90,7 +90,7 @@ inline void *acceleratorAllocShared(size_t bytes)
   auto err = cudaMallocManaged((void **)&ptr,bytes);
   if( err != cudaSuccess ) {
     ptr = (void *) NULL;
-    printf(" cudaMallocManaged failed for %d %s \n",bytes,cudaGetErrorString(err));
+    printf(" cudaMallocManaged failed for %lu %s \n",bytes,cudaGetErrorString(err));
     assert(0);
   }
   return ptr;
@@ -101,7 +101,7 @@ inline void *acceleratorAllocDevice(size_t bytes)
   auto err = cudaMalloc((void **)&ptr,bytes);
   if( err != cudaSuccess ) {
     ptr = (void *) NULL;
-    printf(" cudaMalloc failed for %d %s \n",bytes,cudaGetErrorString(err));
+    printf(" cudaMalloc failed for %lu %s \n",bytes,cudaGetErrorString(err));
   }
   return ptr;
 };

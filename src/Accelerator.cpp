@@ -1,5 +1,6 @@
 #include <Accelerator.hpp>
 #include <Comms.hpp>
+#include <iostream>
 
 #ifdef USE_OMP
 #warning "Using OpenMP"
@@ -8,7 +9,7 @@
 #endif
 
 #ifdef USE_CUDA
-
+#warning "Compiling with CUDA support"
 cudaStream_t copyStream;
 cudaStream_t computeStream;
 int  acceleratorAbortOnGpuError=1;
@@ -31,7 +32,7 @@ void acceleratorInit(void)
 
 void acceleratorReport(){
   int world_nrank = communicators().worldNrank();
-  int work_rank = communicators().worldRank();
+  int world_rank = communicators().worldRank();
   int device;  
   cudaGetDevice(&device);
 
@@ -42,7 +43,7 @@ void acceleratorReport(){
     assert( MPI_Barrier(MPI_COMM_WORLD) == MPI_SUCCESS );
     if(w == world_rank)
       std::cout << "world:" << world_rank << '/' << world_nrank
-	        << "device:" << device << '/' << nDevices
+	        << " device:" << device << '/' << nDevices
 		<< std::endl << std::flush;
   }
 }

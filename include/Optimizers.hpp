@@ -95,7 +95,7 @@ struct batchedXYpair{
 };
 
 
-batchedXYpair batchData(int* indices, int batch_size, const std::vector<XYpair> &data){
+inline batchedXYpair batchData(int* indices, int batch_size, const std::vector<XYpair> &data){
   assert(data.size()>0);
   int x_features = data[0].x.size(0);
   int y_features = data[0].y.size(0);

@@ -1,4 +1,5 @@
 #pragma once
+#include <HPCortexConfig.h>
 #include <Init.hpp>
 #include <Comms.hpp>
 #include <Accelerator.hpp>

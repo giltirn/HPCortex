@@ -107,7 +107,8 @@ void testAccelerator(){
         
     for(int i=0;i<in_3d.size();i++)
       assert(got[i] == expect_3d[i]);
-
+    
+      
     acceleratorFreeDevice(got_device);
     acceleratorFreeDevice(in_device);    
   }
