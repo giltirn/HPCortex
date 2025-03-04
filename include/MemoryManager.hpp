@@ -194,6 +194,9 @@ public:
 
   void free(HandleIterator h);
 
+  //Return the number of managed objects still active (unfreed)
+  inline size_t nOpenHandles() const{ return handles.size(); }
+
   inline static MemoryManager & globalPool(){
     static MemoryManager pool;
     return pool;

@@ -134,6 +134,8 @@ inline void acceleratorCopySynchronise(void) { cudaStreamSynchronize(copyStream)
 #include <omp.h>
 #endif
 
+#define strong_inline     __attribute__((always_inline)) inline
+
 //Host side functionality is always available
 #ifdef USE_OMP
 #define DO_PRAGMA_(x) _Pragma (#x)
@@ -215,3 +217,22 @@ accelerator_for3dNB(iter1, num1, iter2, num2, dummy, 1, block2, { __VA_ARGS__ } 
 #define accelerator_for( iter, num, ... )		\
   accelerator_forNB(iter, num, { __VA_ARGS__ } );	\
   accelerator_barrier(dummy);
+
+
+//Because View classes cannot have non-trivial destructors, if the view requires a free it needs to be managed externally
+//This class calls free on the view. It should be constructed after the view (and be destroyed before, which should happen automatically at the end of the scope)
+template<typename ViewType>
+struct viewDeallocator{
+  ViewType &v;
+  viewDeallocator(ViewType &v): v(v){}
+
+  ~viewDeallocator(){
+    v.free();
+  }
+
+  static void free(ViewType &v){ v.free(); }
+};
+
+#define autoView(ViewName, ObjName, mode)		\
+  auto ViewName = ObjName .view(mode); \
+  viewDeallocator<typename std::decay<decltype(ViewName)>::type> ViewName##_d(ViewName);
