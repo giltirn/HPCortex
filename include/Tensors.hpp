@@ -135,3 +135,14 @@ template<typename FloatType>
 Vector<FloatType> & operator*=(Vector<FloatType> &a, FloatType eps);
 
 #include "implementation/Tensors.tcc"
+
+#ifndef TENSORS_EXTERN_TEMPLATE_INST
+#define SS extern
+#else
+#define SS
+#endif
+SS template class Matrix<float>;
+SS template class Matrix<double>;
+SS template class Vector<float>;
+SS template class Vector<double>;
+#undef SS
