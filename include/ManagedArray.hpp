@@ -8,48 +8,23 @@ template<typename FloatType>
 class ManagedArray{
   MemoryManager::HandleIterator handle;
   size_t _size;
-public:
+ 
+public:   
+  
   ManagedArray(): _size(0){}
   ManagedArray(size_t size, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool): _size(size)
   {
     if(size > 0) handle = MemoryManager::globalPool().allocate(size * sizeof(FloatType), alloc_pool);
   }
   ManagedArray(size_t size, FloatType init, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool): ManagedArray(size, alloc_pool){
-    if(size == 0) return;
-    
-    if(alloc_pool == MemoryManager::Pool::DevicePool){
-      autoView(hv, (*this), DeviceWrite);
-      accelerator_for(i, size, {
-	  hv[i] = init;
-	});
-    }else{
-      autoView(hv, (*this), HostWrite);
-      thread_for(i, size, {
-	  hv[i] = init;
-	});
-    }
+    if(size == 0) return;    
+    fill(init, alloc_pool);
   }
   ManagedArray(ManagedArray &&r): handle(r.handle), _size(r._size){
     r._size = 0;
   }
-  ManagedArray(const ManagedArray &r): _size(r._size){
-    if(_size > 0){
-      //We allocate preferentially on the device, but seek to avoid data movement if the device copy is stale      
-      if(r.handle->device_in_sync){
-	handle = MemoryManager::globalPool().allocate(_size * sizeof(FloatType), MemoryManager::Pool::DevicePool);
-	autoView(tv, (*this), DeviceWrite);
-	autoView(rv, r, DeviceRead);
-	accelerator_for(i, _size, {
-	    tv[i] = rv[i];
-	  });
-      }else{
-	handle = MemoryManager::globalPool().allocate(_size * sizeof(FloatType), MemoryManager::Pool::HostPool);
-	autoView(tv, (*this), HostWrite);
-	autoView(rv, r, HostRead);
-	
-	memcpy(tv.data(), rv.data(), _size*sizeof(FloatType));
-      }
-    }
+  ManagedArray(const ManagedArray &r): _size(0){
+    *this = r;
   }
 
   ManagedArray & operator=(ManagedArray &&r){
@@ -117,6 +92,22 @@ public:
   inline ~ManagedArray(){
     if(_size)
       MemoryManager::globalPool().free(handle);
+  }
+
+  void fill(FloatType init, MemoryManager::Pool assign_pool = MemoryManager::Pool::DevicePool){
+    if(assign_pool == MemoryManager::Pool::DevicePool){
+      autoView(hv, (*this), DeviceWrite);
+      {
+	accelerator_for(i, _size, {
+	    hv[i] = init;
+	  });
+      }
+    }else{
+      autoView(hv, (*this), HostWrite);
+      thread_for(i, _size, {
+	  hv[i] = init;
+	});
+    }
   }
 
 };
