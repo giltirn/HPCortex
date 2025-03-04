@@ -1,5 +1,6 @@
 #pragma once
 #include <mpi.h>
+#include <cassert>
 
 //Communicators for batch and pipeline parallelism
 class Communicators{
@@ -100,3 +101,16 @@ void initializeComms(int argc, char** argv);
 
 //A unique index for this rank
 inline int UniqueID(){ return communicators().worldRank(); }
+
+template<typename FloatType>
+inline MPI_Datatype getMPIdataType();
+
+//MPI reduction
+template<typename FloatType>
+inline void commsReduce(FloatType *data, size_t data_len, const MPI_Comm &comm);
+
+//MPI broadcast
+template<typename FloatType>
+inline void commsBroadcast(FloatType* data, size_t data_len, int from_rank, const MPI_Comm &comm);
+
+#include "implementation/Comms.tcc"

@@ -6,14 +6,18 @@
 //      for(int b=0;b<batch_size;b++)
 //          out(i,b) *= mask(i,b)
 
+template<typename FloatType>
 class ReLU{
 public: 
-  Matrix operator()(const Matrix &x) const;
+  Matrix<FloatType> operator()(const Matrix<FloatType> &x) const;
 };
 
+template<typename FloatType>
 class noActivation{
 public:
-  inline Matrix operator()(const Matrix &x) const{
-    return Matrix(x.size(0),x.size(1),1.0);
+  inline Matrix<FloatType> operator()(const Matrix<FloatType> &x) const{
+    return Matrix<FloatType>(x.size(0),x.size(1),1.0);
   }
 };
+
+#include "implementation/ActivationFuncs.tcc"

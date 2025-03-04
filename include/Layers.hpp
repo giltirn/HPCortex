@@ -7,47 +7,54 @@
 //Tag for all "leaf" types that can be used to build a model tree
 struct LeafTag{};
 #define ISLEAF(a) std::is_same<typename std::decay<a>::type::tag,LeafTag>::value
+#define FLOATTYPE(a) typename std::decay<a>::type::FloatType
 
 //The input layer
 //This is always the lowest layer in the model
-class InputLayer{
+template<typename _FloatType>
+class InputLayer{  
 public:
+  typedef _FloatType FloatType;
   typedef LeafTag tag;
   
   inline InputLayer(){}
   inline InputLayer(InputLayer &&r) = default;
   inline InputLayer(const InputLayer &r) = delete;
   
-  inline const Matrix &value(const Matrix &x){
+  inline const Matrix<FloatType> &value(const Matrix<FloatType> &x){
     //Simply reflect the passed-down input value back up to commence forwards propagation
     return x;
   }
 
-  inline void deriv(Vector &cost_deriv, int off, const Matrix &above_deriv, Matrix* input_above_deriv_copyback = nullptr) const{
+  inline void deriv(Vector<FloatType> &cost_deriv, int off, const Matrix<FloatType> &above_deriv, Matrix<FloatType>* input_above_deriv_copyback = nullptr) const{
     //We don't have to do anything for backpropagation as this is the last layer
     if(input_above_deriv_copyback) *input_above_deriv_copyback = above_deriv; //copy back the input derivative if desired
   }
   
-  inline void update(int off, const Vector &new_params){}
+  inline void update(int off, const Vector<FloatType> &new_params){}
 
-  inline void step(int off, const Vector &derivs, double eps){}
+  inline void step(int off, const Vector<FloatType> &derivs, FloatType eps){}
   
   inline int nparams() const{ return 0; }
 
-  inline void getParams(Vector &into, int off){}
+  inline void getParams(Vector<FloatType> &into, int off){}
 
   //For pipelining
   inline void resizeInputBuffer(size_t to){}
 };
 
-inline InputLayer input_layer(){ return InputLayer(); }
+template<typename FloatType>
+inline InputLayer<FloatType> input_layer(){ return InputLayer<FloatType>(); }
 
 
 //A fully-connected DNN layer
-template<typename Store, typename ActivationFunc>
+template<typename _FloatType, typename Store, typename ActivationFunc>
 class DNNlayer{
-  Matrix weights;
-  Vector bias;  
+public:
+  typedef _FloatType FloatType;
+private:
+  Matrix<FloatType> weights;
+  Vector<FloatType> bias;  
   Store leaf;
   int size0;
   int size1;
@@ -56,15 +63,15 @@ class DNNlayer{
 
   //Storage from last call to "value"
   //Buffer size > 1 depending on rank if doing pipelining
-  RingBuffer<Matrix> leaf_buf;
-  RingBuffer<Matrix> activation_buf;
+  RingBuffer<Matrix<FloatType> > leaf_buf;
+  RingBuffer<Matrix<FloatType> > activation_buf;
   size_t calls;
 
   bool pipeline_mode;
 public:
   typedef LeafTag tag;
   
-  DNNlayer(Store &&leaf, const Matrix &weights,const Vector &bias, const ActivationFunc &activation_func):
+  DNNlayer(Store &&leaf, const Matrix<FloatType> &weights,const Vector<FloatType> &bias, const ActivationFunc &activation_func):
     leaf(std::move(leaf)), weights(weights), bias(bias),
     size0(weights.size(0)), size1(weights.size(1)),
     activation_func(activation_func), leaf_buf(1), calls(0), pipeline_mode(false)
@@ -73,10 +80,10 @@ public:
   DNNlayer(DNNlayer &&r) = default;
   
   //Forward pass
-  Matrix value(const Matrix &x){
+  Matrix<FloatType> value(const Matrix<FloatType> &x){
     ++calls;
     
-    Matrix in = leaf.v.value(x);
+    Matrix<FloatType> in = leaf.v.value(x);
     int batch_size = x.size(1);   
     assert(in.size(0) == size1);
     assert(in.size(1) == batch_size);
@@ -85,7 +92,7 @@ public:
     //if(pipeline_mode) std::cout << "RANK " << rank << " " << this << " CALL " << calls << " INPUT " << x << " VALUE BUFFERED INPUT " << in << std::endl;
     //else std::cout << "RANK " << rank << " " << this << " UNPIPELINED CALL " << calls << " INPUT " << x << " VALUE BUFFERED INPUT " << in << std::endl;
     
-    Matrix out(size0,batch_size,0.0);
+    Matrix<FloatType> out(size0,batch_size,0.0);
 
     for(int i=0;i<size0;i++){
       for(int b=0;b<batch_size;b++){
@@ -95,7 +102,7 @@ public:
       }
     }
 	
-    Matrix activation = activation_func(out);
+    Matrix<FloatType> activation = activation_func(out);
     assert(activation.size(0) == size0);
     assert(activation.size(1) == batch_size);
     
@@ -108,10 +115,10 @@ public:
     return out;
   }
  
-  void deriv(Vector &cost_deriv, int off, const Matrix &above_deriv, Matrix* input_above_deriv_copyback = nullptr) const{
+  void deriv(Vector<FloatType> &cost_deriv, int off, const Matrix<FloatType> &above_deriv, Matrix<FloatType>* input_above_deriv_copyback = nullptr) const{
     assert(above_deriv.size(0) == size0);
-    Matrix in = leaf_buf.pop();
-    Matrix activation = activation_buf.pop();
+    Matrix<FloatType> in = leaf_buf.pop();
+    Matrix<FloatType> activation = activation_buf.pop();
     int batch_size = in.size(1);
 
     //if(pipeline_mode) std::cout << "RANK " << rank << " " << this << " CALL " << calls << " DERIV USING BUFFERED INPUT " << in << " ABOVE_DERIV " << above_deriv << " WITH INPUT COST DERIV " << cost_deriv;
@@ -121,7 +128,7 @@ public:
     //f(x)_i = act_i b_i + \sum_j act_i w_ij x_j
     //dcost / dx_j = \sum_i dcost/df_i df_i/dx_j
     //df_i/dx_j = act_i w_ij
-    Matrix layer_deriv(size1,batch_size,0.);
+    Matrix<FloatType> layer_deriv(size1,batch_size,0.);
     for(int j=0;j<size1;j++)
       for(int i=0;i<size0;i++)
 	for(int b=0;b<batch_size;b++)
@@ -151,7 +158,7 @@ public:
     leaf.v.deriv(cost_deriv, p, layer_deriv, input_above_deriv_copyback);
   }
 
-  void update(int off, const Vector &new_params){
+  void update(int off, const Vector<FloatType> &new_params){
     int p=off;
     for(int i=0;i<size0;i++)
       for(int j=0;j<size1;j++)
@@ -160,7 +167,7 @@ public:
       bias(i) = new_params(p++);
     leaf.v.update(p, new_params);
   }
-  void step(int off, const Vector &derivs, double eps){
+  void step(int off, const Vector<FloatType> &derivs, FloatType eps){
     int p=off;
     for(int i=0;i<size0;i++)
       for(int j=0;j<size1;j++){
@@ -180,7 +187,7 @@ public:
   inline int nparams() const{ return size0*size1 + size0 + leaf.v.nparams(); }
 
   //off measured from *end*, return new off
-  void getParams(Vector &into, int off){
+  void getParams(Vector<FloatType> &into, int off){
     int p = off;
     for(int i=0;i<size0;i++)
       for(int j=0;j<size1;j++)
@@ -202,11 +209,11 @@ public:
 };
 
 template<typename U, typename ActivationFunc, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto dnn_layer(U &&u, const Matrix &weights,const Vector &bias, const ActivationFunc &activation)->DNNlayer<DDST(u),ActivationFunc>{
-  return DNNlayer<DDST(u),ActivationFunc>(std::forward<U>(u), weights, bias, activation);
+auto dnn_layer(U &&u, const Matrix<FLOATTYPE(U)> &weights,const Vector<FLOATTYPE(U)> &bias, const ActivationFunc &activation)->DNNlayer<FLOATTYPE(U),DDST(u),ActivationFunc>{
+  return DNNlayer<FLOATTYPE(U),DDST(u),ActivationFunc>(std::forward<U>(u), weights, bias, activation);
 }
 template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto dnn_layer(U &&u, const Matrix &weights,const Vector &bias)->DNNlayer<DDST(u),noActivation>{
-  return DNNlayer<DDST(u),noActivation>(std::forward<U>(u), weights, bias, noActivation());
+auto dnn_layer(U &&u, const Matrix<FLOATTYPE(U)> &weights,const Vector<FLOATTYPE(U)> &bias)->DNNlayer<FLOATTYPE(U),DDST(u),noActivation<FLOATTYPE(U)> >{
+  return DNNlayer<FLOATTYPE(U),DDST(u),noActivation<FLOATTYPE(U)> >(std::forward<U>(u), weights, bias, noActivation<FLOATTYPE(U)>());
 }
 

@@ -5,10 +5,10 @@
 #include <Comms.hpp>
 #include <DDP.hpp>
 
-template<typename LRscheduler>
+template<typename FloatType, typename LRscheduler>
 class GradientDescentOptimizer{
   const LRscheduler &sched;
-  double eps;  
+  FloatType eps;  
 public:
   GradientDescentOptimizer(const LRscheduler &sched): sched(sched), eps(0.){}
   
@@ -16,54 +16,54 @@ public:
     eps = sched(epoch);
     std::cout << "GradientDescentOptimizer: Epoch " << epoch << " learning rate " << eps << std::endl;
   }
-  inline Vector descentProfile(double &step_size, const Vector &deriv) const{
+  inline Vector<FloatType> descentProfile(FloatType &step_size, const Vector<FloatType> &deriv) const{
     step_size = eps;
     return deriv;
   }
 
 };
 
-
+template<typename FloatType>
 struct AdamParams{ //NB, alpha comes from the learning scheduler
-  double beta1;
-  double beta2;
-  double eps;
-  AdamParams( double beta1=0.99, double beta2=0.999, double eps=1e-8): beta1(beta1), beta2(beta2), eps(eps){}
+  FloatType beta1;
+  FloatType beta2;
+  FloatType eps;
+  AdamParams( FloatType beta1=0.99, FloatType beta2=0.999, FloatType eps=1e-8): beta1(beta1), beta2(beta2), eps(eps){}
 };
 
-template<typename LRscheduler>
+template<typename FloatType, typename LRscheduler>
 class AdamOptimizer{
   const LRscheduler &sched;
-  AdamParams ap;
-  double alpha;
+  AdamParams<FloatType> ap;
+  FloatType alpha;
   size_t t;
 
-  Vector m;
-  Vector v;
+  Vector<FloatType> m;
+  Vector<FloatType> v;
 
   void reset(){
     t=0;
-    m=Vector();
-    v=Vector();
+    m=Vector<FloatType>();
+    v=Vector<FloatType>();
   }
 public:
-  AdamOptimizer(const AdamParams &ap, const LRscheduler &sched): sched(sched), ap(ap), alpha(0.), t(0){}
+  AdamOptimizer(const AdamParams<FloatType> &ap, const LRscheduler &sched): sched(sched), ap(ap), alpha(0.), t(0){}
   
   void epochStart(int epoch){
     alpha = sched(epoch);
     if(epoch == 0) reset();
     std::cout << "AdamOptimizer: Epoch " << epoch << " learning rate (alpha) " << alpha << std::endl;
   }
-  inline Vector descentProfile(double &step_size, const Vector &g){
+  inline Vector<FloatType> descentProfile(FloatType &step_size, const Vector<FloatType> &g){
     int nparam = g.size(0);
     if(t==0){
-      m = Vector(nparam,0);
-      v = Vector(nparam,0);
+      m = Vector<FloatType>(nparam,0);
+      v = Vector<FloatType>(nparam,0);
     }
-    Vector out(nparam);
+    Vector<FloatType> out(nparam);
     
     for(int p=0;p<nparam;p++){
-      double gp_init = g(p);
+      FloatType gp_init = g(p);
       m(p) = ap.beta1 * m(p) + (1.-ap.beta1)*g(p);
       v(p) = ap.beta2 * v(p) + (1.-ap.beta2)*pow(g(p),2);
 
@@ -76,33 +76,35 @@ public:
   }
 };
 
-
+template<typename FloatType>
 class DecayScheduler{
-  double eps;
-  double decay_rate;
+  FloatType eps;
+  FloatType decay_rate;
 public:
-  DecayScheduler(double eps, double decay_rate): eps(eps), decay_rate(decay_rate){}
-  double operator()(const int epoch) const{ return eps * 1./(1. + decay_rate * epoch); }
+  DecayScheduler(FloatType eps, FloatType decay_rate): eps(eps), decay_rate(decay_rate){}
+  FloatType operator()(const int epoch) const{ return eps * 1./(1. + decay_rate * epoch); }
 };
 
+template<typename FloatType>
 struct XYpair{
-  Vector x;
-  Vector y;
+  Vector<FloatType> x;
+  Vector<FloatType> y;
 };
+template<typename FloatType>
 struct batchedXYpair{
-  Matrix x;
-  Matrix y;
+  Matrix<FloatType> x;
+  Matrix<FloatType> y;
 };
 
-
-inline batchedXYpair batchData(int* indices, int batch_size, const std::vector<XYpair> &data){
+template<typename FloatType>
+inline batchedXYpair<FloatType> batchData(int* indices, int batch_size, const std::vector<XYpair<FloatType> > &data){
   assert(data.size()>0);
   int x_features = data[0].x.size(0);
   int y_features = data[0].y.size(0);
   
-  batchedXYpair out;
-  out.x = Matrix(x_features, batch_size);
-  out.y = Matrix(y_features, batch_size);
+  batchedXYpair<FloatType> out;
+  out.x = Matrix<FloatType>(x_features, batch_size);
+  out.y = Matrix<FloatType>(y_features, batch_size);
 
   for(int b=0;b<batch_size;b++){
     int i = indices[b];
@@ -113,8 +115,8 @@ inline batchedXYpair batchData(int* indices, int batch_size, const std::vector<X
 }
 
 
-template<typename ModelType, typename Optimizer>
-std::vector<double> train(ModelType &model, const std::vector<XYpair> &data, Optimizer &optimizer, int nepoch, int batch_size){
+template<typename FloatType, typename ModelType, typename Optimizer>
+std::vector<FloatType> train(ModelType &model, const std::vector<XYpair<FloatType> > &data, Optimizer &optimizer, int nepoch, int batch_size){
   std::default_random_engine gen(1234); //important that every rank shuffles in the same way
 
   //We want to divide the data evenly over batches. This means we may need to discard some data
@@ -137,7 +139,7 @@ std::vector<double> train(ModelType &model, const std::vector<XYpair> &data, Opt
   if(do_print) std::cout << "Training with " << ndata << " data samples divided into " << nbatch << " batches of size " << batch_size
 			 << " using DDP over " << blocksize << " ranks with " << nblocks << " iterations per epoch" << std::endl;
   
-  std::vector<double> losses(nblocks*nepoch);
+  std::vector<FloatType> losses(nblocks*nepoch);
     
   for(int epoch=0;epoch<nepoch;epoch++){
     optimizer.epochStart(epoch);
@@ -146,14 +148,14 @@ std::vector<double> train(ModelType &model, const std::vector<XYpair> &data, Opt
     for(int block=0;block<nblocks;block++){
       int blocksize_actual = std::min(nbatch - block*blocksize, blocksize);
 
-      double loss = 0;
-      Vector deriv(nparam, 0.);
+      FloatType loss = 0;
+      Vector<FloatType> deriv(nparam, 0.);
       
       if(me < blocksize_actual){ //if not enough data to have all ranks do work in this block
 	int bidx = block*blocksize + me; //which batch are we doing?
 
 	//Get the batch
-	batchedXYpair bxy = batchData(didx.data() + bidx*batch_size, batch_size, data);
+	batchedXYpair<FloatType> bxy = batchData(didx.data() + bidx*batch_size, batch_size, data);
 	
 	loss = model.loss(bxy.x, bxy.y);
 	deriv = model.deriv();
@@ -163,8 +165,8 @@ std::vector<double> train(ModelType &model, const std::vector<XYpair> &data, Opt
            
       if(do_print) std::cout << epoch << "-" << block << " : "<< loss << std::endl;
       
-      double eps;
-      Vector direction = optimizer.descentProfile(eps,deriv);
+      FloatType eps;
+      Vector<FloatType> direction = optimizer.descentProfile(eps,deriv);
       
       model.step( direction, eps );
 
