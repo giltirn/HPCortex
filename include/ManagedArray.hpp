@@ -20,6 +20,11 @@ public:
     if(size == 0) return;    
     fill(init, alloc_pool);
   }
+  ManagedArray(const std::vector<FloatType> &init): ManagedArray(init.size(), MemoryManager::Pool::HostPool){
+    autoView(vv,(*this),HostWrite);
+    memcpy(vv.data(), init.data(), init.size()*sizeof(FloatType));
+  }  
+  
   ManagedArray(ManagedArray &&r): handle(r.handle), _size(r._size){
     r._size = 0;
   }
@@ -79,6 +84,8 @@ public:
     inline View(ViewMode mode, MemoryManager::HandleIterator handle, size_t _size):
       _size(_size), handle(handle), v((FloatType*)MemoryManager::globalPool().openView(mode,handle)) {}
 
+    inline View(ViewMode mode, const ManagedArray &parent): View(mode, parent.handle, parent._size){}
+    
     inline void free(){
       MemoryManager::globalPool().closeView(handle);
     }
@@ -86,7 +93,7 @@ public:
 
   inline View view(ViewMode mode) const{
     assert(_size>0);
-    return View(mode, handle, _size);
+    return View(mode, *this);
   }
   
   inline ~ManagedArray(){

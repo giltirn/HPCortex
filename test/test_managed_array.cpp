@@ -145,7 +145,20 @@ void testManagedArray(){
 	assert(vv[i] == 0.31);
     }
   }
-
+  {
+    //Test vector constructor
+    size_t sz = 20;
+    std::vector<double> init(sz);
+    for(int i=0;i<sz;i++) init[i] = 3.141*i;
+    
+    ManagedArray<double> v(init);
+        
+    {
+      autoView(vv, v, HostRead);
+      for(int i=0;i<sz;i++)
+	assert(vv[i] == 3.141*i);
+    }
+  }
 
   /////////////////////////////////// ASSIGNMENT ///////////////////////////////////
 
