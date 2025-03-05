@@ -1,6 +1,7 @@
 #pragma once
 #include <mpi.h>
 #include <cassert>
+#include <Tensors.hpp>
 
 //Communicators for batch and pipeline parallelism
 class Communicators{
@@ -109,8 +110,15 @@ inline MPI_Datatype getMPIdataType();
 template<typename FloatType>
 inline void commsReduce(FloatType *data, size_t data_len, const MPI_Comm &comm);
 
+template<typename FloatType>
+inline void commsReduce(Vector<FloatType> &v, const MPI_Comm &comm);
+
 //MPI broadcast
 template<typename FloatType>
 inline void commsBroadcast(FloatType* data, size_t data_len, int from_rank, const MPI_Comm &comm);
+
+template<typename FloatType>
+inline void commsBroadcast(Vector<FloatType> &v, int from_rank, const MPI_Comm &comm);
+
 
 #include "implementation/Comms.tcc"

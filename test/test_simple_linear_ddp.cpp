@@ -1,4 +1,5 @@
 #include <HPCortex.hpp>
+#include <Testing.hpp>
 
 void testSimpleLinearDDP(){
   //Test f(x) = 0.2*x + 0.3;
@@ -8,6 +9,8 @@ void testSimpleLinearDDP(){
   Matrix<FloatType> winit(1,1,0.0);
   Vector<FloatType> binit(1,0.0);
 
+  int nepoch = 10;
+  
   int ndata = 100;
   std::vector<XYpair<FloatType> > data(ndata);
   for(int i=0;i<ndata;i++){
@@ -18,6 +21,22 @@ void testSimpleLinearDDP(){
     data[i].y = Vector<FloatType>(1,0.2*x + 0.3);
   }
 
+  int ddp_eff_batch_size; //with DDP we are effectively increasing the batch size by nrank
+  Vector<FloatType> params_global; //params from DDP training 
+  {
+    communicators().enableDDPnoPipelining();
+    communicators().reportSetup();
+
+    ddp_eff_batch_size = communicators().ddpNrank();
+    
+    auto model = mse_cost( dnn_layer(input_layer<FloatType>(), winit, binit) );
+    DecayScheduler<FloatType> lr(0.01, 0.1);
+    GradientDescentOptimizer<FloatType, DecayScheduler<FloatType> > opt(lr);
+    
+    train(model, data, opt, nepoch, 1);
+    params_global = model.getParams();
+  }
+  
   Vector<FloatType> params_local; //params from training on just this rank
   {
     communicators().disableParallelism();
@@ -27,22 +46,12 @@ void testSimpleLinearDDP(){
     DecayScheduler<FloatType> lr(0.01, 0.1);
     GradientDescentOptimizer<FloatType, DecayScheduler<FloatType> > opt(lr);
     
-    train(model, data, opt, 200, 1);
+    train(model, data, opt, nepoch, ddp_eff_batch_size);
     params_local = model.getParams();
   }
-  Vector<FloatType> params_global; //params from DDP training 
-  {
-    communicators().enableDDPnoPipelining();
-    communicators().reportSetup();
-    
-    auto model = mse_cost( dnn_layer(input_layer<FloatType>(), winit, binit) );
-    DecayScheduler<FloatType> lr(0.01, 0.1);
-    GradientDescentOptimizer<FloatType, DecayScheduler<FloatType> > opt(lr);
-    
-    train(model, data, opt, 200, 1);
-    params_global = model.getParams();
-  }
+
   std::cout << "Params got " << params_global << " expect " << params_local << std::endl;
+  assert(near(params_global, params_local, FloatType(1e-4), true));
 }
 
 int main(int argc, char** argv){

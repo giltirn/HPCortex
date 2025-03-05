@@ -71,11 +71,11 @@ auto mse_cost(U &&u)->CostFuncWrapper<FLOATTYPE(U),DDST(u), MSEcostFunc<FLOATTYP
 
 #include "implementation/LossFunctions.tcc"
 
-#ifndef LOSSFUNC_EXTERN_TEMPLATE_INST
-#define SS extern
-#else
-#define SS
-#endif
-SS template class MSEcostFunc<float>;
-SS template class MSEcostFunc<double>;
-#undef SS
+// #ifndef LOSSFUNC_EXTERN_TEMPLATE_INST
+// #define SS extern
+// #else
+// #define SS
+// #endif
+// SS template class MSEcostFunc<float>;
+// SS template class MSEcostFunc<double>;
+// #undef SS

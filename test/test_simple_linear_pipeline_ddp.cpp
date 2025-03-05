@@ -1,4 +1,5 @@
 #include <HPCortex.hpp>
+#include <Testing.hpp>
 
 void testSimpleLinearPipelineDDP(){
   //Test f(x) = 0.2*x + 0.3;
@@ -31,8 +32,11 @@ void testSimpleLinearPipelineDDP(){
     FloatType x = -1.0 + i*eps; //normalize x to within +-1
     FloatType y = 0.2*x + 0.3;
 
-    data[i].x(0) = x;
-    data[i].y(0) = y;
+    autoView(dxv,data[i].x,HostWrite);
+    autoView(dyv,data[i].y,HostWrite);
+    
+    dxv(0) = x;
+    dyv(0) = y;
   }
    
   Matrix<FloatType> winit(1,1,0.1);
@@ -71,6 +75,7 @@ void testSimpleLinearPipelineDDP(){
   
   if(communicators().ddpRank() == 0  && !pipe_rank){
     std::cout << "Final params " << final_p << " expect " << expect_p << std::endl;
+    assert(near(final_p,expect_p,FloatType(1e-4),true));
     
     std::cout << "Predictions:" << std::endl;
     for(int i=0;i<ndata;i++)

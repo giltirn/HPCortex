@@ -105,7 +105,7 @@ public:
     }
 
     //Make sure all the ranks get the right output and derivative
-    commsBroadcast(deriv_store.data(), deriv_store.data_len(), 0, communicators().pipelineCommunicator());
+    commsBroadcast(deriv_store, 0, communicators().pipelineCommunicator());
     commsBroadcast(&out, 1, 0, communicators().pipelineCommunicator());
 
     deriv_store *= FloatType(1./navg);
@@ -289,6 +289,7 @@ protected:
   int pipeline_depth; //number of ranks in the pipeline
   bool is_first;
   bool is_last;
+  
 public:
   PipelineCommunicator(){
     //Prepare rank information
@@ -307,21 +308,73 @@ public:
 
   int pipelineDepth() const{ return pipeline_depth; }
 
-  template<typename T>
-  inline static MPI_Request send(const T &mat, int to){
-    MPI_Request req;		
-    assert( MPI_Isend(mat.data(), mat.data_len(), getMPIdataType<typename T::FloatType>(), to, 0, communicators().pipelineCommunicator(), &req) == MPI_SUCCESS );
-    return req;
+  //We want to ensure that managed objects aren't evicted while async MPI operations are happening
+  template<typename FloatType>
+  struct CommsRequest{ //TODO: Once Matrix has been View'ized, make them derive from a common base to simplify this
+    Vector<FloatType> const* v;
+    MPI_Request req;
+    
+    CommsRequest(): v(nullptr){}
+    CommsRequest(MPI_Request r, const Vector<FloatType> &vv): req(r), v(&vv){
+      vv.lock();
+    }
+    CommsRequest(MPI_Request r, const Matrix<FloatType> &vv): req(r), v(nullptr){}
+    
+  };
+  template<typename FloatType>
+  void waitAll(const std::vector<CommsRequest<FloatType> > &reqs){
+    std::vector<MPI_Request> rm(reqs.size());
+    for(int i=0;i<reqs.size();i++)
+      rm[i] = reqs[i].req;
+    assert( MPI_Waitall(rm.size(), rm.data(), MPI_STATUSES_IGNORE) == MPI_SUCCESS );
+    for(int i=0;i<reqs.size();i++)
+      if(reqs[i].v) reqs[i].v->unlock();
   }
-  template<typename T>
-  inline static MPI_Request recv(T &mat, int from){
+  // template<typename T>
+  // inline static MPI_Request send(const T &mat, int to){
+  //   MPI_Request req;		
+  //   assert( MPI_Isend(mat.data(), mat.data_len(), getMPIdataType<typename T::FloatType>(), to, 0, communicators().pipelineCommunicator(), &req) == MPI_SUCCESS );
+  //   return req;
+  // }
+  // template<typename T>
+  // inline static MPI_Request recv(T &mat, int from){
+  //   MPI_Request req;		
+  //   assert( MPI_Irecv(mat.data(), mat.data_len(), getMPIdataType<typename T::FloatType>(), from, 0, communicators().pipelineCommunicator(), &req) == MPI_SUCCESS );
+  //   return req;
+  // }
+
+
+  
+
+  template<typename FloatType>
+  inline static CommsRequest<FloatType> send(const Matrix<FloatType> &mat, int to){
     MPI_Request req;		
-    assert( MPI_Irecv(mat.data(), mat.data_len(), getMPIdataType<typename T::FloatType>(), from, 0, communicators().pipelineCommunicator(), &req) == MPI_SUCCESS );
-    return req;
+    assert( MPI_Isend(mat.data(), mat.data_len(), getMPIdataType<FloatType>(), to, 0, communicators().pipelineCommunicator(), &req) == MPI_SUCCESS );
+    return CommsRequest<FloatType>(req,mat);
   }
+  template<typename FloatType>
+  inline static CommsRequest<FloatType> recv(Matrix<FloatType> &mat, int from){
+    MPI_Request req;		
+    assert( MPI_Irecv(mat.data(), mat.data_len(), getMPIdataType<FloatType>(), from, 0, communicators().pipelineCommunicator(), &req) == MPI_SUCCESS );
+    return CommsRequest<FloatType>(req,mat);
+  }
+  template<typename FloatType>
+  inline static CommsRequest<FloatType> send(const Vector<FloatType> &mat, int to){
+    autoView(mat_v,mat,HostRead);
+    MPI_Request req;		
+    assert( MPI_Isend(mat_v.data(), mat_v.data_len(), getMPIdataType<FloatType>(), to, 0, communicators().pipelineCommunicator(), &req) == MPI_SUCCESS );
+    return CommsRequest<FloatType>(req,mat);
+  }
+  template<typename FloatType>
+  inline static CommsRequest<FloatType> recv(Vector<FloatType> &mat, int from){
+    autoView(mat_v,mat,HostWrite);
+    MPI_Request req;	
+    assert( MPI_Irecv(mat_v.data(), mat_v.data_len(), getMPIdataType<FloatType>(), from, 0, communicators().pipelineCommunicator(), &req) == MPI_SUCCESS );
+    return CommsRequest<FloatType>(req,mat);
+  } 
 
   template<typename T>
-  void passLeft(std::vector<MPI_Request> &reqs,
+  void passLeft(std::vector<CommsRequest<typename T::FloatType> > &reqs,
 		T const* send_bulk, T const *send_last,
 		T* recv_first, T* recv_bulk) const{
     if(pipeline_depth == 1){
@@ -335,7 +388,7 @@ public:
     else if(!is_last) reqs.push_back(recv(*recv_bulk, next_rank));
   }
   template<typename T>
-  void passRight(std::vector<MPI_Request> &reqs,
+  void passRight(std::vector<CommsRequest<typename T::FloatType> > &reqs,
 		T const* send_first, T const *send_bulk,
 		T* recv_bulk, T* recv_last) const{
     if(pipeline_depth == 1){
@@ -350,7 +403,7 @@ public:
   }
 
   template<typename T>
-  void passLeftLastToFirst(std::vector<MPI_Request> &reqs,
+  void passLeftLastToFirst(std::vector<CommsRequest<typename T::FloatType> > &reqs,
 			   T const* send_last, T *recv_first){
     if(pipeline_depth == 1){
       *recv_first = *send_last; return;
@@ -426,7 +479,7 @@ public:
 
   //We assume every node in the group has access to the same x value called in the same order
   Matrix<FloatType> value(const Matrix<FloatType> &in){
-    std::vector<MPI_Request> reqs;
+    std::vector<CommsRequest<FloatType> > reqs;
 
     //<i- (<0-, <1- etc): item i in 'prev_in' at start of iteration, perform action and send left in this iter
     //<i|                : take item i from input 'in', perform action and send left in this iter
@@ -441,15 +494,15 @@ public:
 
     Matrix<FloatType> out = block.v.value(is_last ? in : prev_in);
     passLeft(reqs,          &out,     &out,
-	          &prev_in, &prev_in);    
-    assert( MPI_Waitall(reqs.size(), reqs.data(), MPI_STATUSES_IGNORE) == MPI_SUCCESS );
-    
+	          &prev_in, &prev_in);
+    waitAll(reqs);
+        
     return out; //note, output only meaningful on first node   
   }
 
   void deriv(Vector<FloatType> &cost_deriv, const Matrix<FloatType> &above_deriv){
     ++dcalls;
-    std::vector<MPI_Request> reqs;
+    std::vector<CommsRequest<FloatType> > reqs;
 
     //For reverse differentiation we need to wait for a full value pipeline
     //As each layer needs the input value from the layer below to compute its derivative we need to buffer these appropriately
@@ -604,8 +657,8 @@ public:
 
     //if last our cost derivative is fully populated, so we send it back to rank 0 for output
     passLeftLastToFirst(reqs, &pass_cost_deriv, &cost_deriv);
-    
-    assert( MPI_Waitall(reqs.size(), reqs.data(), MPI_STATUSES_IGNORE) == MPI_SUCCESS );
+
+    waitAll(reqs);
 
     //if(rank == 0) std::cout << "RANK 0 CALL " << dcalls << " RECEIVED COST DERIV: " << cost_deriv << std::endl;
   }
@@ -623,7 +676,7 @@ public:
   inline void getParams(Vector<FloatType> &into){
     into = Vector<FloatType>(nparam, 0.);
     block.v.getParams(into, stage_off);
-    commsReduce(into.data(),into.data_len(), communicators().pipelineCommunicator());
+    commsReduce(into, communicators().pipelineCommunicator());
   }  
   
 };

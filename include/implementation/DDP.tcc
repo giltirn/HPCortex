@@ -11,3 +11,9 @@ void ddpAverage(FloatType* data, size_t len, bool pipeline_bcast){
     commsBroadcast(data, len, 0, communicators().pipelineCommunicator());
   }
 }
+
+template<typename FloatType>
+void ddpAverage(Vector<FloatType> &v, bool pipeline_bcast){
+  autoView(v_v,v,HostReadWrite);
+  ddpAverage(v_v.data(),v_v.data_len(), pipeline_bcast);
+}

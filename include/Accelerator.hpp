@@ -233,6 +233,23 @@ struct viewDeallocator{
   static void free(ViewType &v){ v.free(); }
 };
 
+//Create a view of a managed object and a deallocator that automatically frees it when out of scope
 #define autoView(ViewName, ObjName, mode)		\
   auto ViewName = ObjName .view(mode); \
   viewDeallocator<typename std::decay<decltype(ViewName)>::type> ViewName##_d(ViewName);
+
+//Open a HostReadWrite view 'a_v' on managed object 'a' and applies the action
+//It is intended to simplify test code
+//*NOT INTENDED FOR PERFORMANCE CODE!*
+#define doHost(a, ... )\
+  {\
+    autoView(a##_v,a,HostReadWrite); \
+    { __VA_ARGS__ } \
+  }
+//Same as above for 2 managed objects
+#define doHost2(a,b, ... )			\
+  {\
+    autoView(a##_v,a,HostReadWrite); \
+    autoView(b##_v,b,HostReadWrite); \
+    { __VA_ARGS__ } \
+  }

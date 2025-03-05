@@ -93,10 +93,11 @@ public:
     //else std::cout << "RANK " << rank << " " << this << " UNPIPELINED CALL " << calls << " INPUT " << x << " VALUE BUFFERED INPUT " << in << std::endl;
     
     Matrix<FloatType> out(size0,batch_size,0.0);
-
+    autoView(bias_v,bias,HostRead);
+    
     for(int i=0;i<size0;i++){
       for(int b=0;b<batch_size;b++){
-	out(i,b) = bias(i);
+	out(i,b) = bias_v(i);
 	for(int j=0;j<size1;j++)
 	  out(i,b) += weights(i,j)* in(j,b);
       }
@@ -140,19 +141,22 @@ public:
     //dcost / dw_jk = \sum_i dcost/df_i df_i/dw_jk = dcost/df_j * act_j * x_k
     //dcost / db_j = \sum_i dcost/df_i df_i/db_j = dcost/df_j * act_j
     int p=off;
-    for(int j=0;j<size0;j++)
-      for(int k=0;k<size1;k++){
+    {
+      autoView(cost_deriv_v,cost_deriv,HostReadWrite);
+      for(int j=0;j<size0;j++)
+	for(int k=0;k<size1;k++){
+	  for(int b=0;b<batch_size;b++)
+	    cost_deriv_v(p) += above_deriv(j,b) * activation(j,b) * in(k,b); //batch reduction! (assume zero-initialized)
+	  ++p;
+	}
+	
+      for(int j=0;j<size0;j++){
 	for(int b=0;b<batch_size;b++)
-	  cost_deriv(p) += above_deriv(j,b) * activation(j,b) * in(k,b); //batch reduction! (assume zero-initialized)
+	  cost_deriv_v(p) += above_deriv(j,b) * activation(j,b);
 	++p;
       }
-	
-    for(int j=0;j<size0;j++){
-      for(int b=0;b<batch_size;b++)
-	cost_deriv(p) += above_deriv(j,b) * activation(j,b);
-      ++p;
     }
-
+    
     //std::cout << " AND RESULT " << cost_deriv << std::endl;
     
     leaf.v.deriv(cost_deriv, p, layer_deriv, input_above_deriv_copyback);
@@ -160,25 +164,34 @@ public:
 
   void update(int off, const Vector<FloatType> &new_params){
     int p=off;
-    for(int i=0;i<size0;i++)
-      for(int j=0;j<size1;j++)
-	weights(i,j) = new_params(p++);
-    for(int i=0;i<size0;i++)
-      bias(i) = new_params(p++);
+    {
+      autoView(new_params_v,new_params,HostRead);
+      autoView(bias_v,bias,HostWrite);
+      for(int i=0;i<size0;i++)
+	for(int j=0;j<size1;j++)
+	  weights(i,j) = new_params_v(p++);
+      for(int i=0;i<size0;i++)
+	bias_v(i) = new_params_v(p++);
+    }
     leaf.v.update(p, new_params);
   }
   void step(int off, const Vector<FloatType> &derivs, FloatType eps){
     int p=off;
-    for(int i=0;i<size0;i++)
-      for(int j=0;j<size1;j++){
-	//std::cout << "Weights " << i << " " << j << " " << weights(i,j) << " -= " << derivs(p) << "*" << eps;
-	weights(i,j) -= derivs(p++) * eps;
-	//std::cout << " = " <<  weights(i,j) << std::endl;
+    {
+      autoView(derivs_v,derivs,HostRead);
+      autoView(bias_v,bias,HostReadWrite);
+      
+      for(int i=0;i<size0;i++)
+	for(int j=0;j<size1;j++){
+	  //std::cout << "Weights " << i << " " << j << " " << weights(i,j) << " -= " << derivs(p) << "*" << eps;
+	  weights(i,j) -= derivs_v(p++) * eps;
+	  //std::cout << " = " <<  weights(i,j) << std::endl;
+	}
+      for(int i=0;i<size0;i++){
+	//std::cout << "Bias " << i << " " << bias(i) << " -= " << derivs(p) << "*" << eps;
+	bias_v(i) -= derivs_v(p++) * eps;
+	//std::cout << " = " << bias(i) << std::endl;
       }
-    for(int i=0;i<size0;i++){
-      //std::cout << "Bias " << i << " " << bias(i) << " -= " << derivs(p) << "*" << eps;
-      bias(i) -= derivs(p++) * eps;
-      //std::cout << " = " << bias(i) << std::endl;
     }
     leaf.v.step(p, derivs, eps);
   }
@@ -189,11 +202,15 @@ public:
   //off measured from *end*, return new off
   void getParams(Vector<FloatType> &into, int off){
     int p = off;
-    for(int i=0;i<size0;i++)
-      for(int j=0;j<size1;j++)
-	into(p++) = weights(i,j);
-    for(int i=0;i<size0;i++)
-      into(p++) = bias(i);
+    {
+      autoView(into_v,into,HostReadWrite);
+      autoView(bias_v,bias,HostRead);
+      for(int i=0;i<size0;i++)
+	for(int j=0;j<size1;j++)
+	  into_v(p++) = weights(i,j);
+      for(int i=0;i<size0;i++)
+	into_v(p++) = bias_v(i);
+    }
     leaf.v.getParams(into, p);
   }
 

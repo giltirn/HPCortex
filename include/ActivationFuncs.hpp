@@ -22,14 +22,14 @@ public:
 
 #include "implementation/ActivationFuncs.tcc"
 
-#ifndef ACTIVATIONFUNC_EXTERN_TEMPLATE_INST
-#define SS extern
-#else
-#define SS
-#endif
-SS template class ReLU<float>;
-SS template class ReLU<double>;
-SS template class noActivation<float>;
-SS template class noActivation<double>;
-#undef SS
+// #ifndef ACTIVATIONFUNC_EXTERN_TEMPLATE_INST
+// #define SS extern
+// #else
+// #define SS
+// #endif
+// SS template class ReLU<float>;
+// SS template class ReLU<double>;
+// SS template class noActivation<float>;
+// SS template class noActivation<double>;
+// #undef SS
 

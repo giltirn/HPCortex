@@ -202,6 +202,9 @@ public:
     return pool;
   }      
 
+  //Prevent eviction of an object, use with care
+  inline void lock(HandleIterator h){ ++h->lock_entry; }
+  inline void unlock(HandleIterator h){ --h->lock_entry; }  
 };
 
 inline std::string memPoolManagerReport(bool detailed = false){

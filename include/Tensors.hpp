@@ -5,6 +5,7 @@
 #include <memory>
 #include <cassert>
 #include <iostream>
+#include <ManagedArray.hpp>
 
 template<size_t dim>
 inline size_t tensorSize(const std::array<int,dim> &dims){
@@ -59,21 +60,39 @@ struct Vector{
 public:
   typedef _FloatType FloatType;
 private:
-  std::vector<FloatType> vals;
+  ManagedArray<FloatType> vals;
 public:
   Vector(){}
-  Vector(int size1): vals(size1){}
-  Vector(int size1, FloatType init): vals(size1, init){}
+  Vector(int size1, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool): vals(size1,alloc_pool){}
+  Vector(int size1, FloatType init, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool): vals(size1, init, alloc_pool){}
   Vector(const std::vector<FloatType> &init_vals): vals(init_vals){}    
-  
-  inline FloatType & operator()(const int i){ return vals[i]; }
-  inline FloatType operator()(const int i) const{ return vals[i]; }
 
-  inline int size(int i) const{ return vals.size(); }
+  inline size_t size(int i) const{ return vals.size(); }
 
-  inline FloatType const* data() const{ return vals.data(); }
-  inline FloatType* data(){ return vals.data(); }
-  inline size_t data_len() const{ return vals.size(); }
+  class View: private ManagedArray<FloatType>::View{
+    typedef typename ManagedArray<FloatType>::View Base;
+  public:
+    inline View(ViewMode mode, const Vector<FloatType> &parent): Base(mode, parent.vals){}
+
+    inline void free(){ return this->Base::free(); }
+    
+    accelerator_inline FloatType & operator()(const int i){ return this->Base::operator[](i); }
+    accelerator_inline FloatType operator()(const int i) const{ return this->Base::operator[](i); }
+
+    accelerator_inline FloatType const* data() const{ return this->Base::data(); }
+    accelerator_inline FloatType* data(){ return this->Base::data(); }
+    accelerator_inline size_t data_len() const{ return this->Base::size(); }
+
+    accelerator_inline size_t size(int i) const{ return data_len(); }
+  };
+
+  View view(ViewMode mode) const{
+    return View(mode, *this);
+  }
+
+  //Lock the associated memory, preventing eviction
+  inline void lock() const{ vals.lock(); }
+  inline void unlock() const{ vals.unlock(); }  
 };
 
 template<typename FloatType>
@@ -136,13 +155,13 @@ Vector<FloatType> & operator*=(Vector<FloatType> &a, FloatType eps);
 
 #include "implementation/Tensors.tcc"
 
-#ifndef TENSORS_EXTERN_TEMPLATE_INST
-#define SS extern
-#else
-#define SS
-#endif
-SS template class Matrix<float>;
-SS template class Matrix<double>;
-SS template class Vector<float>;
-SS template class Vector<double>;
-#undef SS
+// #ifndef TENSORS_EXTERN_TEMPLATE_INST
+// #define SS extern
+// #else
+// #define SS
+// #endif
+// SS template class Matrix<float>;
+// SS template class Matrix<double>;
+// SS template class Vector<float>;
+// SS template class Vector<double>;
+// #undef SS

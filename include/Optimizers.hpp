@@ -61,13 +61,18 @@ public:
       v = Vector<FloatType>(nparam,0);
     }
     Vector<FloatType> out(nparam);
+
+    autoView(m_v,m,HostReadWrite);
+    autoView(v_v,v,HostReadWrite);
+    autoView(g_v,g,HostRead);
+    autoView(out_v,out,HostWrite);
     
     for(int p=0;p<nparam;p++){
-      FloatType gp_init = g(p);
-      m(p) = ap.beta1 * m(p) + (1.-ap.beta1)*g(p);
-      v(p) = ap.beta2 * v(p) + (1.-ap.beta2)*pow(g(p),2);
+      FloatType gp_init = g_v(p);
+      m_v(p) = ap.beta1 * m_v(p) + (1.-ap.beta1)*g_v(p);
+      v_v(p) = ap.beta2 * v_v(p) + (1.-ap.beta2)*pow(g_v(p),2);
 
-      out(p) = m(p)/(sqrt(v(p)) + ap.eps);
+      out_v(p) = m_v(p)/(sqrt(v_v(p)) + ap.eps);
     }
 
     step_size =  t>0 ? alpha * sqrt(1. - pow(ap.beta2,t))  / (1. - pow(ap.beta1,t) ) : alpha;
@@ -161,7 +166,7 @@ std::vector<FloatType> train(ModelType &model, const std::vector<XYpair<FloatTyp
 	deriv = model.deriv();
       }
       ddpAverage(&loss,1,false); //no need to bcast the loss to the pipeline ranks
-      ddpAverage(deriv.data(),deriv.data_len(),true); //share the deriv over all pipeline ranks
+      ddpAverage(deriv,true); //share the deriv over all pipeline ranks
            
       if(do_print) std::cout << epoch << "-" << block << " : "<< loss << std::endl;
       

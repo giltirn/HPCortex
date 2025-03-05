@@ -1,4 +1,5 @@
 #include <HPCortex.hpp>
+#include <Testing.hpp>
 
 void testPipeline(){
   typedef float FloatType;
@@ -63,10 +64,12 @@ void testPipeline(){
 	if(i_vpipe >=0 ){
 	  FloatType ev = expect_v[i_vpipe](0,0); 
 	  std::cout << i << "\tval expect " << ev << " got "<<  v(0,0) << std::endl;
+	  assert(near(ev,v(0,0),FloatType(1e-4)));
 	}
 	if(i_dpipe >=0 ){
 	  Vector<FloatType> ed = expect_d[i_dpipe];	
 	  std::cout << "\tderiv expect " << ed << " got " << d << std::endl;
+	  assert(near(d,ed,FloatType(1e-4),true));
 	}
       }
     }
@@ -123,6 +126,8 @@ void testPipeline(){
       if(!rank){
 	std::cout << i << "\tvalue expect " << loss_expect << " got "<<  loss << std::endl;
 	std::cout << "\tderiv expect " << deriv_expect << " got " << deriv << std::endl;
+	assert(near(loss_expect,loss,FloatType(1e-4)));
+	assert(near(deriv_expect,deriv,FloatType(1e-4),true));
       }
     }
   }
@@ -166,6 +171,8 @@ void testPipeline(){
     if(!rank){
       std::cout << "Loss - got " << loss_got << " expect " << loss_expect << std::endl;
       std::cout << "Deriv - got " << deriv_got << " expect " << deriv_expect << std::endl;
+      assert(near(loss_expect,loss_got,FloatType(1e-4)));
+      assert(near(deriv_expect,deriv_got,FloatType(1e-4),true));
     }
   }
   

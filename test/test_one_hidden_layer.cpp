@@ -1,4 +1,5 @@
 #include <HPCortex.hpp>
+#include <Testing.hpp>
 
 void testOneHiddenLayer(){
   //Test f(x) = 0.2*x + 0.3;
@@ -6,7 +7,9 @@ void testOneHiddenLayer(){
   int batch_size = 4;
 
   typedef float FloatType;
-  
+  FloatType delta = 1e-4;
+
+  int nepoch = 20;
   int ndata = batch_size * nbatch;
 
   std::vector<XYpair<FloatType> > data(ndata);
@@ -49,11 +52,17 @@ void testOneHiddenLayer(){
       std::cout << "Test derivs " << d << " x=" << bxy.x << std::endl;
       for(int i=0;i<p.size(0);i++){
 	Vector<FloatType> pp(p);
-	pp(i) += 1e-9;
+	doHost(pp, { pp_v(i) += delta; });
 	model2.update(pp);
       
 	FloatType c2 = model2.loss(bxy.x,bxy.y);
-	std::cout << i << " got " << pd(i) << " expect " << (c2-c1)/1e-9 << std::endl;
+	doHost(pd, {
+	    FloatType expect = (c2-c1)/delta;
+	    std::cout << i << " got " << pd_v(i) << " expect " << expect << std::endl;
+	    if(abs(expect) > 1e-4)
+	      assert(near(pd_v(i),expect,FloatType(1e-3)));
+	  });
+	
       }
     }
   }
@@ -63,19 +72,25 @@ void testOneHiddenLayer(){
   AdamParams<FloatType> ap;
   AdamOptimizer<FloatType, DecayScheduler<FloatType> > opt(ap,lr);
   
-  train(model, data, opt, 200, batch_size);
+  train(model, data, opt, nepoch, batch_size);
 
   std::cout << "Final params" << std::endl;
   Vector<FloatType> final_p = model.getParams();
   for(int i=0;i<final_p.size(0);i++)
-    std::cout << i << " " << final_p(i) << std::endl;
+    doHost(final_p, { std::cout << i << " " << final_p_v(i) << std::endl; });
 
   std::cout << "Test on some data" << std::endl;
-  for(int d=0;d<data.size();d++){ //first 5 data, batch idx 0
+  FloatType avg_loss= 0.;
+  for(int d=0;d<data.size();d++){ 
     auto got = model.predict(data[d].x);
     std::cout << data[d].x << " got " << got << " expect " << data[d].y << std::endl;
+    autoView(got_v,got,HostRead);
+    autoView(data_v,data[d].y,HostRead);
+    avg_loss += pow(got_v(0) - data_v(0),2);
   }
-
+  avg_loss /= data.size();
+  std::cout << "Avg. loss " << avg_loss << std::endl;
+  assert(avg_loss < 1e-4);
 }
 
 int main(int argc, char** argv){

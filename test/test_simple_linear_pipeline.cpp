@@ -1,4 +1,5 @@
 #include <HPCortex.hpp>
+#include <Testing.hpp>
 
 void testSimpleLinearPipeline(){
   //Test f(x) = 0.2*x + 0.3;
@@ -11,6 +12,7 @@ void testSimpleLinearPipeline(){
   int call_batch_size = 2;
   int glob_batch_size = 6 * nranks;
 
+  int nepoch = 20;
   int nbatch = 10;
 
   typedef float FloatType;
@@ -46,7 +48,7 @@ void testSimpleLinearPipeline(){
   AdamOptimizer<FloatType,DecayScheduler<FloatType> > opt(ap,lr);
 
   //Train pipeline
-  train(cost, data, opt, 50, glob_batch_size);
+  train(cost, data, opt, nepoch, glob_batch_size);
   Vector<FloatType> final_p = cost.getParams();
   std::vector<Vector<FloatType>> predict(ndata);
   for(int i=0;i<ndata;i++) predict[i] = cost.predict(data[i].x);
@@ -54,13 +56,14 @@ void testSimpleLinearPipeline(){
   std::cout << "Training rank local model for comparison" << std::endl;  
   communicators().disableParallelism();
   communicators().reportSetup();
-  train(full_cost, data, opt, 50, glob_batch_size);
+  train(full_cost, data, opt, nepoch, glob_batch_size);
   Vector<FloatType> expect_p = full_cost.getParams();
 
   MPI_Barrier(MPI_COMM_WORLD);
   
   if(!rank){
     std::cout << "Final params " << final_p << " expect " << expect_p << std::endl;
+    assert(near(final_p,expect_p,FloatType(1e-4),true));
     
     std::cout << "Predictions:" << std::endl;
     for(int i=0;i<nbatch;i++)
