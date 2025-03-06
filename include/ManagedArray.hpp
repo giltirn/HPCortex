@@ -21,6 +21,7 @@ public:
     fill(init, alloc_pool);
   }
   ManagedArray(const std::vector<FloatType> &init): ManagedArray(init.size(), MemoryManager::Pool::HostPool){
+    if(init.size() == 0) return;
     autoView(vv,(*this),HostWrite);
     memcpy(vv.data(), init.data(), init.size()*sizeof(FloatType));
   }  
@@ -82,12 +83,14 @@ public:
     accelerator_inline FloatType operator[](const size_t i) const{ return v[i]; }
 
     inline View(ViewMode mode, MemoryManager::HandleIterator handle, size_t _size):
-      _size(_size), handle(handle), v((FloatType*)MemoryManager::globalPool().openView(mode,handle)) {}
+      _size(_size), handle(handle), v(_size == 0 ? nullptr : (FloatType*)MemoryManager::globalPool().openView(mode,handle)) {
+      if(_size == 0) throw std::runtime_error("Attempting to open a view on a zero-size array");
+    }
 
     inline View(ViewMode mode, const ManagedArray &parent): View(mode, parent.handle, parent._size){}
     
     inline void free(){
-      MemoryManager::globalPool().closeView(handle);
+      if(_size) MemoryManager::globalPool().closeView(handle);
     }
   };
 

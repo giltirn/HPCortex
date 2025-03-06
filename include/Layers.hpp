@@ -68,13 +68,14 @@ private:
   size_t calls;
 
   bool pipeline_mode;
+  int batch_size;
 public:
   typedef LeafTag tag;
   
   DNNlayer(Store &&leaf, const Matrix<FloatType> &weights,const Vector<FloatType> &bias, const ActivationFunc &activation_func):
     leaf(std::move(leaf)), weights(weights), bias(bias),
     size0(weights.size(0)), size1(weights.size(1)),
-    activation_func(activation_func), leaf_buf(1), calls(0), pipeline_mode(false)
+    activation_func(activation_func), leaf_buf(1), calls(0), pipeline_mode(false), batch_size(0)
   {  }
   DNNlayer(const DNNlayer &r) = delete;
   DNNlayer(DNNlayer &&r) = default;
@@ -84,80 +85,103 @@ public:
     ++calls;
     
     Matrix<FloatType> in = leaf.v.value(x);
-    int batch_size = x.size(1);   
+    batch_size = x.size(1);   
     assert(in.size(0) == size1);
     assert(in.size(1) == batch_size);
 
     leaf_buf.push(in);
-    //if(pipeline_mode) std::cout << "RANK " << rank << " " << this << " CALL " << calls << " INPUT " << x << " VALUE BUFFERED INPUT " << in << std::endl;
-    //else std::cout << "RANK " << rank << " " << this << " UNPIPELINED CALL " << calls << " INPUT " << x << " VALUE BUFFERED INPUT " << in << std::endl;
     
-    Matrix<FloatType> out(size0,batch_size,0.0);
-    autoView(bias_v,bias,HostRead);
-    
-    for(int i=0;i<size0;i++){
-      for(int b=0;b<batch_size;b++){
-	out(i,b) = bias_v(i);
-	for(int j=0;j<size1;j++)
-	  out(i,b) += weights(i,j)* in(j,b);
+    Matrix<FloatType> out(size0,batch_size);
+    {
+      autoView(bias_v,bias,HostRead);
+      autoView(out_v,out,HostWrite);
+      autoView(in_v,in,HostRead);
+      autoView(weights_v,weights,HostRead);
+      
+      for(int i=0;i<size0;i++){
+	for(int b=0;b<batch_size;b++){
+	  out_v(i,b) = bias_v(i);
+	  for(int j=0;j<size1;j++)
+	    out_v(i,b) += weights_v(i,j)* in_v(j,b);
+	}
       }
     }
 	
     Matrix<FloatType> activation = activation_func(out);
     assert(activation.size(0) == size0);
     assert(activation.size(1) == batch_size);
-    
-    for(int i=0;i<size0;i++)
-      for(int b=0;b<batch_size;b++)
-	out(i,b) *= activation(i,b);    
 
-    activation_buf.push(activation);
+    {
+      autoView(out_v,out,HostReadWrite);
+      autoView(activation_v,activation,HostRead);
+	
+      for(int i=0;i<size0;i++)
+	for(int b=0;b<batch_size;b++)
+	  out_v(i,b) *= activation_v(i,b);    
+    }
+      
+    activation_buf.push(activation); //TODO: make this a move
     
     return out;
   }
- 
+
+  //TODO: Find a way to free 'above_deriv' once used as it is not needed for layers below
   void deriv(Vector<FloatType> &cost_deriv, int off, const Matrix<FloatType> &above_deriv, Matrix<FloatType>* input_above_deriv_copyback = nullptr) const{
     assert(above_deriv.size(0) == size0);
-    Matrix<FloatType> in = leaf_buf.pop();
-    Matrix<FloatType> activation = activation_buf.pop();
-    int batch_size = in.size(1);
-
-    //if(pipeline_mode) std::cout << "RANK " << rank << " " << this << " CALL " << calls << " DERIV USING BUFFERED INPUT " << in << " ABOVE_DERIV " << above_deriv << " WITH INPUT COST DERIV " << cost_deriv;
-    //else std::cout << "RANK " << rank << " " << this << " UNPIPELINED CALL " << calls << " DERIV USING BUFFERED INPUT " << in << " ABOVE_DERIV " << above_deriv << " WITH INPUT COST DERIV " << cost_deriv;
-    
-    //for reverse differentiation, we pass down the derivatives with respect to our inputs
-    //f(x)_i = act_i b_i + \sum_j act_i w_ij x_j
-    //dcost / dx_j = \sum_i dcost/df_i df_i/dx_j
-    //df_i/dx_j = act_i w_ij
-    Matrix<FloatType> layer_deriv(size1,batch_size,0.);
-    for(int j=0;j<size1;j++)
-      for(int i=0;i<size0;i++)
-	for(int b=0;b<batch_size;b++)
-	  layer_deriv(j,b) += above_deriv(i,b) * activation(i,b) * weights(i,j);
-
-    //Now we finish up the derivs wrt our parameters
-    //df(x)_i / d w_jk = delta_ij act_j x_k
-    //df(x)_i / d b_j = delta_ij act_j
-    //dcost / dw_jk = \sum_i dcost/df_i df_i/dw_jk = dcost/df_j * act_j * x_k
-    //dcost / db_j = \sum_i dcost/df_i df_i/db_j = dcost/df_j * act_j
     int p=off;
+    Matrix<FloatType> layer_deriv(size1,batch_size,0.);
     {
-      autoView(cost_deriv_v,cost_deriv,HostReadWrite);
-      for(int j=0;j<size0;j++)
-	for(int k=0;k<size1;k++){
+      //until the pipeline is "primed", the ring buffers will pop uninitialized values. We could in principle skip doing any computation until then
+      //but for now we just initialize with zero values (TODO: revisit)
+      Matrix<FloatType> in = leaf_buf.isFilled() ? leaf_buf.pop(): Matrix<FloatType>(size1,batch_size,0.);
+      assert(in.size(0) == size1);
+      assert(in.size(1) == batch_size);
+      
+      Matrix<FloatType> activation = activation_buf.isFilled() ? activation_buf.pop() : Matrix<FloatType>(size0,batch_size,0.);
+      assert(activation.size(0) == size0);
+      assert(activation.size(1) == batch_size);      
+      
+      //for reverse differentiation, we pass down the derivatives with respect to our inputs
+      //f(x)_i = act_i b_i + \sum_j act_i w_ij x_j
+      //dcost / dx_j = \sum_i dcost/df_i df_i/dx_j
+      //df_i/dx_j = act_i w_ij    
+
+      autoView(above_deriv_v,above_deriv,HostRead);
+      autoView(activation_v,activation,HostRead);
+    
+      {
+	autoView(layer_deriv_v,layer_deriv,HostReadWrite);
+	autoView(weights_v,weights,HostRead);
+      
+	for(int j=0;j<size1;j++)
+	  for(int i=0;i<size0;i++)
+	    for(int b=0;b<batch_size;b++)
+	      layer_deriv_v(j,b) += above_deriv_v(i,b) * activation_v(i,b) * weights_v(i,j);
+      }
+
+      //Now we finish up the derivs wrt our parameters
+      //df(x)_i / d w_jk = delta_ij act_j x_k
+      //df(x)_i / d b_j = delta_ij act_j
+      //dcost / dw_jk = \sum_i dcost/df_i df_i/dw_jk = dcost/df_j * act_j * x_k
+      //dcost / db_j = \sum_i dcost/df_i df_i/db_j = dcost/df_j * act_j
+      {
+	autoView(cost_deriv_v,cost_deriv,HostReadWrite);
+	autoView(in_v,in,HostRead);
+	for(int j=0;j<size0;j++)
+	  for(int k=0;k<size1;k++){
+	    for(int b=0;b<batch_size;b++)
+	      cost_deriv_v(p) += above_deriv_v(j,b) * activation_v(j,b) * in_v(k,b); //batch reduction! (assume zero-initialized)
+	    ++p;
+	  }
+	
+	for(int j=0;j<size0;j++){
 	  for(int b=0;b<batch_size;b++)
-	    cost_deriv_v(p) += above_deriv(j,b) * activation(j,b) * in(k,b); //batch reduction! (assume zero-initialized)
+	    cost_deriv_v(p) += above_deriv_v(j,b) * activation_v(j,b);
 	  ++p;
 	}
-	
-      for(int j=0;j<size0;j++){
-	for(int b=0;b<batch_size;b++)
-	  cost_deriv_v(p) += above_deriv(j,b) * activation(j,b);
-	++p;
       }
-    }
     
-    //std::cout << " AND RESULT " << cost_deriv << std::endl;
+    }//close views and free temporaries before calling layer below
     
     leaf.v.deriv(cost_deriv, p, layer_deriv, input_above_deriv_copyback);
   }
@@ -167,9 +191,10 @@ public:
     {
       autoView(new_params_v,new_params,HostRead);
       autoView(bias_v,bias,HostWrite);
+      autoView(weights_v,weights,HostWrite);
       for(int i=0;i<size0;i++)
 	for(int j=0;j<size1;j++)
-	  weights(i,j) = new_params_v(p++);
+	  weights_v(i,j) = new_params_v(p++);
       for(int i=0;i<size0;i++)
 	bias_v(i) = new_params_v(p++);
     }
@@ -180,17 +205,14 @@ public:
     {
       autoView(derivs_v,derivs,HostRead);
       autoView(bias_v,bias,HostReadWrite);
+      autoView(weights_v,weights,HostReadWrite);
       
       for(int i=0;i<size0;i++)
 	for(int j=0;j<size1;j++){
-	  //std::cout << "Weights " << i << " " << j << " " << weights(i,j) << " -= " << derivs(p) << "*" << eps;
-	  weights(i,j) -= derivs_v(p++) * eps;
-	  //std::cout << " = " <<  weights(i,j) << std::endl;
+	  weights_v(i,j) -= derivs_v(p++) * eps;
 	}
       for(int i=0;i<size0;i++){
-	//std::cout << "Bias " << i << " " << bias(i) << " -= " << derivs(p) << "*" << eps;
 	bias_v(i) -= derivs_v(p++) * eps;
-	//std::cout << " = " << bias(i) << std::endl;
       }
     }
     leaf.v.step(p, derivs, eps);
@@ -205,9 +227,10 @@ public:
     {
       autoView(into_v,into,HostReadWrite);
       autoView(bias_v,bias,HostRead);
+      autoView(weights_v,weights,HostRead);
       for(int i=0;i<size0;i++)
 	for(int j=0;j<size1;j++)
-	  into_v(p++) = weights(i,j);
+	  into_v(p++) = weights_v(i,j);
       for(int i=0;i<size0;i++)
 	into_v(p++) = bias_v(i);
     }

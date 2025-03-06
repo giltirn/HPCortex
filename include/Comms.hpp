@@ -120,5 +120,8 @@ inline void commsBroadcast(FloatType* data, size_t data_len, int from_rank, cons
 template<typename FloatType>
 inline void commsBroadcast(Vector<FloatType> &v, int from_rank, const MPI_Comm &comm);
 
+template<typename FloatType>
+inline void commsBroadcast(Matrix<FloatType> &v, int from_rank, const MPI_Comm &comm);
+
 
 #include "implementation/Comms.tcc"

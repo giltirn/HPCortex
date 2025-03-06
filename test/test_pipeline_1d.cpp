@@ -62,9 +62,12 @@ void testPipeline(){
       if(!rank){
 
 	if(i_vpipe >=0 ){
-	  FloatType ev = expect_v[i_vpipe](0,0); 
-	  std::cout << i << "\tval expect " << ev << " got "<<  v(0,0) << std::endl;
-	  assert(near(ev,v(0,0),FloatType(1e-4)));
+	  autoView(ev_i_v, expect_v[i_vpipe], HostRead);
+	  autoView(v_v,v,HostRead);
+	  
+	  FloatType ev = ev_i_v(0,0); 
+	  std::cout << i << "\tval expect " << ev << " got "<<  v_v(0,0) << std::endl;
+	  assert(near(ev,v_v(0,0),FloatType(1e-4)));
 	}
 	if(i_dpipe >=0 ){
 	  Vector<FloatType> ed = expect_d[i_dpipe];	

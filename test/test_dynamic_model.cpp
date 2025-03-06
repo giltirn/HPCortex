@@ -26,11 +26,11 @@ void testDynamicModel(){
   for(int i=0;i<iters;i++){
     Matrix<FloatType> x(1,1, i+1);
     Matrix<FloatType> vexpect = model.value(x);
-    
     Matrix<FloatType> vgot = composed.value(x);
-    
-    std::cout << i << " got " << vgot(0,0) << " expect " << vexpect(0,0) << std::endl;
-    assert(near(vgot(0,0),vexpect(0,0),FloatType(1e-8)));
+    doHost2(vexpect,vgot,{    
+	std::cout << i << " got " << vgot_v(0,0) << " expect " << vexpect_v(0,0) << std::endl;
+	assert(near(vgot_v(0,0),vexpect_v(0,0),FloatType(1e-8)));
+      });
   }
 }
 

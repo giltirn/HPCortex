@@ -12,42 +12,50 @@ template<typename FloatType>
 void Matrix<FloatType>::pokeColumn(int col, const Vector<FloatType> &data){
   assert(data.size(0) == size0);
   autoView(data_v,data,HostRead);
+  autoView(t_v,(*this),HostWrite);
   for(int i=0;i<size0;i++)
-    this->operator()(i,col) = data_v(i);
+    t_v(i,col) = data_v(i);
 }
 
 template<typename FloatType>
 Vector<FloatType> Matrix<FloatType>::peekColumn(int col) const{
   Vector<FloatType> out(size0);
   autoView(out_v,out,HostWrite);
-  for(int i=0;i<size0;i++) out_v(i)=this->operator()(i,col);
+  autoView(t_v,(*this),HostRead);
+  for(int i=0;i<size0;i++) out_v(i)=t_v(i,col);
   return out;
 }
 
 template<typename FloatType>
 Matrix<FloatType> Matrix<FloatType>::peekColumns(int col_start, int col_end) const{
   Matrix<FloatType> out(size0, col_end-col_start+1);
+  autoView(out_v,out,HostWrite);
+  autoView(t_v,(*this),HostRead);  
   for(int i=0;i<size0;i++){
     int jj=0;
     for(int j=col_start;j<=col_end;j++)      
-      out(i,jj++)=this->operator()(i,j);
+      out_v(i,jj++)=t_v(i,j);
   }
   return out;
 }
 
 template<typename FloatType>
 void Matrix<FloatType>::pokeColumns(int col_start, int col_end, const Matrix<FloatType> &cols){
+  autoView(cols_v,cols,HostRead);
+  autoView(t_v,(*this),HostWrite);
+  
   for(int i=0;i<size0;i++)
     for(int j=col_start;j<=col_end;j++)      
-      this->operator()(i,j) = cols(i,j-col_start);
+      t_v(i,j) = cols_v(i,j-col_start);
 }
 
 template<typename FloatType>
 std::ostream & operator<<(std::ostream &os, const Matrix<FloatType> &v){
   if(v.size(0)==0 || v.size(1) == 0){ os << "||"; return os; }
+  autoView(v_v,v,HostRead); 
   for(int r=0;r<v.size(0);r++){
-    os << "|" << v(r,0);
-    for(int i=1;i<v.size(1);i++) os << ", " << v(r,i);
+    os << "|" << v_v(r,0);
+    for(int i=1;i<v.size(1);i++) os << ", " << v_v(r,i);
     os << "|";
     if(r != v.size(0)-1) os << std::endl;
   }
@@ -59,10 +67,11 @@ Vector<FloatType> operator*(const Matrix<FloatType> &A, const Vector<FloatType> 
   Vector<FloatType> out(A.size(0), 0., MemoryManager::Pool::HostPool);
   autoView(x_v,x,HostRead);
   autoView(out_v,out,HostReadWrite);
+  autoView(A_v,A,HostRead);
   
   for(int i=0;i<A.size(0);i++)
     for(int j=0;j<A.size(1);j++)
-      out_v(i) += A(i,j) * x_v(j);
+      out_v(i) += A_v(i,j) * x_v(j);
   return out;
 }
 

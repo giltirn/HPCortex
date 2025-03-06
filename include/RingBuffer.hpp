@@ -18,23 +18,29 @@ template<typename T>
 class RingBuffer{
   std::vector<T> ring;
   size_t off;
+  bool filled;
 public:
-  RingBuffer(size_t size): ring(size), off(0){}
+  RingBuffer(size_t size): ring(size), off(0), filled(false){}
   RingBuffer(): RingBuffer(1){} 
 
   void resize(size_t size){
     ring.resize(size);
     off=0;
+    filled=false;
   }
   
   void push(const T&v){
     ring[off] = v;
     off = (off + 1) % ring.size();
+    if(!off) filled = true;
   }
   T pop() const{
+    if(!filled) throw std::runtime_error("Cannot pop from an unfilled RingBuffer as the returned value will be uninitialized");
     return ring[off];
   }
-
+  //Return whether the RingBuffer has been populated such that pop() can be performed
+  bool isFilled() const{ return filled; }
+  
   size_t size() const{ return ring.size(); } 
 };
     

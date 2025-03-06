@@ -11,8 +11,8 @@ void basicTests(){
    	                             -0.1,-0.2,
 			              0.7,0.7}));
   Vector<FloatType> b1_init( vecD({0.5,0.7,0.9}));		    
- 
-  assert(w1_init(0,0) == FloatType(0.1) && w1_init(1,0) == FloatType(-0.1) );
+
+  doHost(w1_init, {  assert(w1_init_v(0,0) == FloatType(0.1) && w1_init_v(1,0) == FloatType(-0.1) ); });
   {
     auto c = w1_init.peekColumn(0);
     doHost(c, { assert(c_v(0) == FloatType(0.1) && c_v(1) == FloatType(-0.1) && c_v(2) == FloatType(0.7) ); });
@@ -51,17 +51,14 @@ void basicTests(){
     for(int i=0;i<3;i++){
       for(int j=0;j<2;j++){
 	Matrix<FloatType> w1_p = w1_init;
-	w1_p(i,j) += delta;
+	doHost(w1_p, { w1_p_v(i,j) += delta; });
 	auto f2 = mse_cost( dnn_layer(input_layer<FloatType>(), w1_p, b1_init) );
 	dexpect_v(p++) = (f2.loss(x1,y1) - got)/delta;
       }
     }
     for(int i=0;i<3;i++){
       Vector<FloatType> b1_p = b1_init;
-      {
-	autoView(b1_p_v,b1_p,HostReadWrite);
-	b1_p_v(i) += delta;
-      }
+      doHost(b1_p, { b1_p_v(i) += delta; });      
       auto f2 = mse_cost( dnn_layer(input_layer<FloatType>(), w1_init, b1_p) );
       dexpect_v(p++) = (f2.loss(x1,y1) - got)/delta;    
     }

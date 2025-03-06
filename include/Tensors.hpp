@@ -103,19 +103,41 @@ struct Matrix{
 public:
   typedef _FloatType FloatType;
 private:
-  std::vector<FloatType> vals;
+private:
+  ManagedArray<FloatType> vals;
   int size0;
   int size1;
 public:
   Matrix(): size0(0),size1(0){}
-  Matrix(int size0, int size1): size0(size0), size1(size1), vals(size0*size1){}  
-  Matrix(int size0, int size1, FloatType init): size0(size0), size1(size1), vals(size0*size1,init){}
+  Matrix(int size0, int size1, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool): size0(size0), size1(size1), vals(size0*size1,alloc_pool){}  
+  Matrix(int size0, int size1, FloatType init, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool):
+    size0(size0), size1(size1), vals(size0*size1,init,alloc_pool){}
   Matrix(int size0, int size1, const std::vector<FloatType> &init_vals): size0(size0), size1(size1), vals(init_vals){}    
-  
-  inline FloatType & operator()(const int i, const int j){ return vals[j+size1*i]; }
-  inline FloatType operator()(const int i, const int j) const{ return vals[j+size1*i]; }
 
   inline int size(int i) const{ return i==0 ? size0 : size1; }
+  
+  class View: private ManagedArray<FloatType>::View{
+    typedef typename ManagedArray<FloatType>::View Base;
+    int size0;
+    int size1;
+  public:
+    inline View(ViewMode mode, const Matrix<FloatType> &parent): Base(mode, parent.vals), size0(parent.size0),size1(parent.size1){}
+
+    inline void free(){ return this->Base::free(); }
+    
+    accelerator_inline FloatType & operator()(const int i, const int j){ return this->Base::operator[](j+size1*i); }
+    accelerator_inline FloatType operator()(const int i, const int j) const{ this->Base::operator[](j+size1*i); }
+    
+    accelerator_inline FloatType const* data() const{ return this->Base::data(); }
+    accelerator_inline FloatType* data(){ return this->Base::data(); }
+    accelerator_inline size_t data_len() const{ return this->Base::size(); }
+
+    accelerator_inline size_t size(int i) const{ return i==0 ? size0 : size1; }
+  };
+
+  View view(ViewMode mode) const{
+    return View(mode, *this);
+  }
 
   //Insert 'data' as column 'col' of this matrix
   void pokeColumn(int col, const Vector<FloatType> &data);
@@ -127,9 +149,9 @@ public:
   //Insert multiple columns, collected as a matrix 'cols', into this matrix
   void pokeColumns(int col_start, int col_end, const Matrix &cols);
   
-  inline FloatType const* data() const{ return vals.data(); }
-  inline FloatType* data(){ return vals.data(); }
-  inline size_t data_len() const{ return vals.size(); }   
+  //Lock the associated memory, preventing eviction
+  inline void lock() const{ vals.lock(); }
+  inline void unlock() const{ vals.unlock(); }  
 };
 
 template<typename FloatType>

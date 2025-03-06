@@ -24,6 +24,13 @@ inline void commsBroadcast(Vector<FloatType> &v, int from_rank, const MPI_Comm &
 }
 
 template<typename FloatType>
+inline void commsBroadcast(Matrix<FloatType> &v, int from_rank, const MPI_Comm &comm){
+  autoView(v_v,v,HostReadWrite);
+  commsBroadcast(v_v.data(),v_v.data_len(),from_rank,comm);
+}
+
+
+template<typename FloatType>
 inline void commsReduce(Vector<FloatType> &v, const MPI_Comm &comm){
   autoView(v_v,v,HostReadWrite);
   commsReduce(v_v.data(),v_v.data_len(),comm);
