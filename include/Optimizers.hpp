@@ -12,9 +12,9 @@ class GradientDescentOptimizer{
 public:
   GradientDescentOptimizer(const LRscheduler &sched): sched(sched), eps(0.){}
   
-  void epochStart(int epoch){
+  void epochStart(int epoch, bool verbose = true){
     eps = sched(epoch);
-    std::cout << "GradientDescentOptimizer: Epoch " << epoch << " learning rate " << eps << std::endl;
+    if(verbose) std::cout << "GradientDescentOptimizer: Epoch " << epoch << " learning rate " << eps << std::endl;
   }
   inline Vector<FloatType> descentProfile(FloatType &step_size, const Vector<FloatType> &deriv) const{
     step_size = eps;
@@ -49,10 +49,10 @@ class AdamOptimizer{
 public:
   AdamOptimizer(const AdamParams<FloatType> &ap, const LRscheduler &sched): sched(sched), ap(ap), alpha(0.), t(0){}
   
-  void epochStart(int epoch){
+  void epochStart(int epoch, bool verbose = true){
     alpha = sched(epoch);
     if(epoch == 0) reset();
-    std::cout << "AdamOptimizer: Epoch " << epoch << " learning rate (alpha) " << alpha << std::endl;
+    if(verbose) std::cout << "AdamOptimizer: Epoch " << epoch << " learning rate (alpha) " << alpha << std::endl;
   }
   inline Vector<FloatType> descentProfile(FloatType &step_size, const Vector<FloatType> &g){
     int nparam = g.size(0);
@@ -121,7 +121,7 @@ inline batchedXYpair<FloatType> batchData(int* indices, int batch_size, const st
 
 
 template<typename FloatType, typename ModelType, typename Optimizer>
-std::vector<FloatType> train(ModelType &model, const std::vector<XYpair<FloatType> > &data, Optimizer &optimizer, int nepoch, int batch_size){
+std::vector<FloatType> train(ModelType &model, const std::vector<XYpair<FloatType> > &data, Optimizer &optimizer, int nepoch, int batch_size, bool suppress_logging = false){
   std::default_random_engine gen(1234); //important that every rank shuffles in the same way
 
   //We want to divide the data evenly over batches. This means we may need to discard some data
@@ -139,7 +139,7 @@ std::vector<FloatType> train(ModelType &model, const std::vector<XYpair<FloatTyp
   int nblocks = (nbatch + blocksize - 1) / blocksize; //round up
   int me = communicators().ddpRank(); //all ranks in a pipeline will have the same value for the ddp rank, but only the pipeline leader should communicate
 
-  bool do_print = me == 0 && communicators().isPipelineLeader();
+  bool do_print = me == 0 && communicators().isPipelineLeader() && !suppress_logging ;
 
   if(do_print) std::cout << "Training with " << ndata << " data samples divided into " << nbatch << " batches of size " << batch_size
 			 << " using DDP over " << blocksize << " ranks with " << nblocks << " iterations per epoch" << std::endl;
@@ -147,7 +147,7 @@ std::vector<FloatType> train(ModelType &model, const std::vector<XYpair<FloatTyp
   std::vector<FloatType> losses(nblocks*nepoch);
     
   for(int epoch=0;epoch<nepoch;epoch++){
-    optimizer.epochStart(epoch);
+    optimizer.epochStart(epoch, do_print);
     std::random_shuffle ( didx.begin(), didx.end(), [&](const int l){ return dist(gen); }  );
 
     for(int block=0;block<nblocks;block++){

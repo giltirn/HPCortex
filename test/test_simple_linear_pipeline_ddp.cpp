@@ -14,12 +14,17 @@ void testSimpleLinearPipelineDDP(){
   int pipe_rank = communicators().pipelineRank();
 
   int nranks_tot = communicators().worldNrank();
+
+  int nepoch = 20;
   
   int call_batch_size = 2; //how many samples are processed at a time by each pipeline rank
   int glob_batch_size = 6 * nranks_tot; //how many samples in an overall batch
-
   int nbatch = 50; //how many batches in the data set
-
+  
+  int ddp_nbatch = communicators().ddpNrank(); //now many batches are computed in parallel under DDP
+  
+  int eff_batch_size = glob_batch_size *  ddp_nbatch; //effective batch size for reproduction on single rank
+  
   int ndata = nbatch * glob_batch_size;
  
   std::vector<XYpair<FloatType> > data(ndata);
@@ -57,8 +62,8 @@ void testSimpleLinearPipelineDDP(){
   AdamParams<FloatType> ap;
   AdamOptimizer<FloatType,DecayScheduler<FloatType> > opt(ap,lr);
 
-  //Train pipeline
-  train(cost, data, opt, 50, glob_batch_size);
+  //Train pipeline + DDP
+  train(cost, data, opt, nepoch, glob_batch_size);
   Vector<FloatType> final_p = cost.getParams();
   std::vector<Vector<FloatType> > predict(ndata);
   for(int i=0;i<ndata;i++) predict[i] = cost.predict(data[i].x);
@@ -66,7 +71,7 @@ void testSimpleLinearPipelineDDP(){
   std::cout << "Training rank local model for comparison" << std::endl;  
   communicators().disableParallelism();
   communicators().reportSetup();
-  train(full_cost, data, opt, 50, glob_batch_size);
+  train(full_cost, data, opt, nepoch, eff_batch_size, communicators().worldRank() != 0);
   Vector<FloatType> expect_p = full_cost.getParams();
 
   MPI_Barrier(MPI_COMM_WORLD);
