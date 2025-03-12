@@ -60,6 +60,20 @@ void LambdaApply(uint64_t num1, uint64_t num2, uint64_t num3, uint64_t block2, l
     }									\
   }
 
+#define accelerator_for3dNB_shm( iter1, num1, iter2, num2, iter3, num3, block2, shm_size, ... ) \
+  {									\
+    if ( num1*num2*num3 ) {							\
+      typedef uint64_t Iterator;					\
+      auto lambda = [=] __device__					\
+	(Iterator iter1,Iterator iter2,Iterator iter3) mutable {	\
+		      __VA_ARGS__;					\
+		    };							\
+      dim3 cu_threads(num1,block2,1);			\
+      dim3 cu_blocks ((num2+block2-1)/block2,num3,1);				\
+      LambdaApply<<<cu_blocks,cu_threads,shm_size,computeStream>>>(num1,num2,num3,block2,lambda); \
+    }									\
+  }
+
 #define accelerator_barrier(dummy)					\
   {									\
     cudaStreamSynchronize(computeStream);				\
@@ -118,7 +132,14 @@ inline void acceleratorCopyDeviceToDeviceAsynch(void* to, void const* from, size
 {
   cudaMemcpyAsync(to,from,bytes, cudaMemcpyDeviceToDevice,copyStream);
 }
-inline void acceleratorCopySynchronise(void) { cudaStreamSynchronize(copyStream); };
+inline void acceleratorCopySynchronize(void) { cudaStreamSynchronize(copyStream); };
+
+accelerator_inline void acceleratorSynchronizeBlock(){
+#ifdef SIMT_ACTIVE //workaround
+  __syncthreads();
+#endif
+}
+
 #endif
 //////////////////////////// CUDA ///////////////////////////////////////////////////////
 
@@ -186,7 +207,7 @@ inline void acceleratorCopySynchronise(void) { cudaStreamSynchronize(copyStream)
 inline void acceleratorCopyToDevice(void* to, void const* from,size_t bytes)  { bcopy(from,to,bytes); }
 inline void acceleratorCopyFromDevice(void* to, void const* from,size_t bytes){ bcopy(from,to,bytes);}
 inline void acceleratorCopyDeviceToDeviceAsynch(void* to, void const* from,size_t bytes)  { bcopy(from,to,bytes);}
-inline void acceleratorCopySynchronise(void) {};
+inline void acceleratorCopySynchronize(void) {};
 
 inline void acceleratorMemSet(void *base,int value,size_t bytes) { memset(base,value,bytes);}
 
@@ -217,6 +238,26 @@ accelerator_for3dNB(iter1, num1, iter2, num2, dummy, 1, block2, { __VA_ARGS__ } 
 #define accelerator_for( iter, num, ... )		\
   accelerator_forNB(iter, num, { __VA_ARGS__ } );	\
   accelerator_barrier(dummy);
+
+
+
+#define accelerator_for3d_shm(iter1, num1, iter2, num2, iter3, num3, block2, shm_size,... ) \
+  accelerator_for3dNB_shm(iter1, num1, iter2, num2, iter3, num3, block2, shm_size,{ __VA_ARGS__ } ); \
+  accelerator_barrier(dummy);
+
+#define accelerator_for2dNB_shm(iter1, num1, iter2, num2, block2, shm_size, ... ) \
+accelerator_for3dNB_shm(iter1, num1, iter2, num2, dummy, 1, block2, shm_size,{ __VA_ARGS__ } );
+
+#define accelerator_for2d_shm(iter1, num1, iter2, num2, block2, shm_size, ... ) \
+  accelerator_for2dNB_shm(iter1, num1, iter2, num2, block2, shm_size,{ __VA_ARGS__ } ); \
+  accelerator_barrier(dummy);
+
+#define accelerator_forNB_shm( iter1, num1, shm_size, ... ) accelerator_for3dNB_shm( iter1, num1, dummy1,1,dummy2,1,  1, shm_size,{__VA_ARGS__} );  
+
+#define accelerator_for_shm( iter, num, shm_size, ... )		\
+  accelerator_forNB_shm(iter, num, shm_size,{ __VA_ARGS__ } );	\
+  accelerator_barrier(dummy);
+
 
 
 //Because View classes cannot have non-trivial destructors, if the view requires a free it needs to be managed externally
