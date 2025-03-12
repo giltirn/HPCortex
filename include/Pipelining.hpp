@@ -214,8 +214,8 @@ public:
     //3      <1-   <2-    <3|
     //etc
     //value_lag = 3 = nrank
-
-    yval_buf_v.push(y);
+    Matrix<FloatType> ycp(y);
+    yval_buf_v.push(std::move(ycp));
    
     ypred = block.value(x);
     assert(ypred.size(0) == dim);

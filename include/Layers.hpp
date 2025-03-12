@@ -63,8 +63,8 @@ private:
 
   //Storage from last call to "value"
   //Buffer size > 1 depending on rank if doing pipelining
-  RingBuffer<Matrix<FloatType> > leaf_buf;
-  RingBuffer<Matrix<FloatType> > activation_buf;
+  mutable RingBuffer<Matrix<FloatType> > leaf_buf;
+  mutable RingBuffer<Matrix<FloatType> > activation_buf;
   size_t calls;
 
   bool pipeline_mode;
@@ -88,9 +88,7 @@ public:
     batch_size = x.size(1);   
     assert(in.size(0) == size1);
     assert(in.size(1) == batch_size);
-
-    leaf_buf.push(in);
-    
+   
     Matrix<FloatType> out(size0,batch_size);
     {
       autoView(bias_v,bias,DeviceRead);
@@ -119,8 +117,9 @@ public:
 	  out_v(i,b) *= activation_v(i,b);
 	});
     }
-      
-    activation_buf.push(activation); //TODO: make this a move
+
+    leaf_buf.push(std::move(in));
+    activation_buf.push(std::move(activation));
     
     return out;
   }

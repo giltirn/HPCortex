@@ -29,14 +29,14 @@ public:
     filled=false;
   }
   
-  void push(const T&v){
-    ring[off] = v;
+  inline void push(T&& v){
+    ring[off] = std::move(v);
     off = (off + 1) % ring.size();
     if(!off) filled = true;
   }
-  T pop() const{
+  inline T pop(){
     if(!filled) throw std::runtime_error("Cannot pop from an unfilled RingBuffer as the returned value will be uninitialized");
-    return ring[off];
+    return std::move(ring[off]);
   }
   //Return whether the RingBuffer has been populated such that pop() can be performed
   bool isFilled() const{ return filled; }
