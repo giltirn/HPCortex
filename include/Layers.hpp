@@ -99,9 +99,10 @@ public:
       autoView(weights_v,weights,DeviceRead);
 
       //Basic version where columns are summed over within a thread and rows/batches distributed over threads
+      size_t sz1 = size1;
       accelerator_for2d(b,batch_size,i,size0,1,{
 	  out_v(i,b) = bias_v(i);
-	  for(int j=0;j<size1;j++)
+	  for(int j=0;j<sz1;j++)
 	    out_v(i,b) += weights_v(i,j)* in_v(j,b);
 	});      
     }
@@ -153,8 +154,9 @@ public:
 	autoView(weights_v,weights,DeviceRead);
 
 	//Basic implementation
+	size_t sz0 = size0;
 	accelerator_for2d(b,batch_size,j,size1,1,{
-	  for(int i=0;i<size0;i++)
+	  for(int i=0;i<sz0;i++)
 	    layer_deriv_v(j,b) += above_deriv_v(i,b) * activation_v(i,b) * weights_v(i,j);
 	  });
       }
@@ -167,9 +169,11 @@ public:
       {
 	autoView(cost_deriv_v,cost_deriv,DeviceReadWrite);
 	autoView(in_v,in,DeviceRead);
+	size_t bs = batch_size;
+	size_t sz1 = size1;
 	accelerator_for2d(k,size1,j,size0,1,{
-	    int pp = p + k + size1*j;	    
-	    for(int b=0;b<batch_size;b++)
+	    int pp = p + k + sz1*j;	    
+	    for(int b=0;b<bs;b++)
 	      cost_deriv_v(pp) += above_deriv_v(j,b) * activation_v(j,b) * in_v(k,b); //batch reduction! (assume zero-initialized)
 	  });
 	p += size0*size1;
@@ -177,7 +181,7 @@ public:
 	//TODO: Fuse these
 	accelerator_for(j,size0,{
 	    int pp = p + j;
-	    for(int b=0;b<batch_size;b++)
+	    for(int b=0;b<bs;b++)
 	      cost_deriv_v(pp) += above_deriv_v(j,b) * activation_v(j,b);
 	  });
 	p += size0;
@@ -194,8 +198,9 @@ public:
       autoView(new_params_v,new_params,DeviceRead);
       autoView(bias_v,bias,DeviceWrite);
       autoView(weights_v,weights,DeviceWrite);
+      size_t sz1=size1;
       accelerator_for2d(j,size1,i,size0,1,{
-	  int pp = p + j + size1*i;
+	  int pp = p + j + sz1*i;
 	  weights_v(i,j) = new_params_v(pp);
 	});
 	  
@@ -215,9 +220,9 @@ public:
       autoView(derivs_v,derivs,DeviceRead);
       autoView(bias_v,bias,DeviceReadWrite);
       autoView(weights_v,weights,DeviceReadWrite);
-
+      size_t sz1 = size1;
       accelerator_for2d(j,size1,i,size0,1,{
-	  int pp = p + j + size1*i;
+	  int pp = p + j + sz1*i;
 	  weights_v(i,j) -= derivs_v(pp) * eps;
 	});
 	  
@@ -242,8 +247,9 @@ public:
       autoView(into_v,into,DeviceReadWrite);
       autoView(bias_v,bias,DeviceRead);
       autoView(weights_v,weights,DeviceRead);
+      size_t sz1 = size1;
       accelerator_for2d(j,size1,i,size0,1,{
-	  int pp = p + j + size1*i;
+	  int pp = p + j + sz1*i;
 	  into_v(pp) = weights_v(i,j);
 	});
 

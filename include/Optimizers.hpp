@@ -67,12 +67,16 @@ public:
     autoView(g_v,g,DeviceRead);
     autoView(out_v,out,DeviceWrite);
 
+    auto b1 = ap.beta1;
+    auto b2 = ap.beta2;
+    auto eps = ap.eps;
+    
     accelerator_for(p,nparam,{
       FloatType gp_init = g_v(p);
-      m_v(p) = ap.beta1 * m_v(p) + (1.-ap.beta1)*g_v(p);
-      v_v(p) = ap.beta2 * v_v(p) + (1.-ap.beta2)*pow(g_v(p),2);
+      m_v(p) = b1 * m_v(p) + (1.-b1)*g_v(p);
+      v_v(p) = b2 * v_v(p) + (1.-b2)*pow(g_v(p),2);
 
-      out_v(p) = m_v(p)/(sqrt(v_v(p)) + ap.eps);
+      out_v(p) = m_v(p)/(sqrt(v_v(p)) + eps);
       });
 
     step_size =  t>0 ? alpha * sqrt(1. - pow(ap.beta2,t))  / (1. - pow(ap.beta1,t) ) : alpha;

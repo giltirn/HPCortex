@@ -23,14 +23,15 @@ Matrix<FloatType> MSEcostFunc<FloatType>::layer_deriv(const Matrix<FloatType> &y
   int dim = y.size(0);
   int batch_size = y.size(1);
     
-  Matrix<FloatType> layer_deriv(dim,batch_size);
+  Matrix<FloatType> layer_deriv_m(dim,batch_size);
   autoView(ypred_v,ypred,DeviceRead);
   autoView(y_v,y,DeviceRead);
-  autoView(layer_deriv_v,layer_deriv,DeviceWrite);
-
+  autoView(layer_deriv_v,layer_deriv_m,DeviceWrite);
+  
   //Might be optimal to have more than just batch_size elements per block but this is a fair start
   accelerator_for2d(b,batch_size,i,dim,1,{
       layer_deriv_v(i,b) = 2*(ypred_v(i,b) - y_v(i,b)) / (dim*batch_size);
-    });
-  return layer_deriv;
+    });  
+  
+  return layer_deriv_m;
 }

@@ -60,7 +60,7 @@ void testOneHiddenLayer(){
 	    FloatType expect = (c2-c1)/delta;
 	    std::cout << i << " got " << pd_v(i) << " expect " << expect << std::endl;
 	    if(abs(expect) > 1e-4)
-	      assert(near(pd_v(i),expect,FloatType(1e-3)));
+	      assert(abs_near(pd_v(i),expect,FloatType(1e-3)));
 	  });
 	
       }

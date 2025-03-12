@@ -35,3 +35,12 @@ bool near(const Vector<FloatType> &a,const Vector<FloatType> &b, FloatType rel_t
   }
   return true;
 }
+
+
+template<typename FloatType>
+bool abs_near(FloatType a, FloatType b, FloatType abs_tol, FloatType *absdiff_p = nullptr){
+  FloatType absdiff = fabs(a - b);
+  if(absdiff_p) *absdiff_p = absdiff;
+  if(absdiff > abs_tol) return false;
+  else return true;
+}
