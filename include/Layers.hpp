@@ -125,8 +125,10 @@ public:
   }
 
   //TODO: Find a way to free 'above_deriv' once used as it is not needed for layers below
+  //      suggest passing r-value reference
   void deriv(Vector<FloatType> &cost_deriv, int off, const Matrix<FloatType> &above_deriv, Matrix<FloatType>* input_above_deriv_copyback = nullptr) const{
     assert(above_deriv.size(0) == size0);
+    assert(above_deriv.size(1) == batch_size);
     int p=off;
     Matrix<FloatType> layer_deriv(size1,batch_size,0.);
     {
@@ -139,14 +141,25 @@ public:
       Matrix<FloatType> activation = activation_buf.isFilled() ? activation_buf.pop() : Matrix<FloatType>(size0,batch_size,0.);
       assert(activation.size(0) == size0);
       assert(activation.size(1) == batch_size);      
+
+      //precompute the activated derivatives  dcost/df_i act_i as they are reused below
+      Matrix<FloatType> activated_above_deriv(size0,batch_size);
+      {
+	autoView(above_deriv_v,above_deriv,DeviceRead);
+	autoView(activation_v,activation,DeviceRead);
+	autoView(activated_above_deriv_v,activated_above_deriv,DeviceWrite);
+
+	accelerator_for2d(b,batch_size,i,size0,1,{
+	    activated_above_deriv_v(i,b) = above_deriv_v(i,b) * activation_v(i,b);
+	  });
+      }
       
       //for reverse differentiation, we pass down the derivatives with respect to our inputs
       //f(x)_i = act_i b_i + \sum_j act_i w_ij x_j
       //dcost / dx_j = \sum_i dcost/df_i df_i/dx_j
       //df_i/dx_j = act_i w_ij    
 
-      autoView(above_deriv_v,above_deriv,DeviceRead);
-      autoView(activation_v,activation,DeviceRead);
+      autoView(activated_above_deriv_v,activated_above_deriv,DeviceRead);
     
       {
 	autoView(layer_deriv_v,layer_deriv,DeviceReadWrite);
@@ -156,7 +169,7 @@ public:
 	size_t sz0 = size0;
 	accelerator_for2d(b,batch_size,j,size1,1,{
 	  for(int i=0;i<sz0;i++)
-	    layer_deriv_v(j,b) += above_deriv_v(i,b) * activation_v(i,b) * weights_v(i,j);
+	    layer_deriv_v(j,b) += activated_above_deriv_v(i,b) * weights_v(i,j);
 	  });
       }
 
@@ -173,7 +186,7 @@ public:
 	accelerator_for2d(k,size1,j,size0,1,{
 	    int pp = p + k + sz1*j;	    
 	    for(int b=0;b<bs;b++)
-	      cost_deriv_v(pp) += above_deriv_v(j,b) * activation_v(j,b) * in_v(k,b); //batch reduction! (assume zero-initialized)
+	      cost_deriv_v(pp) += activated_above_deriv_v(j,b) * in_v(k,b); //batch reduction! (assume zero-initialized)
 	  });
 	p += size0*size1;
 
@@ -181,7 +194,7 @@ public:
 	accelerator_for(j,size0,{
 	    int pp = p + j;
 	    for(int b=0;b<bs;b++)
-	      cost_deriv_v(pp) += above_deriv_v(j,b) * activation_v(j,b);
+	      cost_deriv_v(pp) += activated_above_deriv_v(j,b);
 	  });
 	p += size0;
       }
