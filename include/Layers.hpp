@@ -93,18 +93,17 @@ public:
     
     Matrix<FloatType> out(size0,batch_size);
     {
-      autoView(bias_v,bias,HostRead);
-      autoView(out_v,out,HostWrite);
-      autoView(in_v,in,HostRead);
-      autoView(weights_v,weights,HostRead);
-      
-      for(int i=0;i<size0;i++){
-	for(int b=0;b<batch_size;b++){
+      autoView(bias_v,bias,DeviceRead);
+      autoView(out_v,out,DeviceWrite);
+      autoView(in_v,in,DeviceRead);
+      autoView(weights_v,weights,DeviceRead);
+
+      //Basic version where columns are summed over within a thread and rows/batches distributed over threads
+      accelerator_for2d(b,batch_size,i,size0,1,{
 	  out_v(i,b) = bias_v(i);
 	  for(int j=0;j<size1;j++)
 	    out_v(i,b) += weights_v(i,j)* in_v(j,b);
-	}
-      }
+	});      
     }
 	
     Matrix<FloatType> activation = activation_func(out);
@@ -112,12 +111,12 @@ public:
     assert(activation.size(1) == batch_size);
 
     {
-      autoView(out_v,out,HostReadWrite);
-      autoView(activation_v,activation,HostRead);
-	
-      for(int i=0;i<size0;i++)
-	for(int b=0;b<batch_size;b++)
-	  out_v(i,b) *= activation_v(i,b);    
+      autoView(out_v,out,DeviceReadWrite);
+      autoView(activation_v,activation,DeviceRead);
+
+      accelerator_for2d(b,batch_size,i,size0,1,{
+	  out_v(i,b) *= activation_v(i,b);
+	});
     }
       
     activation_buf.push(activation); //TODO: make this a move
@@ -146,17 +145,18 @@ public:
       //dcost / dx_j = \sum_i dcost/df_i df_i/dx_j
       //df_i/dx_j = act_i w_ij    
 
-      autoView(above_deriv_v,above_deriv,HostRead);
-      autoView(activation_v,activation,HostRead);
+      autoView(above_deriv_v,above_deriv,DeviceRead);
+      autoView(activation_v,activation,DeviceRead);
     
       {
-	autoView(layer_deriv_v,layer_deriv,HostReadWrite);
-	autoView(weights_v,weights,HostRead);
-      
-	for(int j=0;j<size1;j++)
+	autoView(layer_deriv_v,layer_deriv,DeviceReadWrite);
+	autoView(weights_v,weights,DeviceRead);
+
+	//Basic implementation
+	accelerator_for2d(b,batch_size,j,size1,1,{
 	  for(int i=0;i<size0;i++)
-	    for(int b=0;b<batch_size;b++)
-	      layer_deriv_v(j,b) += above_deriv_v(i,b) * activation_v(i,b) * weights_v(i,j);
+	    layer_deriv_v(j,b) += above_deriv_v(i,b) * activation_v(i,b) * weights_v(i,j);
+	  });
       }
 
       //Now we finish up the derivs wrt our parameters
@@ -165,20 +165,22 @@ public:
       //dcost / dw_jk = \sum_i dcost/df_i df_i/dw_jk = dcost/df_j * act_j * x_k
       //dcost / db_j = \sum_i dcost/df_i df_i/db_j = dcost/df_j * act_j
       {
-	autoView(cost_deriv_v,cost_deriv,HostReadWrite);
-	autoView(in_v,in,HostRead);
-	for(int j=0;j<size0;j++)
-	  for(int k=0;k<size1;k++){
+	autoView(cost_deriv_v,cost_deriv,DeviceReadWrite);
+	autoView(in_v,in,DeviceRead);
+	accelerator_for2d(k,size1,j,size0,1,{
+	    int pp = p + k + size1*j;	    
 	    for(int b=0;b<batch_size;b++)
-	      cost_deriv_v(p) += above_deriv_v(j,b) * activation_v(j,b) * in_v(k,b); //batch reduction! (assume zero-initialized)
-	    ++p;
-	  }
-	
-	for(int j=0;j<size0;j++){
-	  for(int b=0;b<batch_size;b++)
-	    cost_deriv_v(p) += above_deriv_v(j,b) * activation_v(j,b);
-	  ++p;
-	}
+	      cost_deriv_v(pp) += above_deriv_v(j,b) * activation_v(j,b) * in_v(k,b); //batch reduction! (assume zero-initialized)
+	  });
+	p += size0*size1;
+
+	//TODO: Fuse these
+	accelerator_for(j,size0,{
+	    int pp = p + j;
+	    for(int b=0;b<batch_size;b++)
+	      cost_deriv_v(pp) += above_deriv_v(j,b) * activation_v(j,b);
+	  });
+	p += size0;
       }
     
     }//close views and free temporaries before calling layer below
@@ -189,31 +191,43 @@ public:
   void update(int off, const Vector<FloatType> &new_params){
     int p=off;
     {
-      autoView(new_params_v,new_params,HostRead);
-      autoView(bias_v,bias,HostWrite);
-      autoView(weights_v,weights,HostWrite);
-      for(int i=0;i<size0;i++)
-	for(int j=0;j<size1;j++)
-	  weights_v(i,j) = new_params_v(p++);
-      for(int i=0;i<size0;i++)
-	bias_v(i) = new_params_v(p++);
+      autoView(new_params_v,new_params,DeviceRead);
+      autoView(bias_v,bias,DeviceWrite);
+      autoView(weights_v,weights,DeviceWrite);
+      accelerator_for2d(j,size1,i,size0,1,{
+	  int pp = p + j + size1*i;
+	  weights_v(i,j) = new_params_v(pp);
+	});
+	  
+      p += size0*size1;
+
+      accelerator_for(i,size0,{
+	bias_v(i) = new_params_v(p + i);
+	});
+      
+      p += size0;
     }
     leaf.v.update(p, new_params);
   }
   void step(int off, const Vector<FloatType> &derivs, FloatType eps){
     int p=off;
     {
-      autoView(derivs_v,derivs,HostRead);
-      autoView(bias_v,bias,HostReadWrite);
-      autoView(weights_v,weights,HostReadWrite);
+      autoView(derivs_v,derivs,DeviceRead);
+      autoView(bias_v,bias,DeviceReadWrite);
+      autoView(weights_v,weights,DeviceReadWrite);
+
+      accelerator_for2d(j,size1,i,size0,1,{
+	  int pp = p + j + size1*i;
+	  weights_v(i,j) -= derivs_v(pp) * eps;
+	});
+	  
+      p += size0*size1;
+
+      accelerator_for(i,size0,{
+	bias_v(i) -= derivs_v(p + i) * eps;
+	});
       
-      for(int i=0;i<size0;i++)
-	for(int j=0;j<size1;j++){
-	  weights_v(i,j) -= derivs_v(p++) * eps;
-	}
-      for(int i=0;i<size0;i++){
-	bias_v(i) -= derivs_v(p++) * eps;
-      }
+      p += size0;
     }
     leaf.v.step(p, derivs, eps);
   }
@@ -225,14 +239,21 @@ public:
   void getParams(Vector<FloatType> &into, int off){
     int p = off;
     {
-      autoView(into_v,into,HostReadWrite);
-      autoView(bias_v,bias,HostRead);
-      autoView(weights_v,weights,HostRead);
-      for(int i=0;i<size0;i++)
-	for(int j=0;j<size1;j++)
-	  into_v(p++) = weights_v(i,j);
-      for(int i=0;i<size0;i++)
-	into_v(p++) = bias_v(i);
+      autoView(into_v,into,DeviceReadWrite);
+      autoView(bias_v,bias,DeviceRead);
+      autoView(weights_v,weights,DeviceRead);
+      accelerator_for2d(j,size1,i,size0,1,{
+	  int pp = p + j + size1*i;
+	  into_v(pp) = weights_v(i,j);
+	});
+
+      p += size0*size1;
+	  
+      accelerator_for(i,size0,{
+	into_v(p + i) = bias_v(i);
+	});
+
+      p += size0;
     }
     leaf.v.getParams(into, p);
   }

@@ -6,6 +6,100 @@ void basicTests(){
   FloatType delta = 1e-4;
   
   typedef std::vector<FloatType> vecD;
+
+  //Test peekColumns
+  {
+    Matrix<FloatType> m(2,3, vecD({ 1.,2.,3.,
+	                            4.,5.,6.  }));
+    auto mv = m.peekColumns(1,2);
+    assert(mv.size(0) == 2 && mv.size(1) == 2);    
+    doHost(mv, { assert(mv_v(0,0) == FloatType(2.) && mv_v(0,1) == FloatType(3.) && mv_v(1,0) == FloatType(5.) && mv_v(1,1) == FloatType(6.)); });
+  }   
+  //Test pokeColumns
+  {
+    Matrix<FloatType> m(2,3, vecD({ 1.,2.,3.,
+	                            4.,5.,6.  }));
+    Matrix<FloatType> v(2,2, vecD({5.,6.,
+	                           7.,8.}));   
+    m.pokeColumns(1,2,v);
+    
+    doHost(m, { assert(m_v(0,1) == FloatType(5.) && m_v(0,2) == FloatType(6.) && m_v(1,1) == FloatType(7.) && m_v(1,2) == FloatType(8.)); });
+  }
+  //Test matrix-vector linalg
+  {
+    Matrix<FloatType> m(2,3, vecD({ -0.1, 0.1, 0.3,
+              	                    0.7, -0.3, 0.25 }));
+    Vector<FloatType> v(vecD({ 4.56, 3.14, -2.56 }));
+    Vector<FloatType> v2(vecD({ 7.14, -4.13, -5.66 }));
+
+    //m*v
+    {
+      Vector<FloatType> got = m * v;
+      Vector<FloatType> expect(2, 0., MemoryManager::Pool::HostPool);
+      {
+	autoView(e_v,expect,HostReadWrite);
+	autoView(m_v,m,HostRead);
+	autoView(v_v,v,HostRead);
+	for(int i=0;i<2;i++)
+	  for(int j=0;j<3;j++)
+	    e_v(i) += m_v(i,j) * v_v(j);
+      }
+      assert(near(expect,got,FloatType(1e-5)));
+    }
+    //v + v2,  v += v2
+    {
+      Vector<FloatType> got = v + v2;
+      Vector<FloatType> expect(3, MemoryManager::Pool::HostPool);
+      {
+	autoView(e_v,expect,HostWrite);
+	autoView(v_v,v,HostRead);
+	autoView(v2_v,v2,HostRead);
+	for(int i=0;i<3;i++)
+	  e_v(i) = v_v(i) + v2_v(i);
+      }
+      assert(near(expect,got,FloatType(1e-5)));
+
+      got = v;
+      got += v2;
+      assert(near(expect,got,FloatType(1e-5)));
+    }
+    //v - v2
+    {
+      Vector<FloatType> got = v - v2;
+      Vector<FloatType> expect(3, MemoryManager::Pool::HostPool);
+      {
+	autoView(e_v,expect,HostWrite);
+	autoView(v_v,v,HostRead);
+	autoView(v2_v,v2,HostRead);
+	for(int i=0;i<3;i++)
+	  e_v(i) = v_v(i) - v2_v(i);
+      }
+      assert(near(expect,got,FloatType(1e-5)));
+    }
+    //v * eps, v*= eps
+    {
+      FloatType eps = 0.123;
+      Vector<FloatType> got = eps * v;
+      Vector<FloatType> expect(3, MemoryManager::Pool::HostPool);
+      {
+	autoView(e_v,expect,HostWrite);
+	autoView(v_v,v,HostRead);
+	for(int i=0;i<3;i++)
+	  e_v(i) = v_v(i) * eps;
+      }
+      assert(near(expect,got,FloatType(1e-5)));
+
+      got = v;
+      got *= eps;
+
+      assert(near(expect,got,FloatType(1e-5)));
+    }
+
+    
+  }
+    
+
+  
   
   Matrix<FloatType> w1_init(3,2, vecD({0.1,0.2,
    	                             -0.1,-0.2,
@@ -27,7 +121,7 @@ void basicTests(){
   Matrix<FloatType> y1(3,2, vecD({-0.5, -0.5,
         	                   1.7, 1.3,
 			          -0.7, -0.5}));
-
+  //test the MSE loss calculation
   FloatType expect = 0.;
   for(int i=0;i<2;i++){  
     Vector<FloatType> y1pred = w1_init * x1.peekColumn(i) + b1_init;
@@ -44,6 +138,7 @@ void basicTests(){
   std::cout << "Test loss : got " << got << " expect " << expect << std::endl;
   assert(near(got,expect,FloatType(1e-4)));
 
+  //test the derivatives
   Vector<FloatType> dexpect(9);
   {
     autoView(dexpect_v,dexpect,HostWrite); 
