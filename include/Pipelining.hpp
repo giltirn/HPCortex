@@ -93,7 +93,7 @@ public:
       if(i_vpipe >= 0){
 	Matrix<FloatType> layer_deriv = cost.layer_deriv(y_iter , ypred);
 	Vector<FloatType> cost_deriv(nparam,0.);    //zero initialize
-	block.deriv(cost_deriv, layer_deriv);
+	block.deriv(cost_deriv, std::move(layer_deriv));
 	
 	if(i_dpipe >= 0){
 	  ++dcount;
@@ -260,7 +260,7 @@ public:
     if(calls >= value_lag){ //can't call before value_lag because yval uninitialized
       Matrix<FloatType> layer_deriv = cost.layer_deriv(yval, ypred);
       Vector<FloatType> cost_deriv(nparam,0.);    //zero initialize
-      block.deriv(cost_deriv, layer_deriv);
+      block.deriv(cost_deriv, std::move(layer_deriv));
       if(calls < deriv_lag) return Vector<FloatType>(nparam,-1.); //indicate that these derivs are invalid
       else return cost_deriv;
     }else return Vector<FloatType>(nparam,-1.); //indicate that these derivs are invalid
@@ -477,7 +477,7 @@ public:
     return out; //note, output only meaningful on first node   
   }
 
-  void deriv(Vector<FloatType> &cost_deriv, const Matrix<FloatType> &above_deriv){
+  void deriv(Vector<FloatType> &cost_deriv, Matrix<FloatType> &&above_deriv){
     ++dcalls;
     std::vector<CommsRequest<FloatType> > reqs;
 
@@ -615,12 +615,13 @@ public:
     
     //compute layer derivative and fill in cost derivative vector
     //if this is the first rank, fill the input cost_deriv, else we append it to the deriv vector received last call
-    Matrix<FloatType> layer_deriv(next_features, batch_size); //layer deriv to send right
+    Matrix<FloatType> layer_deriv; //layer deriv to send right
     Vector<FloatType> pass_cost_deriv(is_first ? cost_deriv : prev_cost_deriv_passright); //cost deriv to send right
 
-    block.v.deriv(pass_cost_deriv, stage_off, is_first ? above_deriv : prev_above_deriv, &layer_deriv);
+    block.v.deriv(pass_cost_deriv, stage_off, is_first ? std::move(above_deriv) : std::move(prev_above_deriv), &layer_deriv);
 
     //send layer deriv to right if !last
+    prev_above_deriv = Matrix<FloatType>(this_features, batch_size); //we consumed this matrix above so we need to recreate it!
     passRight(reqs, &layer_deriv, &layer_deriv,
                                  &prev_above_deriv, &prev_above_deriv); 
     

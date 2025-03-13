@@ -45,7 +45,9 @@ void testPipeline(){
       input_deriv[i] = Matrix<FloatType>(1,batch_size, 2.13*(i+1)); 
       Matrix<FloatType> x(1,1, i+1);
       expect_v[i] = test_model.value(x);
-      test_model.deriv(expect_d[i],0,input_deriv[i]);
+
+      Matrix<FloatType> idcp(input_deriv[i]);
+      test_model.deriv(expect_d[i],0,std::move(idcp));
     }
     int nparams = test_model.nparams();
 

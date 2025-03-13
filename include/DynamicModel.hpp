@@ -7,7 +7,7 @@ template<typename FloatType>
 class LayerWrapperInternalBase{
 public:
   virtual Matrix<FloatType> value(const Matrix<FloatType> &x) = 0;
-  virtual void deriv(Vector<FloatType> &cost_deriv, int off, const Matrix<FloatType> &above_deriv, Matrix<FloatType>* input_above_deriv_copyback = nullptr) const = 0;
+  virtual void deriv(Vector<FloatType> &cost_deriv, int off, Matrix<FloatType> &&above_deriv, Matrix<FloatType>* input_above_deriv_return = nullptr) const = 0;
   virtual int nparams() const = 0;
   virtual void resizeInputBuffer(size_t to) = 0;
   virtual void getParams(Vector<FloatType> &into, int off) = 0;
@@ -23,8 +23,8 @@ public:
   Matrix<FloatType> value(const Matrix<FloatType> &x) override{
     return layer.v.value(x);
   }
-  void deriv(Vector<FloatType> &cost_deriv, int off, const Matrix<FloatType> &above_deriv, Matrix<FloatType>* input_above_deriv_copyback = nullptr) const override{
-    layer.v.deriv(cost_deriv,off,above_deriv, input_above_deriv_copyback);
+  void deriv(Vector<FloatType> &cost_deriv, int off, Matrix<FloatType> &&above_deriv, Matrix<FloatType>* input_above_deriv_return = nullptr) const override{
+    layer.v.deriv(cost_deriv,off,std::move(above_deriv), input_above_deriv_return);
   }
   int nparams() const override{ return layer.v.nparams(); }
 
@@ -52,8 +52,8 @@ public:
   inline Matrix<FloatType> value(const Matrix<FloatType> &x){
     return layer->value(x);
   }
-  inline void deriv(Vector<FloatType> &cost_deriv, int off, const Matrix<FloatType> &above_deriv, Matrix<FloatType>* input_above_deriv_copyback = nullptr) const{
-    layer->deriv(cost_deriv,off,above_deriv, input_above_deriv_copyback);
+  inline void deriv(Vector<FloatType> &cost_deriv, int off, Matrix<FloatType> &&above_deriv, Matrix<FloatType>* input_above_deriv_return = nullptr) const{
+    layer->deriv(cost_deriv,off, std::move(above_deriv), input_above_deriv_return);
   }
   inline int nparams() const{ return layer->nparams(); }
 

@@ -26,9 +26,9 @@ public:
     return x;
   }
 
-  inline void deriv(Vector<FloatType> &cost_deriv, int off, const Matrix<FloatType> &above_deriv, Matrix<FloatType>* input_above_deriv_copyback = nullptr) const{
+  inline void deriv(Vector<FloatType> &cost_deriv, int off, Matrix<FloatType> &&above_deriv, Matrix<FloatType>* input_above_deriv_return = nullptr) const{
     //We don't have to do anything for backpropagation as this is the last layer
-    if(input_above_deriv_copyback) *input_above_deriv_copyback = above_deriv; //copy back the input derivative if desired
+    if(input_above_deriv_return) *input_above_deriv_return = std::move(above_deriv); //copy back the input derivative if desired
   }
   
   inline void update(int off, const Vector<FloatType> &new_params){}
@@ -117,14 +117,14 @@ public:
     return out;
   }
 
-  //TODO: Find a way to free 'above_deriv' once used as it is not needed for layers below
-  //      suggest passing r-value reference
-  void deriv(Vector<FloatType> &cost_deriv, int off, const Matrix<FloatType> &above_deriv, Matrix<FloatType>* input_above_deriv_copyback = nullptr) const{
-    assert(above_deriv.size(0) == size0);
-    assert(above_deriv.size(1) == batch_size);
+  void deriv(Vector<FloatType> &cost_deriv, int off, Matrix<FloatType> &&_above_deriv, Matrix<FloatType>* input_above_deriv_return = nullptr) const{
+    assert(_above_deriv.size(0) == size0);
+    assert(_above_deriv.size(1) == batch_size);
     int p=off;
     Matrix<FloatType> layer_deriv(size1,batch_size,0.);
     {
+      Matrix<FloatType> above_deriv(std::move(_above_deriv)); //inside the braces above ensures this object is freed before the next layer is called
+      
       //until the pipeline is "primed", the ring buffers will pop uninitialized values. We could in principle skip doing any computation until then
       //but for now we just initialize with zero values (TODO: revisit)
       Matrix<FloatType> in = leaf_buf.isFilled() ? leaf_buf.pop(): Matrix<FloatType>(size1,batch_size,0.);
@@ -202,7 +202,7 @@ public:
     
     }//close views and free temporaries before calling layer below
     
-    leaf.v.deriv(cost_deriv, p, layer_deriv, input_above_deriv_copyback);
+    leaf.v.deriv(cost_deriv, p, std::move(layer_deriv), input_above_deriv_return);
   }
 
   void update(int off, const Vector<FloatType> &new_params){

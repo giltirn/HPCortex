@@ -28,7 +28,7 @@ public:
     Matrix<FloatType> layer_deriv = cost.layer_deriv(yval, ypred);
 
     Vector<FloatType> cost_deriv(nparam,0.);    //zero initialize
-    leaf.v.deriv(cost_deriv, 0, layer_deriv);
+    leaf.v.deriv(cost_deriv, 0, std::move(layer_deriv));
     return cost_deriv;
   }
 
