@@ -3,6 +3,7 @@ set -e
 rm -f run_tests.log
 ./test_accelerator 2>&1 | tee test_accelerator.log
 ./test_basic 2>&1 | tee test_basic.log
+./test_activation 2>&1 | tee test_activation.log
 mpirun -n  2 ./test_comms 2>&1 | tee test_comms.log
 ./test_managed_array 2>&1 | tee test_managed_array.log
 ./test_dynamic_model 2>&1 | tee test_dynamic_model.log

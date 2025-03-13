@@ -64,7 +64,7 @@ private:
   //Storage from last call to "value"
   //Buffer size > 1 depending on rank if doing pipelining
   mutable RingBuffer<Matrix<FloatType> > leaf_buf;
-  mutable RingBuffer<Matrix<FloatType> > activation_buf;
+  mutable RingBuffer<Matrix<FloatType> > activation_deriv_buf;
   size_t calls;
 
   bool pipeline_mode;
@@ -104,22 +104,15 @@ public:
 	    out_v(i,b) += weights_v(i,j)* in_v(j,b);
 	});      
     }
-	
-    Matrix<FloatType> activation = activation_func(out);
-    assert(activation.size(0) == size0);
-    assert(activation.size(1) == batch_size);
 
-    {
-      autoView(out_v,out,DeviceReadWrite);
-      autoView(activation_v,activation,DeviceRead);
-
-      accelerator_for2d(b,batch_size,i,size0,1,{
-	  out_v(i,b) *= activation_v(i,b);
-	});
-    }
+    //Apply activation function ; modifies output in-place and returns derivatives   
+    Matrix<FloatType> activation_deriv;
+    activation_func(out, &activation_deriv);
+    assert(activation_deriv.size(0) == size0);
+    assert(activation_deriv.size(1) == batch_size);
 
     leaf_buf.push(std::move(in));
-    activation_buf.push(std::move(activation));
+    activation_deriv_buf.push(std::move(activation_deriv));
     
     return out;
   }
@@ -138,27 +131,33 @@ public:
       assert(in.size(0) == size1);
       assert(in.size(1) == batch_size);
       
-      Matrix<FloatType> activation = activation_buf.isFilled() ? activation_buf.pop() : Matrix<FloatType>(size0,batch_size,0.);
-      assert(activation.size(0) == size0);
-      assert(activation.size(1) == batch_size);      
+      Matrix<FloatType> activation_deriv = activation_deriv_buf.isFilled() ? activation_deriv_buf.pop() : Matrix<FloatType>(size0,batch_size,0.);
+      assert(activation_deriv.size(0) == size0);
+      assert(activation_deriv.size(1) == batch_size);      
 
-      //precompute the activated derivatives  dcost/df_i act_i as they are reused below
+      //for reverse differentiation, we pass down the derivatives of the cost with respect to our inputs, x (vector)
+      //Write output  f_i(x) = A( g_i(x) )   where A is the activation function
+      //where g_i(x) = b_i + \sum_j w_ij x_j
+      //
+      //dcost / dx_j = \sum_i dcost/df_i df_i/dx_j
+      //df_i/dx_j = df_i / dg_i dg_i / dx_j
+      //dg_i/dx_j = w_ij
+      
+      //dcost / dx_j = \sum_i (dcost/df_i df_i/dg_i) w_ij     :  "layer deriv"
+      
+      //precompute the "activated derivatives"  (dcost/df_i df_i/dg_i) as they are reused below
       Matrix<FloatType> activated_above_deriv(size0,batch_size);
       {
 	autoView(above_deriv_v,above_deriv,DeviceRead);
-	autoView(activation_v,activation,DeviceRead);
+	autoView(activation_deriv_v,activation_deriv,DeviceRead);
 	autoView(activated_above_deriv_v,activated_above_deriv,DeviceWrite);
 
 	accelerator_for2d(b,batch_size,i,size0,1,{
-	    activated_above_deriv_v(i,b) = above_deriv_v(i,b) * activation_v(i,b);
+	    activated_above_deriv_v(i,b) = above_deriv_v(i,b) * activation_deriv_v(i,b);
 	  });
       }
-      
-      //for reverse differentiation, we pass down the derivatives with respect to our inputs
-      //f(x)_i = act_i b_i + \sum_j act_i w_ij x_j
-      //dcost / dx_j = \sum_i dcost/df_i df_i/dx_j
-      //df_i/dx_j = act_i w_ij    
 
+      //Compute layer deriv
       autoView(activated_above_deriv_v,activated_above_deriv,DeviceRead);
     
       {
@@ -173,11 +172,13 @@ public:
 	  });
       }
 
-      //Now we finish up the derivs wrt our parameters
-      //df(x)_i / d w_jk = delta_ij act_j x_k
-      //df(x)_i / d b_j = delta_ij act_j
-      //dcost / dw_jk = \sum_i dcost/df_i df_i/dw_jk = dcost/df_j * act_j * x_k
-      //dcost / db_j = \sum_i dcost/df_i df_i/db_j = dcost/df_j * act_j
+      //Now we finish up the derivs wrt our parameters      
+      //dcost / dw_jk = \sum_i (dcost/df_i df_i/dg_i) dg_i/dw_jk
+      //dcost / db_j = \sum_i (dcost/df_i df_i/dg_i) dg_i/db_j
+      
+      //dg_i / d w_jk = delta_ij x_k
+      //dg_i / d b_j = delta_ij
+      
       {
 	autoView(cost_deriv_v,cost_deriv,DeviceReadWrite);
 	autoView(in_v,in,DeviceRead);
@@ -281,7 +282,7 @@ public:
     //std::cout << "RANK " << rank << " " << this << " RESIZING RING BUFFERS TO " << to << std::endl;
     pipeline_mode = true;
     leaf_buf.resize(to);
-    activation_buf.resize(to);
+    activation_deriv_buf.resize(to);
     leaf.v.resizeInputBuffer(to);
   }
 

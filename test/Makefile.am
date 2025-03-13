@@ -3,7 +3,10 @@ AM_CPPFLAGS = -I$(top_srcdir)/include
 AM_LDFLAGS = -Wl,-rpath=$(prefix)/lib
 LDADD = -L$(top_builddir)/src -lmlcortex
 testdir = $(prefix)/test
-test_PROGRAMS = test_simple_linear_pipeline_ddp test_managed_array test_dynamic_model test_basic test_one_hidden_layer test_comms test_simple_linear_ddp test_memorymanager test_simple_linear test_simple_linear_pipeline test_accelerator test_pipeline_1d 
+test_PROGRAMS = test_activation test_simple_linear_pipeline_ddp test_managed_array test_dynamic_model test_basic test_one_hidden_layer test_comms test_simple_linear_ddp test_memorymanager test_simple_linear test_simple_linear_pipeline test_accelerator test_pipeline_1d 
+test_activation_SOURCES = test_activation.cpp 
+test_activation_LDADD = $(LDADD)
+test_activation_LINK = $(CXXLD) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 test_simple_linear_pipeline_ddp_SOURCES = test_simple_linear_pipeline_ddp.cpp 
 test_simple_linear_pipeline_ddp_LDADD = $(LDADD)
 test_simple_linear_pipeline_ddp_LINK = $(CXXLD) $(AM_LDFLAGS) $(LDFLAGS) -o $@

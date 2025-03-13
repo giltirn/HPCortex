@@ -1,22 +1,18 @@
 #pragma once
 #include <Tensors.hpp>
 
-//We implement activation functions as a numerical "mask" applied as an outer product to the output of the associated layer
-//   for(int i=0;i<dim;i++)
-//      for(int b=0;b<batch_size;b++)
-//          out(i,b) *= mask(i,b)
-
 template<typename FloatType>
 class ReLU{
 public: 
-  Matrix<FloatType> operator()(const Matrix<FloatType> &x) const;
+  void operator()(Matrix<FloatType> &x, Matrix<FloatType> *deriv = nullptr) const;
 };
 
 template<typename FloatType>
 class noActivation{
 public:
-  inline Matrix<FloatType> operator()(const Matrix<FloatType> &x) const{
-    return Matrix<FloatType>(x.size(0),x.size(1),1.0);
+  //f(x) = x
+  inline void operator()(Matrix<FloatType> &x, Matrix<FloatType> *deriv = nullptr) const{
+    if(deriv) *deriv = Matrix<FloatType>(x.size(0),x.size(1),1.0);
   }
 };
 
