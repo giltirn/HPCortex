@@ -64,6 +64,39 @@ std::ostream & operator<<(std::ostream &os, const Matrix<FloatType> &v){
 }
 
 template<typename FloatType>
+Matrix<FloatType> & operator+=(Matrix<FloatType> &a, const Matrix<FloatType> &b){
+  size_t size0 = a.size(0);
+  size_t size1 = a.size(1);
+  assert(b.size(0)==size0 && b.size(1) == size1);
+
+  autoView(a_v,a,DeviceReadWrite);
+  autoView(b_v,b,DeviceRead);
+  accelerator_for2d(j,size1,i,size0,1,{
+      a_v(i,j) += b_v(i,j);
+    });
+  return a;
+}
+
+template<typename FloatType>
+Matrix<FloatType> operator+(const Matrix<FloatType> &a, const Matrix<FloatType> &b){
+  size_t size0 = a.size(0);
+  size_t size1 = a.size(1);
+  assert(b.size(0)==size0 && b.size(1) == size1);
+  Matrix<FloatType> out(size0,size1);
+    
+  autoView(a_v,a,DeviceRead);
+  autoView(b_v,b,DeviceRead);
+  autoView(out_v,out,DeviceWrite);
+  accelerator_for2d(j,size1,i,size0,1,{
+      out_v(i,j) = a_v(i,j) + b_v(i,j);
+    });
+  return out;
+}
+
+
+
+
+template<typename FloatType>
 Vector<FloatType> operator*(const Matrix<FloatType> &A, const Vector<FloatType> &x){
   size_t size0 = A.size(0), size1 = A.size(1);
   assert(size1 == x.size(0));

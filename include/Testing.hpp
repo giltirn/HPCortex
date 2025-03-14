@@ -38,6 +38,26 @@ bool near(const Vector<FloatType> &a,const Vector<FloatType> &b, FloatType rel_t
 
 
 template<typename FloatType>
+bool near(const Matrix<FloatType> &a,const Matrix<FloatType> &b, FloatType rel_tol, bool verbose=false){
+  if(a.size(0) != b.size(0) || a.size(1) != b.size(1)) return false;
+  autoView(a_v,a,HostRead);
+  autoView(b_v,b,HostRead);
+  for(size_t i=0;i<a.size(0);i++){
+    for(size_t j=0;j<a.size(1);j++){
+    
+      FloatType reldiff;
+      bool nr = near(a_v(i,j),b_v(i,j),rel_tol,&reldiff);
+      if(!nr){
+	if(verbose) std::cout << i << " " << j << " a:" << a_v(i,j) << " b:" << b_v(i,j) << " rel.diff:" << reldiff << std::endl;
+	return false;
+      }
+    }
+  }
+  return true;
+}
+
+
+template<typename FloatType>
 bool abs_near(FloatType a, FloatType b, FloatType abs_tol, FloatType *absdiff_p = nullptr){
   FloatType absdiff = fabs(a - b);
   if(absdiff_p) *absdiff_p = absdiff;

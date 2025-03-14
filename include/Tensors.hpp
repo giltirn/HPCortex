@@ -158,6 +158,12 @@ template<typename FloatType>
 std::ostream & operator<<(std::ostream &os, const Matrix<FloatType> &v);
 
 template<typename FloatType>
+Matrix<FloatType> & operator+=(Matrix<FloatType> &a, const Matrix<FloatType> &b);
+
+template<typename FloatType>
+Matrix<FloatType> operator+(const Matrix<FloatType> &a, const Matrix<FloatType> &b);
+
+template<typename FloatType>
 Vector<FloatType> operator*(const Matrix<FloatType> &A, const Vector<FloatType> &x);
 
 template<typename FloatType>

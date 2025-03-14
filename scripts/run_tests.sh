@@ -14,3 +14,5 @@ mpirun -n 2 ./test_pipeline_1d 2>&1 | tee test_pipeline_1d.log
 mpirun -n 2 ./test_simple_linear_ddp 2>&1 | tee test_simple_linear_ddp.log
 mpirun -n 2 ./test_simple_linear_pipeline 2>&1 | tee test_simple_linear_pipeline.log
 mpirun -n 4 ./test_simple_linear_pipeline_ddp 2>&1 | tee test_simple_linear_pipeline_ddp.log
+./test_skip_connection 2>&1 | tee test_skip_connection.log
+mpirun -n 2 ./test_skip_connection_pipeline 2>&1 | tee test_skip_connection_pipeline.log
