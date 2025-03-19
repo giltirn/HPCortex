@@ -74,6 +74,6 @@ fi
 AC_CONFIG_HEADERS([include/HPCortexConfig.h])
 
 AC_CONFIG_SRCDIR([src/dummy])
-AC_CONFIG_FILES([Makefile src/Makefile test/Makefile include/Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile test/Makefile benchmark/Makefile include/Makefile])
 
 AC_OUTPUT

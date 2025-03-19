@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Tensors.hpp>
+#include <random>
 
 template<typename FloatType>
 bool near(FloatType a, FloatType b, FloatType rel_tol, FloatType *reldiff_p = nullptr){
@@ -63,4 +64,45 @@ bool abs_near(FloatType a, FloatType b, FloatType abs_tol, FloatType *absdiff_p 
   if(absdiff_p) *absdiff_p = absdiff;
   if(absdiff > abs_tol) return false;
   else return true;
+}
+
+template<typename FloatType, typename RNG>
+void random(Matrix<FloatType> &m, RNG &rng){
+  std::uniform_real_distribution<FloatType> dist(-1.0, 1.0);
+  autoView(m_v,m,HostWrite);
+  for(int i=0;i<m.size(0);i++)
+    for(int j=0;j<m.size(1);j++)
+      m_v(i,j) = dist(rng);
+}
+template<typename FloatType, typename RNG>
+void random(Vector<FloatType> &m, RNG &rng){
+  std::uniform_real_distribution<FloatType> dist(-1.0, 1.0);
+  autoView(m_v,m,HostWrite);
+  for(int i=0;i<m.size(0);i++)
+    m_v(i) = dist(rng);
+}    
+  
+template<typename Op, typename PreOp>
+void benchmark(double &mean, double &std, int nrpt, int nwarmup, const Op &op, const PreOp &preop){
+  auto t = now();
+  for(int i=0;i<nwarmup;i++){
+    preop();
+    op();
+  }
+  double twarm = since(t);
+  //std::cout << "Warmup " << twarm << std::endl;
+  
+  mean = std = 0.;
+  for(int i=0;i<nrpt;i++){
+    preop();
+    t = now();
+    op();
+    double dt = since(t);
+    mean += dt;
+    std += dt*dt;
+
+    //std::cout << i << " " << dt  << std::endl;
+  }
+  mean /= nrpt;
+  std = sqrt( std/nrpt - mean*mean ); 
 }

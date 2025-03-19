@@ -3,6 +3,7 @@
 #include <InstanceStorage.hpp>
 #include <ActivationFuncs.hpp>
 #include <RingBuffer.hpp>
+#include <Linalg.hpp>
 
 //Tag for all "leaf" types that can be used to build a model tree
 struct LeafTag{};
@@ -99,9 +100,10 @@ public:
       //Basic version where columns are summed over within a thread and rows/batches distributed over threads
       size_t sz1 = size1;
       accelerator_for2d(b,batch_size,i,size0,1,{
-	  out_v(i,b) = bias_v(i);
+	  FloatType v = bias_v(i);
 	  for(int j=0;j<sz1;j++)
-	    out_v(i,b) += weights_v(i,j)* in_v(j,b);
+	    v += weights_v(i,j)* in_v(j,b);
+	  out_v(i,b) = v;	  
 	});      
     }
 
@@ -118,10 +120,11 @@ public:
   }
 
   void deriv(Vector<FloatType> &cost_deriv, int off, Matrix<FloatType> &&_above_deriv, Matrix<FloatType>* input_above_deriv_return = nullptr) const{
+    profileStart();
     assert(_above_deriv.size(0) == size0);
     assert(_above_deriv.size(1) == batch_size);
     int p=off;
-    Matrix<FloatType> layer_deriv(size1,batch_size,0.);
+    Matrix<FloatType> layer_deriv(size1,batch_size);
     {
       Matrix<FloatType> above_deriv(std::move(_above_deriv)); //inside the braces above ensures this object is freed before the next layer is called
       
@@ -148,28 +151,36 @@ public:
       //precompute the "activated derivatives"  (dcost/df_i df_i/dg_i) as they are reused below
       Matrix<FloatType> activated_above_deriv(size0,batch_size);
       {
+	labelRegionBegin("precompute_activated_derivs");
 	autoView(above_deriv_v,above_deriv,DeviceRead);
 	autoView(activation_deriv_v,activation_deriv,DeviceRead);
 	autoView(activated_above_deriv_v,activated_above_deriv,DeviceWrite);
-
-	accelerator_for2d(b,batch_size,i,size0,1,{
+	
+	accelerator_for2d(b,batch_size,i,size0,32,{
 	    activated_above_deriv_v(i,b) = above_deriv_v(i,b) * activation_deriv_v(i,b);
 	  });
+	labelRegionEnd();
       }
+
+      //TODO: Rather than having a separate kernel, compute the activated derivs in the layer deriv kernel and store
 
       //Compute layer deriv
       autoView(activated_above_deriv_v,activated_above_deriv,DeviceRead);
     
       {
-	autoView(layer_deriv_v,layer_deriv,DeviceReadWrite);
+	labelRegionBegin("compute_layer_deriv");
+	autoView(layer_deriv_v,layer_deriv,DeviceWrite);
 	autoView(weights_v,weights,DeviceRead);
 
 	//Basic implementation
 	size_t sz0 = size0;
 	accelerator_for2d(b,batch_size,j,size1,1,{
-	  for(int i=0;i<sz0;i++)
-	    layer_deriv_v(j,b) += activated_above_deriv_v(i,b) * weights_v(i,j);
+	    FloatType v = activated_above_deriv_v(0,b) * weights_v(0,j);
+	    for(int i=1;i<sz0;i++)
+	      v += activated_above_deriv_v(i,b) * weights_v(i,j);
+	    layer_deriv_v(j,b) = v;
 	  });
+	labelRegionEnd();
       }
 
       //Now we finish up the derivs wrt our parameters      
@@ -180,29 +191,48 @@ public:
       //dg_i / d b_j = delta_ij
       
       {
-	autoView(cost_deriv_v,cost_deriv,DeviceReadWrite);
-	autoView(in_v,in,DeviceRead);
+	labelRegionBegin("cost_deriv_weights");
 	size_t bs = batch_size;
-	size_t sz1 = size1;
-	accelerator_for2d(k,size1,j,size0,1,{
-	    int pp = p + k + sz1*j;	    
-	    for(int b=0;b<bs;b++)
-	      cost_deriv_v(pp) += activated_above_deriv_v(j,b) * in_v(k,b); //batch reduction! (assume zero-initialized)
-	  });
-	p += size0*size1;
+	
+	// Matrix<FloatType> cost_deriv_weights = thinMulMatMatTranspose(activated_above_deriv, in);
+	// autoView(cost_deriv_v,cost_deriv,DeviceReadWrite);
+	// autoView(cost_deriv_weights_v,cost_deriv_weights,DeviceRead);
+	// size_t sz1 = size1;
+	// int kblocksize = 64;
+	// int kblocks = (size1 + kblocksize -1)/kblocksize;
+	// accelerator_for3d(kk,kblocksize, bk, kblocks,j,size0, 1, {
+	//     int k = kk + kblocksize*bk;
+	//     if(k < sz1){	    
+	//       int pp = p + k + sz1*j;
+	//       cost_deriv_v(pp) = cost_deriv_weights_v(j,k);
+	//     }
+	//   });
 
-	//TODO: Fuse these
-	accelerator_for(j,size0,{
+
+	//this version saves the overheads of the intermediate copy
+	autoView(cost_deriv_v,cost_deriv,DeviceReadWrite);
+	thinMulMatMatTranspose_p(cost_deriv_v.data() + p, activated_above_deriv, in);     
+	
+	p += size0*size1;
+	labelRegionEnd();
+	labelRegionBegin("cost_deriv_bias");
+	accelerator_for2d(dummy1,1, j,size0, 64,{
 	    int pp = p + j;
-	    for(int b=0;b<bs;b++)
-	      cost_deriv_v(pp) += activated_above_deriv_v(j,b);
+	    FloatType v = activated_above_deriv_v(j,0);
+	    for(int b=1;b<bs;b++)
+	      v += activated_above_deriv_v(j,b);
+	    cost_deriv_v(pp) = v;
 	  });
+
 	p += size0;
+
+	labelRegionEnd();
       }
     
     }//close views and free temporaries before calling layer below
     
     leaf.v.deriv(cost_deriv, p, std::move(layer_deriv), input_above_deriv_return);
+    profileStop();
   }
 
   void update(int off, const Vector<FloatType> &new_params){

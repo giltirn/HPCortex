@@ -19,6 +19,8 @@ void acceleratorReport();
 /////////////////////////// CUDA ////////////////////////////////////////////////////////
 #ifdef USE_CUDA
 #include <cuda.h>
+#include <cuda_profiler_api.h>
+#include "nvtx3/nvToolsExt.h" //TODO: Compile option for nvtx, needs linking to -ldl
 
 #ifdef __CUDA_ARCH__
 #define SIMT_ACTIVE
@@ -47,7 +49,7 @@ void LambdaApply(uint64_t num1, uint64_t num2, uint64_t num3, uint64_t block2, l
 //block2 is the number of y elements to iterate over within a block
 //ideally should be a divisor of num2 but not required
 #define accelerator_for3dNB( iter1, num1, iter2, num2, iter3, num3, block2, ... ) \
-  {									\
+  {                                                                     \
     if ( num1*num2*num3 ) {							\
       typedef uint64_t Iterator;					\
       auto lambda = [=] accelerator					\
@@ -128,6 +130,9 @@ inline void acceleratorCopyFromDevice(void* to, void const* from,size_t bytes){ 
 inline void acceleratorCopyToDeviceAsync(void* to, void const* from, size_t bytes, cudaStream_t stream = copyStream) { cudaMemcpyAsync(to,from,bytes, cudaMemcpyHostToDevice, stream);}
 inline void acceleratorCopyFromDeviceAsync(void* to, void const* from, size_t bytes, cudaStream_t stream = copyStream) { cudaMemcpyAsync(to,from,bytes, cudaMemcpyDeviceToHost, stream);}
 inline void acceleratorMemSet(void *base,int value,size_t bytes) { cudaMemset(base,value,bytes);}
+inline void acceleratorCopyDeviceToDevice(void* to, void const* from, size_t bytes){
+  cudaMemcpy(to,from,bytes, cudaMemcpyDeviceToDevice);
+}
 inline void acceleratorCopyDeviceToDeviceAsynch(void* to, void const* from, size_t bytes) // Asynch
 {
   cudaMemcpyAsync(to,from,bytes, cudaMemcpyDeviceToDevice,copyStream);
@@ -138,6 +143,19 @@ accelerator_inline void acceleratorSynchronizeBlock(){
 #ifdef SIMT_ACTIVE //workaround
   __syncthreads();
 #endif
+}
+
+inline void profileStart(){
+  cudaProfilerStart();
+}
+inline void profileStop(){
+  cudaProfilerStop();
+}
+inline void labelRegionBegin(char const* label){
+  nvtxRangePush(label);
+}
+inline void labelRegionEnd(){
+  nvtxRangePop();
 }
 
 #endif
@@ -206,6 +224,7 @@ accelerator_inline void acceleratorSynchronizeBlock(){
 
 inline void acceleratorCopyToDevice(void* to, void const* from,size_t bytes)  { bcopy(from,to,bytes); }
 inline void acceleratorCopyFromDevice(void* to, void const* from,size_t bytes){ bcopy(from,to,bytes);}
+inline void acceleratorCopyDeviceToDevice(void* to, void const* from,size_t bytes)  { bcopy(from,to,bytes);}
 inline void acceleratorCopyDeviceToDeviceAsynch(void* to, void const* from,size_t bytes)  { bcopy(from,to,bytes);}
 inline void acceleratorCopySynchronize(void) {};
 
@@ -217,6 +236,15 @@ inline void *acceleratorAllocDevice(size_t bytes){return malloc(bytes);};
 inline void acceleratorFreeHost(void *ptr){ free(ptr);}
 inline void acceleratorFreeShared(void *ptr){free(ptr);};
 inline void acceleratorFreeDevice(void *ptr){free(ptr);};
+
+inline void profileStart(){
+}
+inline void profileStop(){
+}
+inline void labelRegionBegin(char const* label){
+}
+inline void labelRegionEnd(){
+}
 
 #endif // CPU target
 
@@ -233,7 +261,8 @@ accelerator_for3dNB(iter1, num1, iter2, num2, dummy, 1, block2, { __VA_ARGS__ } 
   accelerator_for2dNB(iter1, num1, iter2, num2, block2, { __VA_ARGS__ } ); \
   accelerator_barrier(dummy);
 
-#define accelerator_forNB( iter1, num1, ... ) accelerator_for3dNB( iter1, num1, dummy1,1,dummy2,1,  1, {__VA_ARGS__} );  
+//#define accelerator_forNB( iter1, num1, ... ) accelerator_for3dNB( dummy1,1, iter1, num1, dummy2,1,  1, {__VA_ARGS__} );  //note iter is over blocks
+#define accelerator_forNB( iter1, num1, ... ) accelerator_for3dNB( dummy1,1, iter1, num1, dummy2,1,  32, {__VA_ARGS__} );  //note iter is over blocks
 
 #define accelerator_for( iter, num, ... )		\
   accelerator_forNB(iter, num, { __VA_ARGS__ } );	\
