@@ -66,6 +66,26 @@ bool abs_near(FloatType a, FloatType b, FloatType abs_tol, FloatType *absdiff_p 
   else return true;
 }
 
+
+template<typename FloatType>
+bool abs_near(const Matrix<FloatType> &a,const Matrix<FloatType> &b, FloatType abs_tol, bool verbose=false){
+  if(a.size(0) != b.size(0) || a.size(1) != b.size(1)) return false;
+  autoView(a_v,a,HostRead);
+  autoView(b_v,b,HostRead);
+  for(size_t i=0;i<a.size(0);i++){
+    for(size_t j=0;j<a.size(1);j++){
+    
+      FloatType absdiff;
+      bool nr = abs_near(a_v(i,j),b_v(i,j),abs_tol,&absdiff);
+      if(!nr){
+	if(verbose) std::cout << i << " " << j << " a:" << a_v(i,j) << " b:" << b_v(i,j) << " abs.diff:" << absdiff << std::endl;
+	return false;
+      }
+    }
+  }
+  return true;
+}
+
 template<typename FloatType, typename RNG>
 void random(Matrix<FloatType> &m, RNG &rng){
   std::uniform_real_distribution<FloatType> dist(-1.0, 1.0);

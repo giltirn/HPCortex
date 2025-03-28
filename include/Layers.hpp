@@ -124,7 +124,7 @@ public:
     assert(_above_deriv.size(0) == size0);
     assert(_above_deriv.size(1) == batch_size);
     int p=off;
-    Matrix<FloatType> layer_deriv(size1,batch_size);
+    Matrix<FloatType> layer_deriv;
     {
       Matrix<FloatType> above_deriv(std::move(_above_deriv)); //inside the braces above ensures this object is freed before the next layer is called
       
@@ -149,39 +149,15 @@ public:
       //dcost / dx_j = \sum_i (dcost/df_i df_i/dg_i) w_ij     :  "layer deriv"
       
       //precompute the "activated derivatives"  (dcost/df_i df_i/dg_i) as they are reused below
-      Matrix<FloatType> activated_above_deriv(size0,batch_size);
-      {
-	labelRegionBegin("precompute_activated_derivs");
-	autoView(above_deriv_v,above_deriv,DeviceRead);
-	autoView(activation_deriv_v,activation_deriv,DeviceRead);
-	autoView(activated_above_deriv_v,activated_above_deriv,DeviceWrite);
-	
-	accelerator_for2d(b,batch_size,i,size0,32,{
-	    activated_above_deriv_v(i,b) = above_deriv_v(i,b) * activation_deriv_v(i,b);
-	  });
-	labelRegionEnd();
-      }
 
-      //TODO: Rather than having a separate kernel, compute the activated derivs in the layer deriv kernel and store
-
+      labelRegionBegin("precompute_activated_derivs");
+      Matrix<FloatType> activated_above_deriv = computeThinMatOuterProd(above_deriv,activation_deriv);
+      labelRegionEnd();
+      
       //Compute layer deriv
-      autoView(activated_above_deriv_v,activated_above_deriv,DeviceRead);
-    
-      {
-	labelRegionBegin("compute_layer_deriv");
-	autoView(layer_deriv_v,layer_deriv,DeviceWrite);
-	autoView(weights_v,weights,DeviceRead);
-
-	//Basic implementation
-	size_t sz0 = size0;
-	accelerator_for2d(b,batch_size,j,size1,1,{
-	    FloatType v = activated_above_deriv_v(0,b) * weights_v(0,j);
-	    for(int i=1;i<sz0;i++)
-	      v += activated_above_deriv_v(i,b) * weights_v(i,j);
-	    layer_deriv_v(j,b) = v;
-	  });
-	labelRegionEnd();
-      }
+      labelRegionBegin("compute_layer_deriv");
+      layer_deriv = mulMatTransposeThinMat(weights, activated_above_deriv);
+      labelRegionEnd();
 
       //Now we finish up the derivs wrt our parameters      
       //dcost / dw_jk = \sum_i (dcost/df_i df_i/dg_i) dg_i/dw_jk
@@ -194,21 +170,6 @@ public:
 	labelRegionBegin("cost_deriv_weights");
 	size_t bs = batch_size;
 	
-	// Matrix<FloatType> cost_deriv_weights = thinMulMatMatTranspose(activated_above_deriv, in);
-	// autoView(cost_deriv_v,cost_deriv,DeviceReadWrite);
-	// autoView(cost_deriv_weights_v,cost_deriv_weights,DeviceRead);
-	// size_t sz1 = size1;
-	// int kblocksize = 64;
-	// int kblocks = (size1 + kblocksize -1)/kblocksize;
-	// accelerator_for3d(kk,kblocksize, bk, kblocks,j,size0, 1, {
-	//     int k = kk + kblocksize*bk;
-	//     if(k < sz1){	    
-	//       int pp = p + k + sz1*j;
-	//       cost_deriv_v(pp) = cost_deriv_weights_v(j,k);
-	//     }
-	//   });
-
-
 	//this version saves the overheads of the intermediate copy
 	autoView(cost_deriv_v,cost_deriv,DeviceReadWrite);
 	thinMulMatMatTranspose_p(cost_deriv_v.data() + p, activated_above_deriv, in);     
@@ -216,6 +177,7 @@ public:
 	p += size0*size1;
 	labelRegionEnd();
 	labelRegionBegin("cost_deriv_bias");
+	autoView(activated_above_deriv_v,activated_above_deriv,DeviceRead);
 	accelerator_for2d(dummy1,1, j,size0, 64,{
 	    int pp = p + j;
 	    FloatType v = activated_above_deriv_v(j,0);

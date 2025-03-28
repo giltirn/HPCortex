@@ -35,7 +35,7 @@ int main(int argc, char** argv){
 	      m.value(data);
 	    }  );
 
-  std::cout << "deriv: " << mu << " " << sigma << std::endl;
+  std::cout << "deriv: " << mu/1e-6 << "us " << sigma/1e-6 << "us" << std::endl;
   
   return 0;
 }
