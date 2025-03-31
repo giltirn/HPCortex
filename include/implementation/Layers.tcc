@@ -1,28 +1,12 @@
-template<typename FloatType, typename Store, typename ActivationFunc>
-Matrix<FloatType> DNNlayer<FloatType,Store,ActivationFunc>::value(const Matrix<FloatType> &x){
+template<typename FloatType, typename InputType, typename Store, typename ActivationFunc>
+Matrix<FloatType> DNNlayer<FloatType,InputType,Store,ActivationFunc>::value(const InputType &x){
   ++calls;
     
   Matrix<FloatType> in = leaf.v.value(x);
-  batch_size = x.size(1);   
+  batch_size = in.size(1);
   assert(in.size(0) == size1);
-  assert(in.size(1) == batch_size);
    
-  Matrix<FloatType> out(size0,batch_size);
-  {
-    autoView(bias_v,bias,DeviceRead);
-    autoView(out_v,out,DeviceWrite);
-    autoView(in_v,in,DeviceRead);
-    autoView(weights_v,weights,DeviceRead);
-
-    //Basic version where columns are summed over within a thread and rows/batches distributed over threads
-    size_t sz1 = size1;
-    accelerator_for2d(b,batch_size,i,size0,1,{
-	FloatType v = bias_v(i);
-	for(int j=0;j<sz1;j++)
-	  v += weights_v(i,j)* in_v(j,b);
-	out_v(i,b) = v;	  
-      });      
-  }
+  Matrix<FloatType> out = axpyMatThinMat(weights, in, bias);
 
   //Apply activation function ; modifies output in-place and returns derivatives   
   Matrix<FloatType> activation_deriv;
@@ -36,8 +20,8 @@ Matrix<FloatType> DNNlayer<FloatType,Store,ActivationFunc>::value(const Matrix<F
   return out;
 }
 
-template<typename FloatType, typename Store, typename ActivationFunc>
-void DNNlayer<FloatType,Store,ActivationFunc>::deriv(Vector<FloatType> &cost_deriv, int off, Matrix<FloatType> &&_above_deriv, Matrix<FloatType>* input_above_deriv_return) const{
+template<typename FloatType, typename InputType, typename Store, typename ActivationFunc>
+void DNNlayer<FloatType,InputType,Store,ActivationFunc>::deriv(Vector<FloatType> &cost_deriv, int off, Matrix<FloatType> &&_above_deriv, InputType* input_above_deriv_return) const{
   profileStart();
   assert(_above_deriv.size(0) == size0);
   assert(_above_deriv.size(1) == batch_size);
@@ -115,8 +99,8 @@ void DNNlayer<FloatType,Store,ActivationFunc>::deriv(Vector<FloatType> &cost_der
   profileStop();
 }
 
-template<typename FloatType, typename Store, typename ActivationFunc>
-void DNNlayer<FloatType,Store,ActivationFunc>::update(int off, const Vector<FloatType> &new_params){
+template<typename FloatType, typename InputType, typename Store, typename ActivationFunc>
+void DNNlayer<FloatType,InputType,Store,ActivationFunc>::update(int off, const Vector<FloatType> &new_params){
   int p=off;
   {
     autoView(new_params_v,new_params,DeviceRead);
@@ -139,8 +123,8 @@ void DNNlayer<FloatType,Store,ActivationFunc>::update(int off, const Vector<Floa
   leaf.v.update(p, new_params);
 }
 
-template<typename FloatType, typename Store, typename ActivationFunc>
-void DNNlayer<FloatType,Store,ActivationFunc>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
+template<typename FloatType, typename InputType, typename Store, typename ActivationFunc>
+void DNNlayer<FloatType,InputType,Store,ActivationFunc>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
   int p=off;
   {
     autoView(derivs_v,derivs,DeviceRead);
@@ -166,8 +150,8 @@ void DNNlayer<FloatType,Store,ActivationFunc>::step(int off, const Vector<FloatT
 
 
   //off measured from *end*, return new off
-template<typename FloatType, typename Store, typename ActivationFunc>
-void DNNlayer<FloatType,Store,ActivationFunc>::getParams(Vector<FloatType> &into, int off){
+template<typename FloatType, typename InputType, typename Store, typename ActivationFunc>
+void DNNlayer<FloatType,InputType,Store,ActivationFunc>::getParams(Vector<FloatType> &into, int off){
   int p = off;
   {
     autoView(into_v,into,DeviceReadWrite);
@@ -192,8 +176,8 @@ void DNNlayer<FloatType,Store,ActivationFunc>::getParams(Vector<FloatType> &into
 
 
 
-template<typename FloatType, typename ChainInternal, typename ChainBelow>
-Matrix<FloatType> skipConnection<FloatType,ChainInternal,ChainBelow>::value(const Matrix<FloatType> &x){
+template<typename FloatType, typename InputType, typename ChainInternal, typename ChainBelow>
+Matrix<FloatType> skipConnection<FloatType,InputType,ChainInternal,ChainBelow>::value(const InputType &x){
   Matrix<FloatType> in = leaf_below.v.value(x);
   Matrix<FloatType> out = in + leaf_internal.v.value(in);
   
@@ -204,8 +188,8 @@ Matrix<FloatType> skipConnection<FloatType,ChainInternal,ChainBelow>::value(cons
   return out;
 }
 
-template<typename FloatType, typename ChainInternal, typename ChainBelow>
-void skipConnection<FloatType,ChainInternal,ChainBelow>::deriv(Vector<FloatType> &cost_deriv, int off, Matrix<FloatType> &&_above_deriv, Matrix<FloatType>* input_above_deriv_return) const{
+template<typename FloatType, typename InputType, typename ChainInternal, typename ChainBelow>
+void skipConnection<FloatType,InputType,ChainInternal,ChainBelow>::deriv(Vector<FloatType> &cost_deriv, int off, Matrix<FloatType> &&_above_deriv, InputType* input_above_deriv_return) const{
   assert(_above_deriv.size(0) == in_size);
   assert(_above_deriv.size(1) == batch_size);
   int p=off;
@@ -242,16 +226,16 @@ void skipConnection<FloatType,ChainInternal,ChainBelow>::deriv(Vector<FloatType>
     
   leaf_below.v.deriv(cost_deriv, p, std::move(layer_deriv), input_above_deriv_return);
 }
-template<typename FloatType, typename ChainInternal, typename ChainBelow>
-void skipConnection<FloatType,ChainInternal,ChainBelow>::update(int off, const Vector<FloatType> &new_params){
+template<typename FloatType, typename InputType, typename ChainInternal, typename ChainBelow>
+void skipConnection<FloatType,InputType,ChainInternal,ChainBelow>::update(int off, const Vector<FloatType> &new_params){
   int p=off;
   leaf_internal.v.update(p, new_params);
   p += leaf_internal.v.nparams();
   leaf_below.v.update(p, new_params);
 }
 
-template<typename FloatType, typename ChainInternal, typename ChainBelow>
-void skipConnection<FloatType,ChainInternal,ChainBelow>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
+template<typename FloatType, typename InputType, typename ChainInternal, typename ChainBelow>
+void skipConnection<FloatType,InputType,ChainInternal,ChainBelow>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
   int p=off;
   leaf_internal.v.step(p, derivs, eps);
   p += leaf_internal.v.nparams();
@@ -259,10 +243,65 @@ void skipConnection<FloatType,ChainInternal,ChainBelow>::step(int off, const Vec
 }
 
 //off measured from *end*, return new off
-template<typename FloatType, typename ChainInternal, typename ChainBelow>
-void skipConnection<FloatType,ChainInternal,ChainBelow>::getParams(Vector<FloatType> &into, int off){
+template<typename FloatType, typename InputType, typename ChainInternal, typename ChainBelow>
+void skipConnection<FloatType,InputType,ChainInternal,ChainBelow>::getParams(Vector<FloatType> &into, int off){
   int p = off;
   leaf_internal.v.getParams(into, p);
   p += leaf_internal.v.nparams();
   leaf_below.v.getParams(into,p);
+}
+
+
+
+template<typename FloatType, typename InputType, typename Store>
+Matrix<FloatType> FlattenLayer<FloatType,InputType,Store>::value(const InputType &x){
+  LayerInputTensorType in = leaf.v.value(x);
+  if(!init){
+    memcpy(_input_tens_size, in.sizeArray(), in.dimension() * sizeof(int));
+    init = true;
+  }
+  
+  constexpr int tens_dim = in.dimension();
+  int batch_size = in.size(tens_dim-1);
+  int out_size = 1;
+  for(int i=0;i<tens_dim-1;i++)
+    out_size *= in.size(i);
+
+  Matrix<FloatType> out(out_size,batch_size);
+  autoView(out_v,out,DeviceWrite);
+  autoView(in_v,in,DeviceRead);
+  accelerator_for2d(b,batch_size, i,out_size, 1,{
+      //rely on the fact that the batch index is the fastest moving,  eg. for a 3 tensor   off = b + batch_size*(z + zsize*(y + ysize*x))      i=(z + zsize*(y + ysize*x)) 
+      out_v(i,b) = in_v.data()[b + i*batch_size];
+    });
+  return out;
+}
+template<typename FloatType, typename InputType, typename Store>
+void FlattenLayer<FloatType,InputType,Store>::deriv(Vector<FloatType> &cost_deriv, int off, Matrix<FloatType> &&_above_deriv, InputType* input_above_deriv_return) const{
+  LayerInputTensorType above_deriv_passdown(_input_tens_size);
+  {
+    Matrix<FloatType> above_deriv_in(std::move(_above_deriv)); //dcost/dvalue_i
+    int batch_size = above_deriv_in.size(1);
+    size_t flat_size = above_deriv_in.size(0);
+
+    autoView(above_deriv_passdown_v,above_deriv_passdown,DeviceWrite);
+    autoView(above_deriv_in_v,above_deriv_in,DeviceRead);
+    accelerator_for2d(b,batch_size, i,flat_size, 1,{
+	//rely on the fact that the batch index is the fastest moving
+	above_deriv_passdown_v.data()[b + i*batch_size] = above_deriv_in_v(i,b);
+      });
+  }
+  leaf.v.deriv(cost_deriv,off, std::move(above_deriv_passdown),input_above_deriv_return);
+}
+template<typename FloatType, typename InputType, typename Store>
+void FlattenLayer<FloatType,InputType,Store>::update(int off, const Vector<FloatType> &new_params){
+  leaf.v.update(off,new_params);
+}
+template<typename FloatType, typename InputType, typename Store>   
+void FlattenLayer<FloatType,InputType,Store>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
+  leaf.v.step(off,derivs,eps);
+}
+template<typename FloatType, typename InputType, typename Store>  
+void FlattenLayer<FloatType,InputType,Store>::getParams(Vector<FloatType> &into, int off){
+  leaf.v.getParams(into,off);
 }

@@ -205,3 +205,31 @@ Matrix<FloatType> computeThinMatOuterProd(const Matrix<FloatType> &above_deriv, 
     });
   return activated_above_deriv;
 }
+
+
+//matrix a * b + c with b having a modest number of columns
+template<typename FloatType>
+Matrix<FloatType> axpyMatThinMat(const Matrix<FloatType> &a, const Matrix<FloatType> &b, const Vector<FloatType> &c){
+  int size0 = a.size(0);
+  assert(c.size(0) == size0);
+  int size1 = a.size(1);
+  assert(b.size(0) == size1);
+  int size2 = b.size(1);
+    
+  Matrix<FloatType> out(size0,size2);
+  {
+    autoView(c_v,c,DeviceRead);
+    autoView(out_v,out,DeviceWrite);
+    autoView(b_v,b,DeviceRead);
+    autoView(a_v,a,DeviceRead);
+
+    //Basic version where columns are summed over within a thread and rows/batches distributed over threads
+    accelerator_for2d(k,size2,i,size0,1,{
+	FloatType v = c_v(i);
+	for(int j=0;j<size1;j++)
+	  v += a_v(i,j)* b_v(j,k);
+	out_v(i,k) = v;	  
+      });      
+  }
+  return out;
+}

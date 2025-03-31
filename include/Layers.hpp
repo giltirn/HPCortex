@@ -9,25 +9,28 @@
 struct LeafTag{};
 #define ISLEAF(a) std::is_same<typename std::decay<a>::type::tag,LeafTag>::value
 #define FLOATTYPE(a) typename std::decay<a>::type::FloatType
+#define INPUTTYPE(a) typename std::decay<a>::type::InputType
 
 //The input layer
 //This is always the lowest layer in the model
-template<typename _FloatType>
+template<typename _FloatType, typename _InputType = Matrix<_FloatType> >
 class InputLayer{  
 public:
   typedef _FloatType FloatType;
+  typedef _InputType InputType;
   typedef LeafTag tag;
   
   inline InputLayer(){}
   inline InputLayer(InputLayer &&r) = default;
   inline InputLayer(const InputLayer &r) = delete;
-  
-  inline const Matrix<FloatType> &value(const Matrix<FloatType> &x){
+
+  inline const InputType &value(const InputType &x){
     //Simply reflect the passed-down input value back up to commence forwards propagation
     return x;
   }
 
-  inline void deriv(Vector<FloatType> &cost_deriv, int off, Matrix<FloatType> &&above_deriv, Matrix<FloatType>* input_above_deriv_return = nullptr) const{
+  //input_above_deriv_return is the derivative of the cost with respect to the inputs
+  inline void deriv(Vector<FloatType> &cost_deriv, int off, InputType &&above_deriv, InputType* input_above_deriv_return = nullptr) const{
     //We don't have to do anything for backpropagation as this is the last layer
     if(input_above_deriv_return) *input_above_deriv_return = std::move(above_deriv); //copy back the input derivative if desired
   }
@@ -44,15 +47,16 @@ public:
   inline void resizeInputBuffer(size_t to){}
 };
 
-template<typename FloatType>
-inline InputLayer<FloatType> input_layer(){ return InputLayer<FloatType>(); }
+template<typename FloatType, typename InputType = Matrix<FloatType> >
+inline InputLayer<FloatType,InputType> input_layer(){ return InputLayer<FloatType,InputType>(); }
 
 
 //A fully-connected DNN layer
-template<typename _FloatType, typename Store, typename ActivationFunc>
+template<typename _FloatType, typename _InputType, typename Store, typename ActivationFunc>
 class DNNlayer{
 public:
   typedef _FloatType FloatType;
+  typedef _InputType InputType;
 private:
   Matrix<FloatType> weights;
   Vector<FloatType> bias;  
@@ -82,9 +86,9 @@ public:
   DNNlayer(DNNlayer &&r) = default;
   
   //Forward pass
-  Matrix<FloatType> value(const Matrix<FloatType> &x);
+  Matrix<FloatType> value(const InputType &x);
 
-  void deriv(Vector<FloatType> &cost_deriv, int off, Matrix<FloatType> &&_above_deriv, Matrix<FloatType>* input_above_deriv_return = nullptr) const;
+  void deriv(Vector<FloatType> &cost_deriv, int off, Matrix<FloatType> &&_above_deriv, InputType* input_above_deriv_return = nullptr) const;
 
   void update(int off, const Vector<FloatType> &new_params);
   
@@ -107,18 +111,19 @@ public:
 };
 
 template<typename U, typename ActivationFunc, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto dnn_layer(U &&u, const Matrix<FLOATTYPE(U)> &weights,const Vector<FLOATTYPE(U)> &bias, const ActivationFunc &activation)->DNNlayer<FLOATTYPE(U),DDST(u),ActivationFunc>{
-  return DNNlayer<FLOATTYPE(U),DDST(u),ActivationFunc>(std::forward<U>(u), weights, bias, activation);
+auto dnn_layer(U &&u, const Matrix<FLOATTYPE(U)> &weights,const Vector<FLOATTYPE(U)> &bias, const ActivationFunc &activation)->DNNlayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u),ActivationFunc>{
+  return DNNlayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u),ActivationFunc>(std::forward<U>(u), weights, bias, activation);
 }
 template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto dnn_layer(U &&u, const Matrix<FLOATTYPE(U)> &weights,const Vector<FLOATTYPE(U)> &bias)->DNNlayer<FLOATTYPE(U),DDST(u),noActivation<FLOATTYPE(U)> >{
-  return DNNlayer<FLOATTYPE(U),DDST(u),noActivation<FLOATTYPE(U)> >(std::forward<U>(u), weights, bias, noActivation<FLOATTYPE(U)>());
+auto dnn_layer(U &&u, const Matrix<FLOATTYPE(U)> &weights,const Vector<FLOATTYPE(U)> &bias)->DNNlayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u),noActivation<FLOATTYPE(U)> >{
+  return DNNlayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u),noActivation<FLOATTYPE(U)> >(std::forward<U>(u), weights, bias, noActivation<FLOATTYPE(U)>());
 }
 
-template<typename _FloatType, typename ChainInternal, typename ChainBelow>
+template<typename _FloatType, typename _InputType, typename ChainInternal, typename ChainBelow>
 class skipConnection{
   public:
   typedef _FloatType FloatType;
+  typedef _InputType InputType;
 private:
   ChainBelow leaf_below;
   ChainInternal leaf_internal; //must terminate on an InputLayer (even though it's not really an input layer)
@@ -134,9 +139,9 @@ public:
   skipConnection(skipConnection &&r) = default;
   
   //Forward pass
-  Matrix<FloatType> value(const Matrix<FloatType> &x);
+  Matrix<FloatType> value(const InputType &x);
 
-  void deriv(Vector<FloatType> &cost_deriv, int off, Matrix<FloatType> &&_above_deriv, Matrix<FloatType>* input_above_deriv_return = nullptr) const;
+  void deriv(Vector<FloatType> &cost_deriv, int off, Matrix<FloatType> &&_above_deriv, InputType* input_above_deriv_return = nullptr) const;
   
   void update(int off, const Vector<FloatType> &new_params);
   
@@ -156,13 +161,63 @@ public:
   }
 };
 
-#define LAYER_TYPE skipConnection<FLOATTYPE(Internal),DDST(internal),DDST(below)>
+#define LAYER_TYPE skipConnection<FLOATTYPE(Internal),INPUTTYPE(Below),DDST(internal),DDST(below)>
 
 template<typename Internal, typename Below, typename std::enable_if<ISLEAF(Internal) && ISLEAF(Below), int>::type = 0>
 auto skip_connection(Internal &&internal, Below &&below)-> LAYER_TYPE{
   return LAYER_TYPE(std::forward<Internal>(internal),std::forward<Below>(below));
 }
 #undef LAYER_TYPE
+
+
+
+//Flatten the input tensor on all dimensions but the last (batch) dimension
+template<typename _FloatType, typename _InputType, typename Store>
+class FlattenLayer{
+public:
+  typedef _FloatType FloatType;
+  typedef _InputType InputType;
+  typedef typename std::decay<decltype( ((Store*)nullptr)->v.value( *( (InputType const*)nullptr) ))>::type LayerInputTensorType; //expect a Tensor ;; //TODO, add a compile-time test to ensure this!  
+private:
+  Store leaf;
+  int _input_tens_size[LayerInputTensorType::dimension()];
+  bool init;
+public:
+  typedef LeafTag tag;
+
+  FlattenLayer(Store &&leaf): leaf(std::move(leaf)), init(false){}
+  
+  FlattenLayer(const FlattenLayer &r) = delete;
+  FlattenLayer(FlattenLayer &&r) = default;
+  
+  //Forward pass
+  Matrix<FloatType> value(const InputType &x);
+
+  void deriv(Vector<FloatType> &cost_deriv, int off, Matrix<FloatType> &&_above_deriv, InputType* input_above_deriv_return = nullptr) const;
+
+  void update(int off, const Vector<FloatType> &new_params);
+  
+  void step(int off, const Vector<FloatType> &derivs, FloatType eps);
+
+  //accumulated #params for layers here and below
+  inline int nparams() const{ return leaf.v.nparams(); }
+
+  //off measured from *end*, return new off
+  void getParams(Vector<FloatType> &into, int off);
+
+  //For pipelining
+  inline void resizeInputBuffer(size_t to){
+    leaf.v.resizeInputBuffer(to);
+  }
+
+};
+
+template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
+auto flatten_layer(U &&u)->FlattenLayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u)>{
+  return FlattenLayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u)>(std::forward<U>(u));
+}
+
+
 
 
 #include "implementation/Layers.tcc"

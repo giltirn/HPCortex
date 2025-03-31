@@ -42,19 +42,21 @@ private:
   ManagedArray<FloatType> vals;
   int _size[Dim];    
 public:
-  typedef int * Dims;
-  typedef int * Coord;
+  typedef const int * Dims;
+  typedef const int * Coord;
   
-  constexpr int dimension(){ return Dim; }
+  static constexpr int dimension(){ return Dim; }
   Tensor(): _size{0}{}
-  Tensor(const Dims dims, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool): vals(tensorSize<Dim>(dims),alloc_pool){ memcpy(_size,dims,Dim*sizeof(int));  }
-  Tensor(const Dims dims, FloatType init, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool): vals(tensorSize<Dim>(dims),init,alloc_pool){ memcpy(_size,dims,Dim*sizeof(int));  }
+  Tensor(Dims dims, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool): vals(tensorSize<Dim>(dims),alloc_pool){ memcpy(_size,dims,Dim*sizeof(int));  }
+  Tensor(Dims dims, FloatType init, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool): vals(tensorSize<Dim>(dims),init,alloc_pool){ memcpy(_size,dims,Dim*sizeof(int));  }
   
-  Tensor(const Dims dims, const std::vector<FloatType> &init_vals): vals(init_vals){
+  Tensor(Dims dims, const std::vector<FloatType> &init_vals): vals(init_vals){
     memcpy(_size,dims,Dim*sizeof(int));
     assert(tensorSize<Dim>(dims) == init_vals.size());
   }  
 
+  inline int const* sizeArray() const{ return _size; }
+  
   inline int size(int i) const{ return _size[i]; }
 
   class View: private ManagedArray<FloatType>::View{
@@ -154,7 +156,7 @@ public:
   Vector(int size1, FloatType init, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool): vals(size1, init, alloc_pool){}
   Vector(const std::vector<FloatType> &init_vals): vals(init_vals){}
   
-  constexpr int dimension(){ return 1; }
+  static constexpr int dimension(){ return 1; }
   inline size_t size(int i) const{ return vals.size(); }
 
   class View: private ManagedArray<FloatType>::View{
@@ -202,7 +204,7 @@ public:
     size0(size0), size1(size1), vals(size0*size1,init,alloc_pool){}
   Matrix(int size0, int size1, const std::vector<FloatType> &init_vals): size0(size0), size1(size1), vals(init_vals){}    
 
-  constexpr int dimension(){ return 2; }
+  static constexpr int dimension(){ return 2; }
   inline int size(int i) const{ return i==0 ? size0 : size1; }
   
   class View: private ManagedArray<FloatType>::View{

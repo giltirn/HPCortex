@@ -615,7 +615,7 @@ public:
     
     //compute layer derivative and fill in cost derivative vector
     //if this is the first rank, fill the input cost_deriv, else we append it to the deriv vector received last call
-    Matrix<FloatType> layer_deriv; //layer deriv to send right
+    Matrix<FloatType> layer_deriv; //layer deriv to send right //TODO: Handle for non-Matrix InputType
     Vector<FloatType> pass_cost_deriv(is_first ? cost_deriv : prev_cost_deriv_passright); //cost deriv to send right
 
     block.v.deriv(pass_cost_deriv, stage_off, is_first ? std::move(above_deriv) : std::move(prev_above_deriv), &layer_deriv);
