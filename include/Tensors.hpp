@@ -54,7 +54,7 @@ public:
     memcpy(_size,dims,Dim*sizeof(int));
     assert(tensorSize<Dim>(dims) == init_vals.size());
   }  
-
+ 
   inline int const* sizeArray() const{ return _size; }
   
   inline int size(int i) const{ return _size[i]; }

@@ -3,7 +3,7 @@ AM_CPPFLAGS = -I$(top_srcdir)/include
 AM_LDFLAGS = -Wl,-rpath=$(prefix)/lib
 LDADD = -L$(top_builddir)/src -lmlcortex
 testdir = $(prefix)/test
-test_PROGRAMS = test_flatten_layer test_simple_linear_pipeline test_simple_linear_ddp test_skip_connection_pipeline test_activation test_comms test_simple_linear_pipeline_ddp test_tensor test_dynamic_model test_skip_connection test_accelerator test_basic test_simple_linear test_memorymanager test_pipeline_1d test_managed_array test_one_hidden_layer 
+test_PROGRAMS = test_flatten_layer test_simple_linear_pipeline test_simple_linear_ddp test_skip_connection_pipeline test_activation test_comms test_simple_linear_pipeline_ddp test_tensor test_dynamic_model test_skip_connection test_accelerator test_basic test_simple_linear test_memorymanager test_pipeline_1d test_managed_array test_one_hidden_layer test_conv1d 
 test_flatten_layer_SOURCES = test_flatten_layer.cpp 
 test_flatten_layer_LDADD = $(LDADD)
 test_flatten_layer_LINK = $(CXXLD) $(AM_LDFLAGS) $(LDFLAGS) -o $@
@@ -55,4 +55,7 @@ test_managed_array_LINK = $(CXXLD) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 test_one_hidden_layer_SOURCES = test_one_hidden_layer.cpp 
 test_one_hidden_layer_LDADD = $(LDADD)
 test_one_hidden_layer_LINK = $(CXXLD) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+test_conv1d_SOURCES = test_conv1d.cpp 
+test_conv1d_LDADD = $(LDADD)
+test_conv1d_LINK = $(CXXLD) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 

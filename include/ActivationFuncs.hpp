@@ -5,6 +5,8 @@ template<typename FloatType>
 class ReLU{
 public: 
   void operator()(Matrix<FloatType> &x, Matrix<FloatType> *deriv = nullptr) const;
+  template<int Dim>
+  void operator()(Tensor<FloatType,Dim> &x, Tensor<FloatType,Dim> *deriv = nullptr) const;
 };
 
 template<typename FloatType>
@@ -14,6 +16,11 @@ public:
   inline void operator()(Matrix<FloatType> &x, Matrix<FloatType> *deriv = nullptr) const{
     if(deriv) *deriv = Matrix<FloatType>(x.size(0),x.size(1),1.0);
   }
+  template<int Dim>
+  inline void operator()(Tensor<FloatType,Dim> &x, Tensor<FloatType,Dim> *deriv = nullptr) const{
+    if(deriv) *deriv = Tensor<FloatType,Dim>(x.sizeArray(),1.0);
+  }
+  
 };
 
 #include "implementation/ActivationFuncs.tcc"

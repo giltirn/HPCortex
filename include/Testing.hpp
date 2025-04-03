@@ -101,7 +101,20 @@ void random(Vector<FloatType> &m, RNG &rng){
   for(int i=0;i<m.size(0);i++)
     m_v(i) = dist(rng);
 }    
-  
+template<typename FloatType, int Dim, typename RNG>
+void random(Tensor<FloatType,Dim> &m, RNG &rng){
+  std::uniform_real_distribution<FloatType> dist(-1.0, 1.0);
+  autoView(m_v,m,HostWrite);
+  int const* dims = m.sizeArray();
+  size_t sz = tensorSize<Dim>(dims);
+  for(size_t i=0; i<sz; i++){
+    int coord[Dim];
+    tensorOffsetUnmap<Dim>(coord, dims, i);
+    m_v(coord) = dist(rng);
+  }
+}
+
+
 template<typename Op, typename PreOp>
 void benchmark(double &mean, double &std, int nrpt, int nwarmup, const Op &op, const PreOp &preop){
   auto t = now();

@@ -323,3 +323,11 @@ struct viewDeallocator{
     autoView(b##_v,b,HostReadWrite); \
     { __VA_ARGS__ } \
   }
+//3 managed objects...
+#define doHost3(a,b,c, ... )			\
+  {\
+    autoView(a##_v,a,HostReadWrite); \
+    autoView(b##_v,b,HostReadWrite); \
+    autoView(c##_v,c,HostReadWrite); \
+    { __VA_ARGS__ } \
+  }
