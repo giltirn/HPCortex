@@ -321,11 +321,12 @@ Tensor<FloatType,3> ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,
     assert(in.size(2) == batch_size && in.size(1) == padded_data_len);
   }
   assert(in.size(0) == channels);
+  assert(padded_data_len >= kernel_size);
 
-  int out_data_size = padded_data_len - kernel_size + 1;
-
+  int out_data_len = (padded_data_len - kernel_size + stride)/stride;
+  
   //A convolution is just a multi-dim generalization of a dot product
-  int out_size[3] = { depth, out_data_size, batch_size };
+  int out_size[3] = { depth, out_data_len, batch_size };
   Tensor<FloatType, 3> out(out_size, 0.);
 
   {
@@ -333,14 +334,15 @@ Tensor<FloatType,3> ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,
     autoView(in_v,in,DeviceRead);
     autoView(filter_v,filter,DeviceRead); //[depth channel][channel][1d kernel idx]
     int kernel_size_ = kernel_size;
+    int stride_ = stride;
     
     //Loop over channels for a given output depth channel, summing into output
     for(int d=0;d<depth;d++){     //TODO: accelerator_for4d?
-      accelerator_for3d(b,batch_size, o, out_data_size, c, channels,  1, { 
+      accelerator_for3d(b,batch_size, o, out_data_len, c, channels,  1, { 
 	  FloatType *fdc = &filter_v(d,c,0); //TODO: place in shm
 	  FloatType tmp = 0.;
-	  for(int f=0;f<kernel_size_;f++)
-	    tmp += fdc[f] * in_v(c,o+f,b);
+	  for(int k=0;k<kernel_size_;k++)
+	    tmp += fdc[k] * in_v(c,o*stride_+k,b);
 	  atomicAdd(&out_v(d,o,b), tmp);
 	});
     }
@@ -350,7 +352,7 @@ Tensor<FloatType,3> ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,
   Tensor<FloatType,3> activation_deriv;
   activation_func(out, &activation_deriv);
   assert(activation_deriv.size(0) == depth);
-  assert(activation_deriv.size(1) == out_data_size);
+  assert(activation_deriv.size(1) == out_data_len);
   assert(activation_deriv.size(2) == batch_size);
 
   leaf_buf.push(std::move(in)); //keep the *padded* tensor
@@ -367,16 +369,17 @@ void ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::d
   //Out data index = o
   //In channel index c
   //Index in filter k = 0..K-1
+  //Stride s
   
   //Write output  f_do(x) = A( g_do(x) )   where A is the activation function and x is the *padded* data
-  //g_do(x) = \sum_c [ \sum_k filter_{dck} x_{c,o+k} ]
+  //g_do(x) = \sum_c [ \sum_k filter_{dck} x_{c,s*o+k} ]
   //
   //dcost / dx_ci = \sum_do dcost/df_do df_do/dx_ci
   //df_do/dx_ci = df_do / dg_do dg_do / dx_ci
-  //dg_do/dx_ci = \sum_k filter_{dck} delta_{o+k,i}
+  //dg_do/dx_ci = \sum_k filter_{dck} delta_{s*o+k,i}
 
 
-  //dcost / dx_ci = \sum_do (dcost/df_do df_do / dg_do) [ \sum_k filter_{dck} delta_{o+k,i} ]  :  "layer deriv"
+  //dcost / dx_ci = \sum_do (dcost/df_do df_do / dg_do) [ \sum_k filter_{dck} delta_{s*o+k,i} ]  :  "layer deriv"
   //dcost/df_do : "above_deriv"
   //(dcost/df_do df_do / dg_do) : "activated derivatives"
   
@@ -394,7 +397,7 @@ void ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::d
     assert(in.size(1) == padded_data_len);
     assert(in.size(2) == batch_size);
 
-    int out_data_len = padded_data_len - kernel_size + 1;
+    int out_data_len = (padded_data_len - kernel_size + stride)/stride;
     int act_der_sz[3] = {depth, out_data_len, batch_size};
     
     Tensor<FloatType,3> activation_deriv = activation_deriv_buf.isFilled() ? activation_deriv_buf.pop() : Tensor<FloatType,3>(act_der_sz,0.);
@@ -418,10 +421,11 @@ void ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::d
     int depth_=depth;
     int channels_=channels;
     int kernel_size_ =kernel_size;
+    int stride_ = stride;
     
     //Compute layer deriv
-    //g_do(x) = \sum_c [ \sum_k filter_{dck} x_{c,o+k} ]
-    //dcost / dx_ci = \sum_do activated_deriv_do [ \sum_k filter_{dck} delta_{o+k,i} ]  = \sum_dk activated_deriv_{d,i-k} filter_{dck} ]
+    //g_do(x) = \sum_c [ \sum_k filter_{dck} x_{c,s*o+k} ]
+    //dcost / dx_ci = \sum_do activated_deriv_do [ \sum_k filter_{dck} delta_{s*o+k,i} ]  = \sum_dk activated_deriv_{d,(i-k)/s} filter_{dck} ]
     labelRegionBegin("compute_layer_deriv");
     {
       autoView(layer_deriv_v, layer_deriv, DeviceWrite);
@@ -432,8 +436,8 @@ void ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::d
 	  FloatType v=0.;
 	  for(int d=0;d<depth_;d++)
 	    for(int k=0;k<=kmax;k++)
-	      if(i-k < out_data_len)
-		v += activated_deriv_v(d,i-k,b) * filter_v(d,c,k);
+	      if( (i-k) % stride_ == 0  && (i-k)/stride_ < out_data_len)
+		v += activated_deriv_v(d,(i-k)/stride_,b) * filter_v(d,c,k);
 	  layer_deriv_v(c,i,b) = v;
 	});
     }
@@ -442,10 +446,10 @@ void ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::d
     labelRegionEnd();
 
     //Now we finish up the derivs wrt our parameters
-    //g_do(x) = \sum_c [ \sum_k filter_{dck} x_{c,o+k} ]
+    //g_do(x) = \sum_c [ \sum_k filter_{dck} x_{c,s*o+k} ]
     //
     //dcost / dfilter_{d'c'k'} = \sum_do (dcost/df_do df_do / dg_do) dg_do/filter_{d'c'k'}
-    //                      = \sum_o activated_deriv_d'o x_{c',o+k'} 
+    //                      = \sum_o activated_deriv_d'o x_{c',s*o+k'} 
     {
       labelRegionBegin("cost_deriv");
       autoView(cost_deriv_v,cost_deriv,DeviceReadWrite);
@@ -459,9 +463,9 @@ void ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::d
 	    
 	    for(int c=0;c<channels_;c++){
 	      for(int k=0;k<kernel_size_;k++){
-		FloatType v = act_der_dob * in_v(c,o+k,b);		
-		atomicAdd(&cost_deriv_v(p), v);
-		++p;
+		FloatType v = act_der_dob * in_v(c,stride_*o+k,b);		
+		atomicAdd(&cost_deriv_v(pp), v);
+		++pp;
 	      }
 	    }
 	  }

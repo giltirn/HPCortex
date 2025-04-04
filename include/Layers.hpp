@@ -237,7 +237,7 @@ private:
   int depth;
   int channels;
   int kernel_size;
-  //int stride;  //TODO: allow for non-unit stride
+  int stride;
 
   bool init;
   int padded_data_len;
@@ -255,9 +255,9 @@ public:
   typedef LeafTag tag;
 
   ConvolutionLayer1D(Store &&leaf, const Tensor<FloatType,3> &_filter, 
-		     const ActivationFunc &activation_func, const PaddingFunc &padding_func):
+		     const ActivationFunc &activation_func, const PaddingFunc &padding_func, int stride=1):
     leaf(std::move(leaf)), filter(_filter), init(false), depth(_filter.size(0)), channels(_filter.size(1)), kernel_size(_filter.size(2)),
-    activation_func(activation_func), padding_func(padding_func){
+    activation_func(activation_func), padding_func(padding_func), stride(stride){
   }
   
   ConvolutionLayer1D(const ConvolutionLayer1D &r) = delete;
@@ -290,9 +290,9 @@ public:
 };
 
 template<typename U, typename ActivationFunc, typename PaddingFunc, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto conv1d_layer(U &&u, const Tensor<FLOATTYPE(U),3> &filter, const ActivationFunc &activation_func, const PaddingFunc &padding_func)
+auto conv1d_layer(U &&u, const Tensor<FLOATTYPE(U),3> &filter, const ActivationFunc &activation_func, const PaddingFunc &padding_func, int stride = 1)
   ->ConvolutionLayer1D<FLOATTYPE(U),INPUTTYPE(U),DDST(u),ActivationFunc,PaddingFunc>{
-  return ConvolutionLayer1D<FLOATTYPE(U),INPUTTYPE(U),DDST(u),ActivationFunc,PaddingFunc>(std::forward<U>(u),filter,activation_func,padding_func);
+  return ConvolutionLayer1D<FLOATTYPE(U),INPUTTYPE(U),DDST(u),ActivationFunc,PaddingFunc>(std::forward<U>(u),filter,activation_func,padding_func,stride);
 }
 
 
