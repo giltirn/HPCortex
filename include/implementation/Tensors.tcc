@@ -8,43 +8,48 @@ std::ostream & operator<<(std::ostream &os, const Vector<FloatType> &v){
   return os;  
 }
 
+//Insert 'data' as column 'col' of this matrix
 template<typename FloatType>
-void Matrix<FloatType>::pokeColumn(int col, const Vector<FloatType> &data){
-  assert(data.size(0) == size0);
+void pokeColumn(Matrix<FloatType> &into, int col, const Vector<FloatType> &data){
+  assert(data.size(0) == into.size(0));
   autoView(data_v,data,DeviceRead);
-  autoView(t_v,(*this),DeviceWrite);
-  accelerator_for(i,size0,{
+  autoView(t_v,into,DeviceWrite);
+  accelerator_for(i,into.size(0),{
     t_v(i,col) = data_v(i);
     });
 }
-
+  
+//Retrieve column 'col' of this matrix
 template<typename FloatType>
-Vector<FloatType> Matrix<FloatType>::peekColumn(int col) const{
-  Vector<FloatType> out(size0);
+Vector<FloatType> peekColumn(const Matrix<FloatType> &m, int col){
+  Vector<FloatType> out(m.size(0));
   autoView(out_v,out,DeviceWrite);
-  autoView(t_v,(*this),DeviceRead);
-  accelerator_for(i,size0,{ out_v(i)=t_v(i,col); });
+  autoView(t_v,m,DeviceRead);
+  accelerator_for(i,m.size(0),{ out_v(i)=t_v(i,col); });
   return out;
 }
+  
 
+//Retrieve multiple columns as a new matrix
 template<typename FloatType>
-Matrix<FloatType> Matrix<FloatType>::peekColumns(int col_start, int col_end) const{
-  Matrix<FloatType> out(size0, col_end-col_start+1);
+Matrix<FloatType> peekColumns(const Matrix<FloatType> &m, int col_start, int col_end){
+  Matrix<FloatType> out(m.size(0), col_end-col_start+1);
   autoView(out_v,out,DeviceWrite);
-  autoView(t_v,(*this),DeviceRead);
-  accelerator_for2d(jj,col_end-col_start+1,i,size0,1,{
+  autoView(t_v,m,DeviceRead);
+  accelerator_for2d(jj,col_end-col_start+1,i,m.size(0),1,{
       int j = jj + col_start;
       out_v(i,jj)=t_v(i,j);
     });
   return out;
 }
 
+//Insert multiple columns, collected as a matrix 'cols', into this matrix
 template<typename FloatType>
-void Matrix<FloatType>::pokeColumns(int col_start, int col_end, const Matrix<FloatType> &cols){
-  assert(cols.size(0) == this->size(0) && cols.size(1) == col_end-col_start+1);
+void pokeColumns(Matrix<FloatType> &into, int col_start, int col_end, const Matrix<FloatType> &cols){
+  assert(cols.size(0) == into.size(0) && cols.size(1) == col_end-col_start+1);
   autoView(cols_v,cols,DeviceRead);
-  autoView(t_v,(*this),DeviceWrite);
-  accelerator_for2d(jj,col_end-col_start+1,i,size0,1,{
+  autoView(t_v,into,DeviceWrite);
+  accelerator_for2d(jj,col_end-col_start+1,i,into.size(0),1,{
       int j = jj + col_start;
       t_v(i,j) = cols_v(i,jj);
     });

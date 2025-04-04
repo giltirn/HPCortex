@@ -87,11 +87,11 @@ void testActivation(){
   //test the MSE loss calculation
   FloatType expect = 0.;
   for(int i=0;i<2;i++){  
-    Vector<FloatType> y1pred = w1_init * x1.peekColumn(i) + b1_init;
+    Vector<FloatType> y1pred = w1_init * peekColumn(x1,i) + b1_init;
     
     testActivationFunc< ActivationFunc<FloatType> >::doit(y1pred);
       
-    Vector<FloatType> y1_b = y1.peekColumn(i);
+    Vector<FloatType> y1_b = peekColumn(y1,i);
     std::cout << y1pred << " " << y1_b << std::endl;
 
     doHost2(y1pred,y1_b,{

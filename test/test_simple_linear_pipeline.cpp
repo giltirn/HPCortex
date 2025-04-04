@@ -25,8 +25,8 @@ void testSimpleLinearPipeline(){
     FloatType x = -1.0 + i*eps; //normalize x to within +-1
     FloatType y = 0.2*x + 0.3;
     
-    data[i].x = Vector(1,x);
-    data[i].y = Vector(1,y);
+    data[i].x = Vector<FloatType>(1,x);
+    data[i].y = Vector<FloatType>(1,y);
   }
    
   Matrix<FloatType> winit(1,1,0.1);
@@ -36,7 +36,7 @@ void testSimpleLinearPipeline(){
  
   auto rank_block = pipeline_block(rank_model, call_batch_size, 1,1,1);
 
-  auto cost = BatchPipelineCostFuncWrapper<FloatType,decltype(rank_block), MSEcostFunc<FloatType> >(rank_block, call_batch_size);
+  auto cost = BatchPipelineCostFuncWrapper<FloatType,decltype(rank_block), MSEcostFunc<Matrix<FloatType>> >(rank_block, call_batch_size);
 
   auto full_model = enwrap( dnn_layer(input_layer<FloatType>(), winit, binit) );
   for(int i=0;i<nranks-1;i++)

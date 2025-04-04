@@ -82,7 +82,7 @@ void testPipeline(){
   if(1){ //test cost
     if(!rank) std::cout << "Testing loss pipeline" << std::endl;
     auto p = pipeline_block( dnn_layer(input_layer<FloatType>(), winit,binit) , batch_size, input_features, 1, rank == nranks -1 ? 0 : 1);
-    PipelineCostFuncWrapper<FloatType,decltype(p),MSEcostFunc<FloatType> > pc(p);
+    PipelineCostFuncWrapper<FloatType,decltype(p),MSEcostFunc<Matrix<FloatType>> > pc(p);
     int value_lag = p.valueLag();
     int deriv_lag = p.derivLag();
     
@@ -145,20 +145,20 @@ void testPipeline(){
     int call_batch_size = 2;
     
     auto p = pipeline_block( dnn_layer(input_layer<FloatType>(), winit,binit) , call_batch_size, input_features, 1, rank == nranks -1 ? 0 : 1);
-    BatchPipelineCostFuncWrapper<FloatType,decltype(p),MSEcostFunc<FloatType> > pc(p, call_batch_size);
+    BatchPipelineCostFuncWrapper<FloatType,decltype(p),MSEcostFunc<Matrix<FloatType>> > pc(p, call_batch_size);
 
     Matrix<FloatType> x(input_features, glob_batch_size);
     Matrix<FloatType> y(1, glob_batch_size);
 
     for(int i=0;i<glob_batch_size;i++){
-      x.pokeColumn(i,Vector<FloatType>(1,i+1));
+      pokeColumn(x,i,Vector<FloatType>(1,i+1));
 
       FloatType ival = i+1;
       for(int r=0;r<nranks;r++)
 	ival = B + A*ival;
 
       //Add noise
-      y.pokeColumn(i, Vector<FloatType>(1, 1.05*ival) );
+      pokeColumn(y, i, Vector<FloatType>(1, 1.05*ival) );
     }
     
     //Build the same model on just this rank

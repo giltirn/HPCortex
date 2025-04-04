@@ -51,7 +51,7 @@ void testSimpleLinearPipelineDDP(){
  
   auto rank_block = pipeline_block(rank_model, call_batch_size, 1,1,1);
 
-  auto cost = BatchPipelineCostFuncWrapper<FloatType,decltype(rank_block), MSEcostFunc<FloatType> >(rank_block, call_batch_size);
+  auto cost = BatchPipelineCostFuncWrapper<FloatType,decltype(rank_block), MSEcostFunc<Matrix<FloatType> > >(rank_block, call_batch_size);
 
   auto full_model = enwrap( dnn_layer(input_layer<FloatType>(), winit, binit) );
   for(int i=0;i<pipe_nranks-1;i++)

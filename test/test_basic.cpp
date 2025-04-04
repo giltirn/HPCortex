@@ -11,7 +11,7 @@ void basicTests(){
   {
     Matrix<FloatType> m(2,3, vecD({ 1.,2.,3.,
 	                            4.,5.,6.  }));
-    auto mv = m.peekColumns(1,2);
+    auto mv = peekColumns(m,1,2);
     assert(mv.size(0) == 2 && mv.size(1) == 2);    
     doHost(mv, { assert(mv_v(0,0) == FloatType(2.) && mv_v(0,1) == FloatType(3.) && mv_v(1,0) == FloatType(5.) && mv_v(1,1) == FloatType(6.)); });
   }   
@@ -21,7 +21,7 @@ void basicTests(){
 	                            4.,5.,6.  }));
     Matrix<FloatType> v(2,2, vecD({5.,6.,
 	                           7.,8.}));   
-    m.pokeColumns(1,2,v);
+    pokeColumns(m,1,2,v);
     
     doHost(m, { assert(m_v(0,1) == FloatType(5.) && m_v(0,2) == FloatType(6.) && m_v(1,1) == FloatType(7.) && m_v(1,2) == FloatType(8.)); });
   }
@@ -108,7 +108,7 @@ void basicTests(){
 
   doHost(w1_init, {  assert(w1_init_v(0,0) == FloatType(0.1) && w1_init_v(1,0) == FloatType(-0.1) ); });
   {
-    auto c = w1_init.peekColumn(0);
+    auto c = peekColumn(w1_init,0);
     doHost(c, { assert(c_v(0) == FloatType(0.1) && c_v(1) == FloatType(-0.1) && c_v(2) == FloatType(0.7) ); });
   }
   
@@ -124,8 +124,8 @@ void basicTests(){
   //test the MSE loss calculation
   FloatType expect = 0.;
   for(int i=0;i<2;i++){  
-    Vector<FloatType> y1pred = w1_init * x1.peekColumn(i) + b1_init;
-    Vector<FloatType> y1_b = y1.peekColumn(i);
+    Vector<FloatType> y1pred = w1_init * peekColumn(x1,i) + b1_init;
+    Vector<FloatType> y1_b = peekColumn(y1,i);
     std::cout << y1pred << " " << y1_b << std::endl;
 
     doHost2(y1pred,y1_b,{

@@ -4,42 +4,55 @@
 #include<InstanceStorage.hpp>
 #include<Layers.hpp>
 
-template<typename FloatType, typename Store, typename CostFunc>
+template<typename Store>
+struct _inferModelIOtypes{
+  typedef typename Store::type::InputType InputType;
+  typedef typename std::decay<decltype( ((Store*)nullptr)->v.value( *((InputType*)nullptr)) )>::type OutputType;
+  typedef typename Store::type::FloatType FloatType;
+  
+#define INHERIT_MODEL_IO_TYPES(Store) \
+  typedef typename _inferModelIOtypes<Store>::InputType InputType; \
+  typedef typename _inferModelIOtypes<Store>::OutputType OutputType;   \
+  typedef typename _inferModelIOtypes<Store>::FloatType FloatType
+  
+};  
+
+template<typename Store, typename CostFunc>
 class CostFuncWrapper{
+public:
+  INHERIT_MODEL_IO_TYPES(Store);
+private:  
   Store leaf;
-  Matrix<FloatType> ypred; //dim * batch_size
-  Matrix<FloatType> yval;
+  
+  OutputType ypred; //dim * batch_size
+  OutputType yval;
   CostFunc cost;
   int nparam;
 public:
   CostFuncWrapper(Store &&leaf, const CostFunc &cost = CostFunc()): cost(cost), leaf(std::move(leaf)), nparam(leaf.v.nparams()){}
   
-  FloatType loss(const Matrix<FloatType> &x, const Matrix<FloatType> &y){
+  FloatType loss(const InputType &x, const OutputType &y){
     ypred = leaf.v.value(x);
-    int dim = y.size(0);
-    int batch_size = y.size(1);
-    assert(ypred.size(0) == dim);
-    assert(ypred.size(1) == batch_size);
-    
     yval = y;
     return cost.loss(y,ypred);
   }
   Vector<FloatType> deriv() const{
-    Matrix<FloatType> layer_deriv = cost.layer_deriv(yval, ypred);
+    auto layer_deriv = cost.layer_deriv(yval, ypred);
 
     Vector<FloatType> cost_deriv(nparam,0.);    //zero initialize
     leaf.v.deriv(cost_deriv, 0, std::move(layer_deriv));
     return cost_deriv;
   }
 
-  Matrix<FloatType> predict(const Matrix<FloatType> &x){
+  OutputType predict(const InputType &x){
     return leaf.v.value(x);
   }
 
+  template<typename O=OutputType, typename std::enable_if< std::is_same<O,Matrix<FloatType> >::value && std::is_same<InputType,Matrix<FloatType> >::value, int>::type = 0>
   Vector<FloatType> predict(const Vector<FloatType> &x){
     Matrix<FloatType> b(x.size(0),1);
-    b.pokeColumn(0,x);
-    return predict(b).peekColumn(0);    
+    pokeColumn(b,0,x);
+    return peekColumn(predict(b),0);    
   }
   
   void update(const Vector<FloatType> &new_params){
@@ -57,17 +70,23 @@ public:
   }
 };
 
-template<typename FloatType>
-class MSEcostFunc{
+template<typename OutputType>
+class MSEcostFunc{};
+
+template<typename FloatType, int Dim>
+class MSEcostFunc<Tensor<FloatType,Dim> >{
 public:
-  static FloatType loss(const Matrix<FloatType> &y, const Matrix<FloatType> &ypred);  
-  static Matrix<FloatType> layer_deriv(const Matrix<FloatType> &y, const Matrix<FloatType> &ypred);  
+  static FloatType loss(const Tensor<FloatType,Dim> &y, const Tensor<FloatType,Dim> &ypred);  
+  static Tensor<FloatType,Dim> layer_deriv(const Tensor<FloatType,Dim> &y, const Tensor<FloatType,Dim> &ypred);  
 };
-   
+
+
+#define CWRP CostFuncWrapper<DDST(u), MSEcostFunc<typename _inferModelIOtypes<DDST(u)>::OutputType> >
 template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto mse_cost(U &&u)->CostFuncWrapper<FLOATTYPE(U),DDST(u), MSEcostFunc<FLOATTYPE(U)> >{
-  return CostFuncWrapper<FLOATTYPE(U),DDST(u), MSEcostFunc<FLOATTYPE(U)> >(std::forward<U>(u));
+auto mse_cost(U &&u)->CWRP{
+  return CWRP(std::forward<U>(u));
 }
+#undef CWRP
 
 #include "implementation/LossFunctions.tcc"
 

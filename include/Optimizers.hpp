@@ -117,8 +117,8 @@ inline batchedXYpair<FloatType> batchData(int* indices, int batch_size, const st
 
   for(int b=0;b<batch_size;b++){
     int i = indices[b];
-    out.x.pokeColumn(b, data[i].x);
-    out.y.pokeColumn(b, data[i].y);
+    pokeColumn(out.x, b, data[i].x);
+    pokeColumn(out.y, b, data[i].y);
   }
   return out;
 }

@@ -44,9 +44,15 @@ private:
 public:
   typedef const int * Dims;
   typedef const int * Coord;
+
+#define _1D_TENSOR_ONLY template<int D=Dim, typename std::enable_if<D==1,int>::type = 0>
+#define _2D_TENSOR_ONLY template<int D=Dim, typename std::enable_if<D==2,int>::type = 0>
+#define _3D_TENSOR_ONLY template<int D=Dim, typename std::enable_if<D==3,int>::type = 0>
+#define _4D_TENSOR_ONLY template<int D=Dim, typename std::enable_if<D==4,int>::type = 0>
   
   static constexpr int dimension(){ return Dim; }
   Tensor(): _size{0}{}
+  
   Tensor(Dims dims, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool): vals(tensorSize<Dim>(dims),alloc_pool){ memcpy(_size,dims,Dim*sizeof(int));  }
   Tensor(Dims dims, FloatType init, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool): vals(tensorSize<Dim>(dims),init,alloc_pool){ memcpy(_size,dims,Dim*sizeof(int));  }
   
@@ -54,7 +60,38 @@ public:
     memcpy(_size,dims,Dim*sizeof(int));
     assert(tensorSize<Dim>(dims) == init_vals.size());
   }  
- 
+
+  _1D_TENSOR_ONLY
+  Tensor(int len, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool): vals(len,alloc_pool){ _size[0]=len; }
+  _1D_TENSOR_ONLY
+  Tensor(int len, FloatType init, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool): vals(len,init,alloc_pool){ _size[0]=len; }
+  _1D_TENSOR_ONLY
+  Tensor(const std::vector<FloatType> &init_vals): vals(init_vals){ _size[0]=init_vals.size(); }  
+
+  _2D_TENSOR_ONLY
+  Tensor(int size0, int size1, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool): vals(size0*size1,alloc_pool){ _size[0]=size0; _size[1]=size1; }
+  _2D_TENSOR_ONLY
+  Tensor(int size0, int size1, FloatType init, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool): vals(size0*size1,init,alloc_pool){ _size[0]=size0; _size[1]=size1; }
+  _2D_TENSOR_ONLY
+  Tensor(int size0, int size1, const std::vector<FloatType> &init_vals): vals(init_vals){ _size[0]=size0; _size[1]=size1; assert(init_vals.size() == size0*size1); }  
+
+  _3D_TENSOR_ONLY
+  Tensor(int size0, int size1, int size2, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool): vals(size0*size1*size2,alloc_pool){ _size[0]=size0; _size[1]=size1; _size[2]=size2; }
+  _3D_TENSOR_ONLY
+  Tensor(int size0, int size1, int size2, FloatType init, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool): vals(size0*size1*size2,init,alloc_pool){ _size[0]=size0; _size[1]=size1; _size[2]=size2; }
+  _3D_TENSOR_ONLY
+  Tensor(int size0, int size1, int size2, const std::vector<FloatType> &init_vals): vals(init_vals){ _size[0]=size0; _size[1]=size1; _size[2]=size2; assert(init_vals.size() == size0*size1*size2); }  
+
+  _4D_TENSOR_ONLY
+  Tensor(int size0, int size1, int size2, int size3, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool): vals(size0*size1*size2*size3,alloc_pool){ _size[0]=size0; _size[1]=size1; _size[2]=size2; _size[3]=size3; }
+  _4D_TENSOR_ONLY
+  Tensor(int size0, int size1, int size2, int size3, FloatType init, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool): vals(size0*size1*size2*size3,init,alloc_pool){
+    _size[0]=size0; _size[1]=size1; _size[2]=size2; _size[3]=size3; }
+  _4D_TENSOR_ONLY
+  Tensor(int size0, int size1, int size2, int size3, const std::vector<FloatType> &init_vals): vals(init_vals){
+    _size[0]=size0; _size[1]=size1; _size[2]=size2; _size[3]=size3; assert(init_vals.size() == size0*size1*size2*size3); }  
+
+  
   inline int const* sizeArray() const{ return _size; }
   
   inline int size(int i) const{ return _size[i]; }
@@ -89,42 +126,38 @@ public:
       return this->Base::operator[](tensorOffset<Dim>(coord, _size));
     }
 
-    //1D tensor only
-    template<int D=Dim, typename std::enable_if<D==1,int>::type = 0>
+    _1D_TENSOR_ONLY
     accelerator_inline FloatType & operator()(int i){
       return this->Base::operator[](i);
     }
-    template<int D=Dim, typename std::enable_if<D==1,int>::type = 0>
+    _1D_TENSOR_ONLY
     accelerator_inline FloatType operator()(int i) const{
       return this->Base::operator[](i);
     }
 
-    //2D tensor only
-    template<int D=Dim, typename std::enable_if<D==2,int>::type = 0>
+    _2D_TENSOR_ONLY
     accelerator_inline FloatType & operator()(int i,int j){
       return this->Base::operator[](j+_size[1]*i);
     }
-    template<int D=Dim, typename std::enable_if<D==2,int>::type = 0>
+    _2D_TENSOR_ONLY
     accelerator_inline FloatType operator()(int i,int j) const{
       return this->Base::operator[](j+_size[1]*i);
     }
 
-    //3D tensor only
-    template<int D=Dim, typename std::enable_if<D==3,int>::type = 0>
+    _3D_TENSOR_ONLY
     accelerator_inline FloatType & operator()(int i,int j,int k){
       return this->Base::operator[](k + _size[2]*(j+_size[1]*i));
     }
-    template<int D=Dim, typename std::enable_if<D==3,int>::type = 0>
+    _3D_TENSOR_ONLY
     accelerator_inline FloatType operator()(int i,int j,int k) const{
       return this->Base::operator[](k + _size[2]*(j+_size[1]*i));
     }
-    
-    //4D tensor only
-    template<int D=Dim, typename std::enable_if<D==4,int>::type = 0>
+
+    _4D_TENSOR_ONLY
     accelerator_inline FloatType & operator()(int i,int j,int k,int l){
       return this->Base::operator[](l+_size[3]*(k + _size[2]*(j+_size[1]*i)));
     }
-    template<int D=Dim, typename std::enable_if<D==4,int>::type = 0>
+    _4D_TENSOR_ONLY
     accelerator_inline FloatType operator()(int i,int j,int k,int l) const{
       return this->Base::operator[](l+_size[3]*(k + _size[2]*(j+_size[1]*i)));
     }
@@ -141,109 +174,39 @@ public:
   }
   //Lock the associated memory, preventing eviction
   inline void lock() const{ vals.lock(); }
-  inline void unlock() const{ vals.unlock(); }  
+  inline void unlock() const{ vals.unlock(); }
 };
 
-template<typename _FloatType>
-struct Vector{
-public:
-  typedef _FloatType FloatType;
-private:
-  ManagedArray<FloatType> vals;
-public:
-  Vector(){}
-  Vector(int size1, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool): vals(size1,alloc_pool){}
-  Vector(int size1, FloatType init, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool): vals(size1, init, alloc_pool){}
-  Vector(const std::vector<FloatType> &init_vals): vals(init_vals){}
-  
-  static constexpr int dimension(){ return 1; }
-  inline size_t size(int i) const{ return vals.size(); }
+#undef _1D_TENSOR_ONLY
+#undef _2D_TENSOR_ONLY
+#undef _3D_TENSOR_ONLY
+#undef _4D_TENSOR_ONLY
 
-  class View: private ManagedArray<FloatType>::View{
-    typedef typename ManagedArray<FloatType>::View Base;
-  public:
-    inline View(ViewMode mode, const Vector<FloatType> &parent): Base(mode, parent.vals){}
+template<typename FloatType>
+using Vector = Tensor<FloatType,1>;
 
-    inline void free(){ return this->Base::free(); }
-    
-    accelerator_inline FloatType & operator()(const int i){ return this->Base::operator[](i); }
-    accelerator_inline FloatType operator()(const int i) const{ return this->Base::operator[](i); }
+template<typename FloatType>
+using Matrix = Tensor<FloatType,2>;
 
-    accelerator_inline FloatType const* data() const{ return this->Base::data(); }
-    accelerator_inline FloatType* data(){ return this->Base::data(); }
-    accelerator_inline size_t data_len() const{ return this->Base::size(); }
+//Insert 'data' as column 'col' of this matrix
+template<typename FloatType>
+void pokeColumn(Matrix<FloatType> &into, int col, const Vector<FloatType> &data);
 
-    accelerator_inline size_t size(int i) const{ return data_len(); }
-  };
+//Retrieve column 'col' of this matrix
+template<typename FloatType>
+Vector<FloatType> peekColumn(const Matrix<FloatType> &m, int col);
 
-  View view(ViewMode mode) const{
-    return View(mode, *this);
-  }
+//Retrieve multiple columns as a new matrix
+template<typename FloatType>
+Matrix<FloatType> peekColumns(const Matrix<FloatType> &m, int col_start, int col_end);
 
-  //Lock the associated memory, preventing eviction
-  inline void lock() const{ vals.lock(); }
-  inline void unlock() const{ vals.unlock(); }  
-};
+//Insert multiple columns, collected as a matrix 'cols', into this matrix
+template<typename FloatType>
+void pokeColumns(Matrix<FloatType> &into, int col_start, int col_end, const Matrix<FloatType> &cols);
+
 
 template<typename FloatType>
 std::ostream & operator<<(std::ostream &os, const Vector<FloatType> &v);
-
-template<typename _FloatType>
-struct Matrix{
-public:
-  typedef _FloatType FloatType;
-private:
-private:
-  ManagedArray<FloatType> vals;
-  int size0;
-  int size1;
-public:
-  Matrix(): size0(0),size1(0){}
-  Matrix(int size0, int size1, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool): size0(size0), size1(size1), vals(size0*size1,alloc_pool){}  
-  Matrix(int size0, int size1, FloatType init, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool):
-    size0(size0), size1(size1), vals(size0*size1,init,alloc_pool){}
-  Matrix(int size0, int size1, const std::vector<FloatType> &init_vals): size0(size0), size1(size1), vals(init_vals){}    
-
-  static constexpr int dimension(){ return 2; }
-  inline int size(int i) const{ return i==0 ? size0 : size1; }
-  
-  class View: private ManagedArray<FloatType>::View{
-    typedef typename ManagedArray<FloatType>::View Base;
-    int size0;
-    int size1;
-  public:
-    inline View(ViewMode mode, const Matrix<FloatType> &parent): Base(mode, parent.vals), size0(parent.size0),size1(parent.size1){}
-
-    inline void free(){ return this->Base::free(); }
-    
-    accelerator_inline FloatType & operator()(const int i, const int j){ return this->Base::operator[](j+size1*i); }
-    accelerator_inline FloatType operator()(const int i, const int j) const{ this->Base::operator[](j+size1*i); }
-    
-    accelerator_inline FloatType const* data() const{ return this->Base::data(); }
-    accelerator_inline FloatType* data(){ return this->Base::data(); }
-    accelerator_inline size_t data_len() const{ return this->Base::size(); }
-
-    accelerator_inline size_t size(int i) const{ return i==0 ? size0 : size1; }
-  };
-
-  View view(ViewMode mode) const{
-    return View(mode, *this);
-  }
-
-  //Insert 'data' as column 'col' of this matrix
-  void pokeColumn(int col, const Vector<FloatType> &data);
-  //Retrieve column 'col' of this matrix
-  Vector<FloatType> peekColumn(int col) const;
-
-  //Retrieve multiple columns as a new matrix
-  Matrix peekColumns(int col_start, int col_end) const;
-  //Insert multiple columns, collected as a matrix 'cols', into this matrix
-  void pokeColumns(int col_start, int col_end, const Matrix &cols);
-  
-  //Lock the associated memory, preventing eviction
-  inline void lock() const{ vals.lock(); }
-  inline void unlock() const{ vals.unlock(); }  
-};
 
 template<typename FloatType>
 std::ostream & operator<<(std::ostream &os, const Matrix<FloatType> &v);

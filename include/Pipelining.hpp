@@ -75,7 +75,7 @@ public:
     int dcount = 0; //number of derivatives that have been computed. When this is equal to navg we terminate
     int iter =0;
     while(dcount < navg){
-      Matrix<FloatType> x_iter = iter < navg ? x.peekColumns(iter * call_batch_size, (iter+1)* call_batch_size - 1) : x_dummy;
+      Matrix<FloatType> x_iter = iter < navg ? peekColumns(x, iter * call_batch_size, (iter+1)* call_batch_size - 1) : x_dummy;
       Matrix<FloatType> ypred = block.value(x_iter);
       
       int i_vpipe = iter-(value_lag-1);
@@ -84,7 +84,7 @@ public:
       //start recording loss
       Matrix<FloatType> y_iter(y_dummy);
       if(i_vpipe >= 0 && i_vpipe < navg){
-	y_iter = y.peekColumns(i_vpipe * call_batch_size, (i_vpipe+1) * call_batch_size - 1);
+	y_iter = peekColumns(y, i_vpipe * call_batch_size, (i_vpipe+1) * call_batch_size - 1);
 	FloatType dloss = cost.loss(y_iter, ypred);
 	out += dloss;
       }
@@ -141,14 +141,14 @@ public:
     Matrix<FloatType> out;
     
     for(int iter=0;iter<iters;iter++){
-      Matrix<FloatType> x_iter = iter < navg ? x.peekColumns(iter * call_batch_size, (iter+1)* call_batch_size - 1) : x_dummy;
+      Matrix<FloatType> x_iter = iter < navg ? peekColumns(x,iter * call_batch_size, (iter+1)* call_batch_size - 1) : x_dummy;
       Matrix<FloatType> ypred = block.value(x_iter);
 
       if(iter == 0 && !rank) out = Matrix<FloatType>(ypred.size(0),global_batch_size);
       
       int i_vpipe = iter-(value_lag-1);      
       if(i_vpipe >= 0 && !rank)
-	out.pokeColumns(i_vpipe * call_batch_size, (i_vpipe+1) * call_batch_size - 1, ypred);
+	pokeColumns(out,i_vpipe * call_batch_size, (i_vpipe+1) * call_batch_size - 1, ypred);
     }
 
     int osize[2] = {out.size(0),out.size(1)};
@@ -163,8 +163,8 @@ public:
   //note this call is inefficient as we need to do call_batch_size work for only one data. Use the matrix version if this matters
   Vector<FloatType> predict(const Vector<FloatType> &x){
     Matrix<FloatType> b(x.size(0),call_batch_size,0.);  
-    b.pokeColumn(0,x);
-    return predict(b).peekColumn(0);    
+    pokeColumn(b,0,x);
+    return peekColumn(predict(b),0);    
   }
   
 };

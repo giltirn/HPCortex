@@ -3,6 +3,7 @@ set -e
 rm -f run_tests.log
 ./test_accelerator 2>&1 | tee test_accelerator.log
 ./test_basic 2>&1 | tee test_basic.log
+./test_tensor 2>&1 | tee test_tensor.log
 ./test_activation 2>&1 | tee test_activation.log
 mpirun -n  2 ./test_comms 2>&1 | tee test_comms.log
 ./test_managed_array 2>&1 | tee test_managed_array.log
@@ -16,3 +17,5 @@ mpirun -n 2 ./test_simple_linear_pipeline 2>&1 | tee test_simple_linear_pipeline
 mpirun -n 4 ./test_simple_linear_pipeline_ddp 2>&1 | tee test_simple_linear_pipeline_ddp.log
 ./test_skip_connection 2>&1 | tee test_skip_connection.log
 mpirun -n 2 ./test_skip_connection_pipeline 2>&1 | tee test_skip_connection_pipeline.log
+./test_flatten_layer 2>&1 | tee test_flatten_layer.log
+./test_conv1d 2>&1 | tee test_conv1d.log

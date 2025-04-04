@@ -44,7 +44,7 @@ void testOneHiddenLayer(){
       batchedXYpair<FloatType> bxy = batchData(didx.data() + d*batch_size, batch_size, data);
       
       double c1 = model.loss(bxy.x,bxy.y);
-      Vector pd = model.deriv();
+      Vector<FloatType> pd = model.deriv();
       
       auto hidden_layer2 = dnn_layer(input_layer<FloatType>(), winit_h, binit_h, ReLU<FloatType>());  
       auto model2 = mse_cost( dnn_layer(hidden_layer2, winit_out, binit_out) );
