@@ -4,23 +4,12 @@
 #include<InstanceStorage.hpp>
 #include<Layers.hpp>
 
-template<typename Store>
-struct _inferModelIOtypes{
-  typedef typename Store::type::InputType InputType;
-  typedef typename std::decay<decltype( ((Store*)nullptr)->v.value( *((InputType*)nullptr)) )>::type OutputType;
-  typedef typename Store::type::FloatType FloatType;
-  
-#define INHERIT_MODEL_IO_TYPES(Store) \
-  typedef typename _inferModelIOtypes<Store>::InputType InputType; \
-  typedef typename _inferModelIOtypes<Store>::OutputType OutputType;   \
-  typedef typename _inferModelIOtypes<Store>::FloatType FloatType
-  
-};  
-
 template<typename Store, typename CostFunc>
 class CostFuncWrapper{
 public:
-  INHERIT_MODEL_IO_TYPES(Store);
+  typedef typename Store::type::FloatType FloatType;
+  typedef typename Store::type::InputType InputType;
+  typedef LAYEROUTPUTTYPE(typename Store::type) OutputType; 
 private:  
   Store leaf;
   
@@ -81,7 +70,7 @@ public:
 };
 
 
-#define CWRP CostFuncWrapper<DDST(u), MSEcostFunc<typename _inferModelIOtypes<DDST(u)>::OutputType> >
+#define CWRP CostFuncWrapper<DDST(u), MSEcostFunc<LAYEROUTPUTTYPE(U)> >
 template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
 auto mse_cost(U &&u)->CWRP{
   return CWRP(std::forward<U>(u));

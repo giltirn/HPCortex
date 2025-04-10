@@ -4,6 +4,11 @@
 template<typename FloatType>
 class NoPadding{
 public:
+  //Return the length of the 1D output data from the convolution (not the padding func!)
+  static int layerOutputLength(int input_size, int kernel_size, int stride){
+    return (input_size - kernel_size + stride)/stride;
+  }
+
   template<int Dim>
   inline Tensor<FloatType,Dim> padInput(const Tensor<FloatType,Dim> &in) const{ return in; }
   template<int Dim>
@@ -24,6 +29,11 @@ class SamePaddingZero1D{
 public:
   SamePaddingZero1D(int kernel_size, int stride=1): kernel_size(kernel_size), stride(stride){ }
 
+  //Return the length of the 1D output data from the convolution (not the padding func!)
+  static int layerOutputLength(int input_size, int kernel_size, int stride){
+    return input_size;
+  }
+  
   Tensor<FloatType, 3> padInput(const Tensor<FloatType, 3> &in) const{
     int channels = in.size(0);
     int batch_size = in.size(2);

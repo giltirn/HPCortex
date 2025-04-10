@@ -86,6 +86,36 @@ bool abs_near(const Matrix<FloatType> &a,const Matrix<FloatType> &b, FloatType a
   return true;
 }
 
+template<typename FloatType, int Dim>
+bool abs_near(const Tensor<FloatType,Dim> &a,const Tensor<FloatType,Dim> &b, FloatType abs_tol, bool verbose=false){
+  int const* a_sz = a.sizeArray();
+  int const* b_sz = b.sizeArray();
+  for(int d=0;d<Dim;d++) if(a_sz[d] != b_sz[d]) return false;
+  
+  autoView(a_v,a,HostRead);
+  autoView(b_v,b,HostRead);
+  for(size_t v = 0; v < a_v.data_len(); v++){
+    FloatType absdiff;
+    FloatType aa = a_v.data()[v];
+    FloatType bb = b_v.data()[v];
+    
+    bool nr = abs_near(aa,bb,abs_tol,&absdiff);
+    if(!nr){
+      if(verbose){     
+	int coord[Dim];    
+	tensorOffsetUnmap<Dim>(coord,a_sz,v);
+	for(int d=0;d<Dim;d++)
+	  std::cout << coord[d] << " ";
+	std::cout << "a:" << aa << " b:" << bb << " abs.diff:" << absdiff << std::endl;
+      }
+      return false;
+    }
+  }
+  return true;
+}
+
+
+
 template<typename FloatType, typename RNG>
 void random(Matrix<FloatType> &m, RNG &rng){
   std::uniform_real_distribution<FloatType> dist(-1.0, 1.0);

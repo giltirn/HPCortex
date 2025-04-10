@@ -11,6 +11,7 @@ struct LeafTag{};
 #define ISLEAF(a) std::is_same<typename std::decay<a>::type::tag,LeafTag>::value
 #define FLOATTYPE(a) typename std::decay<a>::type::FloatType
 #define INPUTTYPE(a) typename std::decay<a>::type::InputType
+#define LAYEROUTPUTTYPE(a) typename std::decay<decltype( std::declval<typename std::decay<a>::type&>().value( std::declval<INPUTTYPE(a)>() ) )>::type
 
 //The input layer
 //This is always the lowest layer in the model
@@ -178,7 +179,7 @@ class FlattenLayer{
 public:
   typedef _FloatType FloatType;
   typedef _InputType InputType;
-  typedef typename std::decay<decltype( ((Store*)nullptr)->v.value( *( (InputType const*)nullptr) ))>::type LayerInputTensorType; //expect a Tensor ;; //TODO, add a compile-time test to ensure this!  
+  typedef LAYEROUTPUTTYPE(typename Store::type) LayerInputTensorType; //expect a Tensor ;; //TODO, add a compile-time test to ensure this!  
 private:
   Store leaf;
   int _input_tens_size[LayerInputTensorType::dimension()];
@@ -223,7 +224,7 @@ class ConvolutionLayer1D{
 public:
   typedef _FloatType FloatType;
   typedef _InputType InputType;
-  typedef typename std::decay<decltype( ((Store*)nullptr)->v.value( *( (InputType const*)nullptr) ))>::type LayerInputTensorType; //expect a Tensor
+  typedef LAYEROUTPUTTYPE(typename Store::type) LayerInputTensorType; //expect a Tensor
   static_assert(LayerInputTensorType::dimension() == 3); //[channel][1d data idx][batch_idx]
   
 private:
@@ -294,6 +295,5 @@ auto conv1d_layer(U &&u, const Tensor<FLOATTYPE(U),3> &filter, const ActivationF
   ->ConvolutionLayer1D<FLOATTYPE(U),INPUTTYPE(U),DDST(u),ActivationFunc,PaddingFunc>{
   return ConvolutionLayer1D<FLOATTYPE(U),INPUTTYPE(U),DDST(u),ActivationFunc,PaddingFunc>(std::forward<U>(u),filter,activation_func,padding_func,stride);
 }
-
 
 #include "implementation/Layers.tcc"
