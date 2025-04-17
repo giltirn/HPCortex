@@ -10,6 +10,8 @@ void testSimpleLinearPipeline(){
   int rank = communicators().pipelineRank();
 
   int call_batch_size = 2;
+  int in_out_dims[2] = {1,call_batch_size};
+  
   int glob_batch_size = 6 * nranks;
 
   int nepoch = 20;
@@ -18,7 +20,7 @@ void testSimpleLinearPipeline(){
   typedef float FloatType;
   
   int ndata = nbatch * glob_batch_size;
-  std::vector<XYpair<FloatType> > data(ndata);
+  std::vector<XYpair<FloatType,1,1> > data(ndata);
 
   for(int i=0;i<ndata;i++){
     FloatType eps = 2.0/(ndata - 1);
@@ -34,9 +36,9 @@ void testSimpleLinearPipeline(){
 
   auto rank_model = rank == nranks-1 ? enwrap( dnn_layer(input_layer<FloatType>(), winit, binit) )  : enwrap( dnn_layer(input_layer<FloatType>(), winit, binit, ReLU<FloatType>()) );
  
-  auto rank_block = pipeline_block(rank_model, call_batch_size, 1,1,1);
+  auto rank_block = pipeline_block<Matrix<FloatType>, Matrix<FloatType> >(rank_model, in_out_dims, in_out_dims);
 
-  auto cost = BatchPipelineCostFuncWrapper<FloatType,decltype(rank_block), MSEcostFunc<Matrix<FloatType>> >(rank_block, call_batch_size);
+  auto cost = BatchPipelineCostFuncWrapper<decltype(rank_block), MSEcostFunc<Matrix<FloatType>> >(rank_block, call_batch_size);
 
   auto full_model = enwrap( dnn_layer(input_layer<FloatType>(), winit, binit) );
   for(int i=0;i<nranks-1;i++)

@@ -94,38 +94,40 @@ public:
   FloatType operator()(const int epoch) const{ return eps * 1./(1. + decay_rate * epoch); }
 };
 
-template<typename FloatType>
+template<typename FloatType, int DimX, int DimY>
 struct XYpair{
-  Vector<FloatType> x;
-  Vector<FloatType> y;
-};
-template<typename FloatType>
-struct batchedXYpair{
-  Matrix<FloatType> x;
-  Matrix<FloatType> y;
+  Tensor<FloatType,DimX> x;
+  Tensor<FloatType,DimY> y;
 };
 
-template<typename FloatType>
-inline batchedXYpair<FloatType> batchData(int* indices, int batch_size, const std::vector<XYpair<FloatType> > &data){
+template<typename FloatType, int DimX, int DimY>
+inline XYpair<FloatType,DimX+1,DimY+1> batchData(int const* indices, int batch_size, const std::vector<XYpair<FloatType,DimX,DimY> > &data){
   assert(data.size()>0);
-  int x_features = data[0].x.size(0);
-  int y_features = data[0].y.size(0);
+  int const *x_sz_in = data[0].x.sizeArray();
+  int const *y_sz_in = data[0].y.sizeArray();
   
-  batchedXYpair<FloatType> out;
-  out.x = Matrix<FloatType>(x_features, batch_size);
-  out.y = Matrix<FloatType>(y_features, batch_size);
+  int x_sz_out[DimX+1];
+  int y_sz_out[DimY+1];
+  memcpy(x_sz_out,x_sz_in,DimX*sizeof(int));
+  memcpy(y_sz_out,y_sz_in,DimY*sizeof(int));
+  x_sz_out[DimX] = batch_size;
+  y_sz_out[DimY] = batch_size;
+  
+  XYpair<FloatType,DimX+1,DimY+1> out;
+  out.x = Tensor<FloatType,DimX+1>(x_sz_out);
+  out.y = Tensor<FloatType,DimY+1>(y_sz_out);
 
   for(int b=0;b<batch_size;b++){
     int i = indices[b];
-    pokeColumn(out.x, b, data[i].x);
-    pokeColumn(out.y, b, data[i].y);
+    out.x.pokeLastDimension(data[i].x, b);
+    out.y.pokeLastDimension(data[i].y, b);
   }
   return out;
 }
 
 
-template<typename FloatType, typename ModelType, typename Optimizer>
-std::vector<FloatType> train(ModelType &model, const std::vector<XYpair<FloatType> > &data, Optimizer &optimizer, int nepoch, int batch_size, bool suppress_logging = false){
+template<typename FloatType, int DimX, int DimY, typename ModelType, typename Optimizer>
+std::vector<FloatType> train(ModelType &model, const std::vector<XYpair<FloatType,DimX,DimY> > &data, Optimizer &optimizer, int nepoch, int batch_size, bool suppress_logging = false){
   std::default_random_engine gen(1234); //important that every rank shuffles in the same way
 
   //We want to divide the data evenly over batches. This means we may need to discard some data
@@ -164,7 +166,7 @@ std::vector<FloatType> train(ModelType &model, const std::vector<XYpair<FloatTyp
 	int bidx = block*blocksize + me; //which batch are we doing?
 
 	//Get the batch
-	batchedXYpair<FloatType> bxy = batchData(didx.data() + bidx*batch_size, batch_size, data);
+	auto bxy = batchData(didx.data() + bidx*batch_size, batch_size, data);
 	
 	loss = model.loss(bxy.x, bxy.y);
 	deriv = model.deriv();

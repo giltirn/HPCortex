@@ -56,7 +56,6 @@ Tensor<FloatType,Dim> MSEcostFunc<Tensor<FloatType,Dim> >::layer_deriv(const Ten
   //dout / dparam(i) = \sum_j 2*(ypred(j) - y(j)) * dypred(j)/dparam(i)
 
   //dout / dypred(i) = 2*(ypred(i) - y(i)) /dim
-  int dim = y.size(0);
   int const* dims = y.sizeArray();
   size_t other_sz = 1;
   for(int i=0;i<y.dimension()-1;i++)
@@ -64,7 +63,7 @@ Tensor<FloatType,Dim> MSEcostFunc<Tensor<FloatType,Dim> >::layer_deriv(const Ten
   
   int batch_size = dims[y.dimension()-1];
     
-  Tensor<FloatType,Dim> layer_deriv_m(dim,batch_size);
+  Tensor<FloatType,Dim> layer_deriv_m(dims);
   autoView(ypred_v,ypred,DeviceRead);
   autoView(y_v,y,DeviceRead);
   autoView(layer_deriv_v,layer_deriv_m,DeviceWrite);
@@ -72,7 +71,7 @@ Tensor<FloatType,Dim> MSEcostFunc<Tensor<FloatType,Dim> >::layer_deriv(const Ten
   //Might be optimal to have more than just batch_size elements per block but this is a fair start
   accelerator_for2d(b,batch_size,i,other_sz, 1,{
       size_t off = b + batch_size*i;
-      layer_deriv_v(i,b) = 2*(   *(ypred_v.data()+off) - *(y_v.data()+off)  ) / (other_sz*batch_size);
+      *(layer_deriv_v.data() + off) = 2*(   *(ypred_v.data()+off) - *(y_v.data()+off)  ) / (other_sz*batch_size);
     });  
   
   return layer_deriv_m;

@@ -10,22 +10,22 @@ void testPipeline(){
   int rank = communicators().pipelineRank();
   
   int batch_size = 1;
-  int input_features = 1; 
+  int input_features = 1;
+  int input_dims[2] = {input_features, batch_size};  
 
   FloatType B=0.15;
   FloatType A=3.14;
   
   Matrix<FloatType> winit(1,1,A);
   Vector<FloatType> binit(1,B);
+  int block_output_dims[2] = {1, batch_size};
   typedef decltype( dnn_layer(input_layer<FloatType>(), winit,binit) ) Ltype;
 
 
   if(1){ //test model
     if(!rank) std::cout << "Testing model value pipeline" << std::endl;
-    //auto b = dnn_layer(input_layer(), winit,binit);    
-    //auto p = pipeline_block( b, batch_size, input_features, 1, rank == nranks -1 ? 0 : 1);
 
-    auto p = pipeline_block( dnn_layer(input_layer<FloatType>(), winit,binit), batch_size, input_features, 1, rank == nranks -1 ? 0 : 1);
+    auto p = pipeline_block< Matrix<FloatType>, Matrix<FloatType> >( dnn_layer(input_layer<FloatType>(), winit,binit), block_output_dims, rank == nranks - 1  ? input_dims : block_output_dims);
     
     int value_lag = p.valueLag(); //iterations before first complete cycle of forwards differentiation
     int deriv_lag = p.derivLag(); //iterations before first complete cycle of backwards differentiation
@@ -81,8 +81,8 @@ void testPipeline(){
   }
   if(1){ //test cost
     if(!rank) std::cout << "Testing loss pipeline" << std::endl;
-    auto p = pipeline_block( dnn_layer(input_layer<FloatType>(), winit,binit) , batch_size, input_features, 1, rank == nranks -1 ? 0 : 1);
-    PipelineCostFuncWrapper<FloatType,decltype(p),MSEcostFunc<Matrix<FloatType>> > pc(p);
+    auto p = pipeline_block< Matrix<FloatType>, Matrix<FloatType> >( dnn_layer(input_layer<FloatType>(), winit,binit) , block_output_dims, rank == nranks - 1  ? input_dims : block_output_dims);
+    PipelineCostFuncWrapper<decltype(p),MSEcostFunc<Matrix<FloatType>> > pc(p);
     int value_lag = p.valueLag();
     int deriv_lag = p.derivLag();
     
@@ -121,11 +121,11 @@ void testPipeline(){
     if(!rank) std::cout << "Starting test loop" << std::endl;
     for(int i=0;i<iters;i++){
       int i_vpipe = i-(value_lag-1);
-      FloatType loss = pc.loss(x[i],y[i]);     
+      FloatType loss = pc.loss(x[i],y[i]).first;
       FloatType loss_expect = i_vpipe < 0 ? -1. : expect_l[i_vpipe];
 
       int i_dpipe = i-(deriv_lag-1); //item index associated with derivative
-      Vector<FloatType> deriv = pc.deriv();
+      Vector<FloatType> deriv = pc.deriv().first;
       Vector<FloatType> deriv_expect = i_dpipe < 0 ? Vector<FloatType>(nparams,-1.) : expect_d[i_dpipe];
       
       if(!rank){
@@ -143,9 +143,12 @@ void testPipeline(){
 
     int glob_batch_size = 6*nranks;
     int call_batch_size = 2;
+
+    int input_dims_2[2] = {input_features, call_batch_size};  
+    int block_output_dims_2[2] = {1, call_batch_size};
     
-    auto p = pipeline_block( dnn_layer(input_layer<FloatType>(), winit,binit) , call_batch_size, input_features, 1, rank == nranks -1 ? 0 : 1);
-    BatchPipelineCostFuncWrapper<FloatType,decltype(p),MSEcostFunc<Matrix<FloatType>> > pc(p, call_batch_size);
+    auto p = pipeline_block<Matrix<FloatType>, Matrix<FloatType> >( dnn_layer(input_layer<FloatType>(), winit,binit) , block_output_dims_2, rank == nranks -1 ? input_dims_2 : block_output_dims_2);
+    BatchPipelineCostFuncWrapper<decltype(p),MSEcostFunc<Matrix<FloatType>> > pc(p, call_batch_size);
 
     Matrix<FloatType> x(input_features, glob_batch_size);
     Matrix<FloatType> y(1, glob_batch_size);

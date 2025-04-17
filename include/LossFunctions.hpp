@@ -21,6 +21,8 @@ public:
   CostFuncWrapper(Store &&leaf, const CostFunc &cost = CostFunc()): cost(cost), leaf(std::move(leaf)), nparam(leaf.v.nparams()){}
   
   FloatType loss(const InputType &x, const OutputType &y){
+    //std::cout << "Loss with tensor of dim " << x.dimension() << " and sizes " << x.sizeArrayString() << std::endl;
+    
     ypred = leaf.v.value(x);
     yval = y;
     return cost.loss(y,ypred);
@@ -65,6 +67,7 @@ class MSEcostFunc{};
 template<typename FloatType, int Dim>
 class MSEcostFunc<Tensor<FloatType,Dim> >{
 public:
+  typedef Tensor<FloatType,Dim> DataType;
   static FloatType loss(const Tensor<FloatType,Dim> &y, const Tensor<FloatType,Dim> &ypred);  
   static Tensor<FloatType,Dim> layer_deriv(const Tensor<FloatType,Dim> &y, const Tensor<FloatType,Dim> &ypred);  
 };

@@ -12,7 +12,9 @@ void testSkipConnectionPipeline(){
   
   int batch_size = 1;
   int input_features = 1; 
-
+  int block_output_dims[2] = {1, batch_size};
+  int block_input_dims[2] = { rank == nranks-1 ? input_features : 1, batch_size };
+  
   FloatType A=3.14;
   FloatType B=0.15;
   FloatType C=5.66;
@@ -28,7 +30,7 @@ void testSkipConnectionPipeline(){
     auto skip1 = skip_connection( dnn_layer(input_layer<FloatType>(), winit1,binit1), input_layer<FloatType>());
     auto skip2 = skip_connection( dnn_layer(input_layer<FloatType>(), winit2,binit2), skip1);
         
-    auto p = pipeline_block( skip2, batch_size, input_features, 1, rank == nranks -1 ? 0 : 1);
+    auto p = pipeline_block<Matrix<FloatType>, Matrix<FloatType> >( skip2, block_output_dims, block_input_dims);
     
     int value_lag = p.valueLag(); //iterations before first complete cycle of forwards differentiation
     int deriv_lag = p.derivLag(); //iterations before first complete cycle of backwards differentiation

@@ -1,3 +1,41 @@
+template<typename FloatType, int Dim>
+Tensor<FloatType,Dim> Tensor<FloatType,Dim>::sliceLastDimension(int idx_start, int idx_end) const{
+  int osize[Dim]; memcpy(osize, this->sizeArray(), Dim*sizeof(int));
+  osize[Dim-1] = idx_end-idx_start+1;
+  Tensor<FloatType,Dim> out(osize);
+  size_t other_size = 1;
+  for(int i=0;i<Dim-1;i++) other_size *= osize[i];
+
+  int osize_last = osize[Dim-1];
+  int isize_last = this->sizeArray()[Dim-1];
+  
+  autoView(out_v,out,DeviceWrite);
+  autoView(t_v,(*this),DeviceRead);
+  accelerator_for2d(jj,idx_end-idx_start+1,i,other_size,1,{
+      out_v.data()[jj + osize_last*i] = t_v.data()[jj+idx_start + isize_last*i];
+    });
+  return out;
+}
+
+ //Insert a tensor of Dim-1 such that (*this)(i,j,k,..., idx) = ins(i,j,k,...)
+template<typename FloatType, int Dim>
+void Tensor<FloatType,Dim>::pokeLastDimension(const Tensor<FloatType,Dim-1> &ins, const int idx){
+  size_t other_size = 1;
+  for(int i=0;i<Dim-1;i++){
+    assert( ins.size(i) == this->size(i) );
+    other_size *= ins.size(i);
+  }
+  size_t size_last = this->size(Dim-1);
+    
+  autoView(ins_v,ins,DeviceRead);
+  autoView(t_v,(*this),DeviceReadWrite);
+  accelerator_for2d(dummy1,1, i,other_size,32,{
+      t_v.data()[idx + size_last *i] = ins_v.data()[i];
+    });
+}
+
+
+
 template<typename FloatType>
 std::ostream & operator<<(std::ostream &os, const Vector<FloatType> &v){
   autoView(vv,v,HostRead);

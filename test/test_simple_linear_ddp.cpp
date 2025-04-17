@@ -12,7 +12,7 @@ void testSimpleLinearDDP(){
   int nepoch = 10;
   
   int ndata = 100;
-  std::vector<XYpair<FloatType> > data(ndata);
+  std::vector<XYpair<FloatType,1,1> > data(ndata);
   for(int i=0;i<ndata;i++){
     FloatType eps = 2.0/(ndata - 1);
     FloatType x = -1.0 + i*eps; //normalize x to within +-1

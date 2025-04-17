@@ -6,8 +6,20 @@
 //This is a pipeline parallelized cost function wrapper. The user must provide a PipelineBlock containing the layers on the current rank, each terminating
 //with an InputLayer.
 //call_batch_size must be provided indicating the batch size acted on by each rank in each cycle; it must be a divisor of the total batch size
-template<typename FloatType, typename PipelineBlockType, typename CostFunc>
+template<typename PipelineBlockType, typename CostFunc>
 class BatchPipelineCostFuncWrapper{
+public:
+  typedef typename PipelineBlockType::FloatType FloatType;
+  typedef typename PipelineBlockType::InputType InputType; //overall input type
+  typedef typename PipelineBlockType::OutputType OutputType; //overall output type
+  static_assert( std::is_same<OutputType, typename CostFunc::DataType>::value == true );
+  
+  //types for this rank's block
+  typedef typename PipelineBlockType::BlockInputType BlockInputType;
+  typedef LAYEROUTPUTTYPE(PipelineBlockType) BlockOutputType; 
+
+  enum { InputDimension = InputType::Dimension, OutputDimension = OutputType::Dimension };
+private:  
   PipelineBlockType &block;
   
   CostFunc cost;
@@ -31,15 +43,20 @@ public:
 
 
   
-  FloatType loss(const Matrix<FloatType> &x, const Matrix<FloatType> &y){
+  FloatType loss(const InputType &x, const OutputType &y){
     int dim = y.size(0);
     int global_batch_size = y.size(1);
 
     assert( global_batch_size % call_batch_size == 0);
     int navg = global_batch_size / call_batch_size;
 
-    Matrix<FloatType> x_dummy(x.size(0),call_batch_size,0.0);
-    Matrix<FloatType> y_dummy(y.size(0),call_batch_size,0.0);
+    int x_bdims[InputDimension]; memcpy(x_bdims, x.sizeArray(), InputDimension*sizeof(int));
+    int y_bdims[OutputDimension]; memcpy(y_bdims, y.sizeArray(), OutputDimension*sizeof(int));
+    
+    x_bdims[InputDimension-1] = y_bdims[OutputDimension-1] = call_batch_size;
+    
+    InputType x_dummy(x_bdims,0.0);
+    OutputType y_dummy(y_bdims,0.0);
     
     deriv_store = Vector<FloatType>(nparam, 0.);    
 
@@ -75,25 +92,25 @@ public:
     int dcount = 0; //number of derivatives that have been computed. When this is equal to navg we terminate
     int iter =0;
     while(dcount < navg){
-      Matrix<FloatType> x_iter = iter < navg ? peekColumns(x, iter * call_batch_size, (iter+1)* call_batch_size - 1) : x_dummy;
-      Matrix<FloatType> ypred = block.value(x_iter);
+      InputType x_iter = iter < navg ? x.sliceLastDimension(iter * call_batch_size, (iter+1)* call_batch_size - 1) : x_dummy;
+      OutputType ypred = block.value(x_iter);
       
       int i_vpipe = iter-(value_lag-1);
       int i_dpipe = iter-(deriv_lag-1);
 
       //start recording loss
       Matrix<FloatType> y_iter(y_dummy);
-      if(i_vpipe >= 0 && i_vpipe < navg){
-	y_iter = peekColumns(y, i_vpipe * call_batch_size, (i_vpipe+1) * call_batch_size - 1);
+      if(rank == 0 && i_vpipe >= 0 && i_vpipe < navg){ //only evaluate on first rank where ypred is meaningful
+	y_iter = y.sliceLastDimension(i_vpipe * call_batch_size, (i_vpipe+1) * call_batch_size - 1);
 	FloatType dloss = cost.loss(y_iter, ypred);
 	out += dloss;
       }
 	
       //once we start getting values back we need to feed them back to the derivs
       if(i_vpipe >= 0){
-	Matrix<FloatType> layer_deriv = cost.layer_deriv(y_iter , ypred);
+	OutputType layer_deriv = rank == 0 ? cost.layer_deriv(y_iter , ypred) : OutputType();
 	Vector<FloatType> cost_deriv(nparam,0.);    //zero initialize
-	block.deriv(cost_deriv, std::move(layer_deriv));
+	block.deriv(cost_deriv, std::move(layer_deriv)); //inputs ignored apart from on rank 0
 	
 	if(i_dpipe >= 0){
 	  ++dcount;
@@ -173,15 +190,26 @@ public:
 
 //This is a pipelined loss function wrapper. Using it requires careful coordination as the returned value is not the loss for the provided inputs but a delayed result
 //from an earlier iteration. Specifically, the output of loss will be the loss for the call valueLag() calls previously, and that for deriv derivLag() calls previously
-template<typename FloatType, typename PipelineBlockType, typename CostFunc>
+template<typename PipelineBlockType, typename CostFunc>
 class PipelineCostFuncWrapper{
+  typedef typename PipelineBlockType::FloatType FloatType;
+  typedef typename PipelineBlockType::InputType InputType; //overall input type
+  typedef typename PipelineBlockType::OutputType OutputType; //overall output type
+  static_assert( std::is_same<OutputType, typename CostFunc::DataType>::value == true );
+  
+  //types for this rank's block
+  typedef typename PipelineBlockType::BlockInputType BlockInputType;
+  typedef LAYEROUTPUTTYPE(PipelineBlockType) BlockOutputType; 
+
+  enum { InputDimension = InputType::Dimension, OutputDimension = OutputType::Dimension };
+  
   PipelineBlockType &block;
 
-  RingBuffer<Matrix<FloatType> > yval_buf_v;//buffered yvalues for calls to "loss"
+  RingBuffer<OutputType> yval_buf_v;//buffered yvalues for calls to "loss"
   size_t calls;
 
-  Matrix<FloatType> ypred; //dim * batch_size
-  Matrix<FloatType> yval; //yval associated with ypred
+  OutputType ypred; //predicted value
+  OutputType yval; //yval associated with ypred
   
   CostFunc cost;
   int nparam;
@@ -198,8 +226,9 @@ public:
   }
 
 
-  
-  FloatType loss(const Matrix<FloatType> &x, const Matrix<FloatType> &y){
+  //On rank 0, return the delayed loss as out.first, with a delay of value_lag calls.
+  //If insufficient calls have been made to saturate the pipeline, out.second will be false, otherwise true (on all ranks)
+  std::pair<FloatType,bool> loss(const OutputType &x, const OutputType &y){
     ++calls;
     int dim = y.size(0);
     int batch_size = y.size(1);
@@ -214,24 +243,21 @@ public:
     //3      <1-   <2-    <3|
     //etc
     //value_lag = 3 = nrank
-    Matrix<FloatType> ycp(y);
+    OutputType ycp(y);
     yval_buf_v.push(std::move(ycp));
    
     ypred = block.value(x);
-    assert(ypred.size(0) == dim);
-    assert(ypred.size(1) == batch_size);
     
-    if(calls < value_lag) return -1;
+    if(calls < value_lag) return std::pair<FloatType,bool>(-1.,false);
     else{ //yval not initialized until ring buffer is full
       yval = yval_buf_v.pop();
-      assert(yval.size(0) == dim);
-      assert(yval.size(1) == batch_size);
-      
-      return cost.loss(yval,ypred);
+      return std::pair<FloatType,bool>( rank == 0 ? cost.loss(yval,ypred) : 0. , true );
     }
   }
-  
-  Vector<FloatType> deriv() const{
+
+  //On rank 0, return the delayed derivative as out.first, with a delay of deriv_lag calls.
+  //If insufficient calls have been made to saturate the pipeline, out.second will be false, otherwise true (on all ranks)
+  std::pair<Vector<FloatType>, bool> deriv() const{
     //3 ranks
     //Value:
     //iter    rank->
@@ -258,12 +284,12 @@ public:
 
     //Notice rank 0 consumes y,ypred[i] on the same iteration it receives ypred[i], so we don't need a buffer
     if(calls >= value_lag){ //can't call before value_lag because yval uninitialized
-      Matrix<FloatType> layer_deriv = cost.layer_deriv(yval, ypred);
+      OutputType layer_deriv = rank == 0 ? cost.layer_deriv(yval, ypred) : OutputType(); //inputs ignored on all ranks bar first
       Vector<FloatType> cost_deriv(nparam,0.);    //zero initialize
       block.deriv(cost_deriv, std::move(layer_deriv));
-      if(calls < deriv_lag) return Vector<FloatType>(nparam,-1.); //indicate that these derivs are invalid
-      else return cost_deriv;
-    }else return Vector<FloatType>(nparam,-1.); //indicate that these derivs are invalid
+      if(calls < deriv_lag) return std::pair<Vector<FloatType>, bool>( Vector<FloatType>(nparam,-1.), false ); //indicate that these derivs are invalid
+      else return std::pair<Vector<FloatType>, bool>( rank != 0 ? Vector<FloatType>(nparam,-1.) : std::move(cost_deriv), true );
+    }else return std::pair<Vector<FloatType>, bool>( Vector<FloatType>(nparam,-1.), false ); //indicate that these derivs are invalid
   }
   
   void update(const Vector<FloatType> &new_params){
@@ -278,8 +304,32 @@ public:
     Vector<FloatType> out(nparams());
     block.getParams(out);
     return out;
-  } 
+  }
+
+  int valueLag() const{ return value_lag; }
+  int derivLag() const{ return deriv_lag; }
+  
 };
+
+#define CWRP PipelineCostFuncWrapper<PipelineBlockType, MSEcostFunc<typename PipelineBlockType::OutputType> >
+template<typename PipelineBlockType>
+auto pipeline_mse_cost(PipelineBlockType &u)->CWRP{
+  return CWRP(u);
+}
+#undef CWRP
+
+
+struct LockControlWrapper{
+  virtual void lock() = 0;
+  virtual void unlock() = 0;
+};
+template<typename FloatType, int Dim>
+struct LockControlWrapperTensor: public LockControlWrapper{
+  Tensor<FloatType,Dim> const* v;
+  LockControlWrapperTensor(Tensor<FloatType,Dim> const* v): v(v){}
+  void lock() override{ v->lock(); }
+  void unlock() override{ v->unlock(); }
+};  
 
 class PipelineCommunicator{
 protected:
@@ -309,54 +359,43 @@ public:
   int pipelineDepth() const{ return pipeline_depth; }
 
   //We want to ensure that managed objects aren't evicted while async MPI operations are happening
-  template<typename FloatType>
-  struct CommsRequest{ 
-    Vector<FloatType> const* v;
-    Matrix<FloatType> const* m;
+  struct CommsRequest{
+    std::unique_ptr<LockControlWrapper> v;   
     MPI_Request req;
     
-    CommsRequest(): v(nullptr), m(nullptr){}
-    CommsRequest(MPI_Request r, const Vector<FloatType> &vv): req(r), v(&vv), m(nullptr){
-      vv.lock();
-    }
-    CommsRequest(MPI_Request r, const Matrix<FloatType> &mm): req(r), v(nullptr), m(&mm){
-      mm.lock();
-    }
-    
+    template<typename FloatType, int Dim>
+    CommsRequest(MPI_Request r, const Tensor<FloatType,Dim> &vv): req(r), v(new LockControlWrapperTensor(&vv)){
+      v->lock();
+    }    
   };
-  template<typename FloatType>
-  void waitAll(const std::vector<CommsRequest<FloatType> > &reqs){
+  void waitAll(const std::vector<CommsRequest> &reqs){
     std::vector<MPI_Request> rm(reqs.size());
     for(int i=0;i<reqs.size();i++)
       rm[i] = reqs[i].req;
     assert( MPI_Waitall(rm.size(), rm.data(), MPI_STATUSES_IGNORE) == MPI_SUCCESS );
     for(int i=0;i<reqs.size();i++)
-      if(reqs[i].v) reqs[i].v->unlock();
-      else if(reqs[i].m) reqs[i].m->unlock();
-    
+      reqs[i].v->unlock();    
   }
   template<typename T>
-  inline static CommsRequest<typename T::FloatType> send(const T &mat, int to){
+  inline static CommsRequest send(const T &mat, int to){
     autoView(mat_v,mat,HostRead);
     MPI_Request req;		
     assert( MPI_Isend(mat_v.data(), mat_v.data_len(), getMPIdataType<typename T::FloatType>(), to, 0, communicators().pipelineCommunicator(), &req) == MPI_SUCCESS );
-    return CommsRequest<typename T::FloatType>(req,mat);
+    return CommsRequest(req,mat);
   }
   template<typename T>
-  inline static CommsRequest<typename T::FloatType> recv(T &mat, int from){
+  inline static CommsRequest recv(T &mat, int from){
     MPI_Request req;
     autoView(mat_v,mat,HostWrite);	
     assert( MPI_Irecv(mat_v.data(), mat_v.data_len(), getMPIdataType<typename T::FloatType>(), from, 0, communicators().pipelineCommunicator(), &req) == MPI_SUCCESS );
-    return CommsRequest<typename T::FloatType>(req,mat);
+    return CommsRequest(req,mat);
   }
 
-  template<typename T>
-  void passLeft(std::vector<CommsRequest<typename T::FloatType> > &reqs,
+  template<typename T, typename U>
+  void passLeft(std::vector<CommsRequest> &reqs,
 		T const* send_bulk, T const *send_last,
-		T* recv_first, T* recv_bulk) const{
-    if(pipeline_depth == 1){
-      *recv_first = *send_last; return;
-    }
+		U* recv_first, U* recv_bulk) const{
+    if(pipeline_depth == 1) assert(0); //todo: make exception when T==U
     
     if(is_last) reqs.push_back(send(*send_last, prev_rank));
     else if(!is_first) reqs.push_back(send(*send_bulk, prev_rank));
@@ -364,13 +403,11 @@ public:
     if(is_first) reqs.push_back(recv(*recv_first, next_rank));
     else if(!is_last) reqs.push_back(recv(*recv_bulk, next_rank));
   }
-  template<typename T>
-  void passRight(std::vector<CommsRequest<typename T::FloatType> > &reqs,
+  template<typename T, typename U>
+  void passRight(std::vector<CommsRequest> &reqs,
 		T const* send_first, T const *send_bulk,
-		T* recv_bulk, T* recv_last) const{
-    if(pipeline_depth == 1){
-      *recv_last = *send_first; return;
-    }
+		U* recv_bulk, U* recv_last) const{
+    if(pipeline_depth == 1) assert(0);
     
     if(is_first) reqs.push_back(send(*send_first, next_rank));
     else if(!is_last) reqs.push_back(send(*send_bulk, next_rank));
@@ -380,7 +417,7 @@ public:
   }
 
   template<typename T>
-  void passLeftLastToFirst(std::vector<CommsRequest<typename T::FloatType> > &reqs,
+  void passLeftLastToFirst(std::vector<CommsRequest> &reqs,
 			   T const* send_last, T *recv_first){
     if(pipeline_depth == 1){
       *recv_first = *send_last; return;
@@ -392,32 +429,52 @@ public:
 };
   
 
-template<typename _FloatType, typename BlockStore>
+template<typename BlockStore, typename InputType_, typename OutputType_>
 class PipelineBlock: public PipelineCommunicator{
 public:
-  typedef _FloatType FloatType;
+  typedef typename BlockStore::type::FloatType FloatType;
+  typedef typename BlockStore::type::InputType BlockInputType;  //not necessarily the data input type, but the tensor type entering as input to this block
+  typedef LAYEROUTPUTTYPE(typename BlockStore::type) BlockOutputType;
+  
+  typedef InputType_ InputType; //overall data input type (=BlockInputType on last rank)
+  typedef OutputType_ OutputType; //overall model output type (=BlockOutputType on first rank)
+  
+  enum { BlockInputDimension = BlockInputType::Dimension, BlockOutputDimension = BlockOutputType::Dimension };
 private:  
   BlockStore block; //this chain should terminate on an InputLayer. This represents the work done on this rank
   
-  int batch_size;
-  int input_features; //features of data
-  int this_features; //features of this layer
-  int next_features; //features of output of layer to the right
+  int block_output_dims[BlockOutputDimension]; //features of this block
+  int block_input_dims[BlockInputDimension]; //features of output of block to the right
   
   int nparam; //total #params
   int stage_off; //offset within parameter vector associated with this block
   
-  Matrix<FloatType> prev_in; //input for forwards propagation
+  BlockInputType prev_block_in; //input for forwards propagation
 
   //storage for backpropagation
-  Matrix<FloatType> prev_above_deriv;
+  BlockOutputType prev_above_deriv;
   Vector<FloatType> prev_cost_deriv_passright;  
 
   int dcalls;
+
+  //circumvent the typing system for ranks where the function will and should never be called
+  template<typename OutType, typename B, typename std::enable_if<!std::is_same< typename std::decay<B>::type, OutType>::value, int>::type = 0>
+  inline OutType get_as(B &&v){ assert(0); return OutType(); }
+  template<typename OutType, typename B, typename std::enable_if<std::is_same< typename std::decay<B>::type, OutType>::value, int>::type = 0>
+  inline OutType get_as(B &&v){ return std::move(v); }
+
+  template<typename OutType, typename B, typename std::enable_if<!std::is_same< typename std::decay<B>::type ,OutType>::value, int>::type = 0>
+  inline const OutType & get_as(const B &v){ assert(0); static OutType o; return o; }
+  template<typename OutType, typename B, typename std::enable_if<std::is_same< typename std::decay<B>::type ,OutType>::value, int>::type = 0>
+  inline const OutType & get_as(const B &v){ return v; }
   
 public:
   
-  PipelineBlock(BlockStore &&_block, int batch_size, int input_features, int this_features, int next_features): block(std::move(_block)), batch_size(batch_size), input_features(input_features), this_features(this_features), next_features(next_features), dcalls(0){
+  PipelineBlock(BlockStore &&_block,
+		int const* block_output_dims_,
+		int const* block_input_dims_): block(std::move(_block)), dcalls(0){
+    memcpy(block_output_dims, block_output_dims_, BlockOutputDimension*sizeof(int));
+    memcpy(block_input_dims, block_input_dims_, BlockInputDimension*sizeof(int));    
 
     //Compute parameter information
     std::vector<int> block_params(pipeline_depth, 0);
@@ -434,8 +491,8 @@ public:
     for(int i=0;i<pipeline_depth;i++) nparam += block_params[i];
     
     //Setup storage
-    prev_in = Matrix<FloatType>(this_features, batch_size, 0.);
-    prev_above_deriv = Matrix<FloatType>(this_features, batch_size, 0.); //dcost/dout_i  from layer above
+    prev_block_in = BlockInputType(block_input_dims, 0.);
+    prev_above_deriv = BlockOutputType(block_output_dims, 0.); //dcost/dout_i  from layer above
     prev_cost_deriv_passright = Vector<FloatType>(nparam,0.); //partially-populated cost deriv from layer above
     
     //Tell the block to resize its input buffers accordingly (cf below)
@@ -453,10 +510,11 @@ public:
   //Amount of iterations at which you get the derivative for the first item back
   //i.e.  iteration  i -> i-(deriv_lag - 1)    with i=0,1,2...
   int derivLag() const{ return 2*pipeline_depth - 1; }
-
-  //We assume every node in the group has access to the same x value called in the same order
-  Matrix<FloatType> value(const Matrix<FloatType> &in){
-    std::vector<CommsRequest<FloatType> > reqs;
+ 
+  //input is ignored for all ranks bar the last
+  //we return the output of this block but it is only ultimately used on the first rank
+  OutputType value(const InputType &in){
+    std::vector<CommsRequest> reqs;
 
     //<i- (<0-, <1- etc): item i in 'prev_in' at start of iteration, perform action and send left in this iter
     //<i|                : take item i from input 'in', perform action and send left in this iter
@@ -469,17 +527,18 @@ public:
     //3      <1-   <2-    <3|
     //etc
 
-    Matrix<FloatType> out = block.v.value(is_last ? in : prev_in);
-    passLeft(reqs,          &out,     &out,
-	          &prev_in, &prev_in);
+    BlockOutputType out = block.v.value(is_last ? get_as<BlockInputType>(in) : prev_block_in); //last block takes data input in, otherwise we just consume what was previously passed up
+    passLeft(reqs,                      &out,        &out,
+	          &prev_block_in, &prev_block_in);
     waitAll(reqs);
-        
-    return out; //note, output only meaningful on first node   
-  }
 
-  void deriv(Vector<FloatType> &cost_deriv, Matrix<FloatType> &&above_deriv){
+    if(is_first) return get_as<OutputType>(out); //OutputType == BlockOutputType on first rank
+    else return OutputType();
+  }
+  //inputs are ignored for all ranks bar the first
+  void deriv(Vector<FloatType> &cost_deriv, OutputType &&above_deriv){
     ++dcalls;
-    std::vector<CommsRequest<FloatType> > reqs;
+    std::vector<CommsRequest> reqs;
 
     //For reverse differentiation we need to wait for a full value pipeline
     //As each layer needs the input value from the layer below to compute its derivative we need to buffer these appropriately
@@ -615,13 +674,13 @@ public:
     
     //compute layer derivative and fill in cost derivative vector
     //if this is the first rank, fill the input cost_deriv, else we append it to the deriv vector received last call
-    Matrix<FloatType> layer_deriv; //layer deriv to send right //TODO: Handle for non-Matrix InputType
+    BlockInputType layer_deriv; //layer deriv to send right //TODO: Handle for non-Matrix InputType
     Vector<FloatType> pass_cost_deriv(is_first ? cost_deriv : prev_cost_deriv_passright); //cost deriv to send right
 
-    block.v.deriv(pass_cost_deriv, stage_off, is_first ? std::move(above_deriv) : std::move(prev_above_deriv), &layer_deriv);
+    block.v.deriv(pass_cost_deriv, stage_off, is_first ? get_as<BlockOutputType>(std::move(above_deriv)) : std::move(prev_above_deriv), &layer_deriv);
 
     //send layer deriv to right if !last
-    prev_above_deriv = Matrix<FloatType>(this_features, batch_size); //we consumed this matrix above so we need to recreate it!
+    prev_above_deriv = BlockOutputType(block_output_dims); //we consumed this matrix above so we need to recreate it!
     passRight(reqs, &layer_deriv, &layer_deriv,
                                  &prev_above_deriv, &prev_above_deriv); 
     
@@ -653,8 +712,8 @@ public:
   
 };
 
-template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto pipeline_block(U &&u, int batch_size, int input_features, int this_features, int next_features)->PipelineBlock<FLOATTYPE(U),DDST(u)>{
-  return PipelineBlock<FLOATTYPE(U),DDST(u)>(std::forward<U>(u),batch_size,input_features, this_features, next_features);
+template<typename InputType, typename OutputType, typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
+auto pipeline_block(U &&u, int const* block_output_dims, int const* block_input_dims)->PipelineBlock<DDST(u),InputType,OutputType>{
+  return PipelineBlock<DDST(u),InputType,OutputType>(std::forward<U>(u), block_output_dims, block_input_dims);
 }
 

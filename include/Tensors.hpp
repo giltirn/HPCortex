@@ -5,6 +5,7 @@
 #include <memory>
 #include <cassert>
 #include <iostream>
+#include <sstream>
 #include <ManagedArray.hpp>
 
 template<size_t Dim>
@@ -44,6 +45,7 @@ private:
 public:
   typedef const int * Dims;
   typedef const int * Coord;
+  enum { Dimension = Dim };
 
 #define _1D_TENSOR_ONLY template<int D=Dim, typename std::enable_if<D==1,int>::type = 0>
 #define _2D_TENSOR_ONLY template<int D=Dim, typename std::enable_if<D==2,int>::type = 0>
@@ -61,6 +63,12 @@ public:
     assert(tensorSize<Dim>(dims) == init_vals.size());
   }  
 
+  Tensor(Dims dims, FloatType const* init_vals): vals(tensorSize<Dim>(dims)){
+    memcpy(_size,dims,Dim*sizeof(int));    
+    autoView(vals_v,vals,HostWrite);
+    memcpy(vals_v.data(), init_vals, vals.size()*sizeof(FloatType));
+  }  
+  
   _1D_TENSOR_ONLY
   Tensor(int len, MemoryManager::Pool alloc_pool = MemoryManager::Pool::DevicePool): vals(len,alloc_pool){ _size[0]=len; }
   _1D_TENSOR_ONLY
@@ -96,6 +104,13 @@ public:
   
   inline int size(int i) const{ return _size[i]; }
 
+  std::string sizeArrayString() const{
+    std::ostringstream os; os << "(";
+    for(int i=0;i<Dim-1;i++) os << this->size(i) << " ";
+    os << this->size(Dim-1) << ")";
+    return os.str();
+  }
+  
   class View: private ManagedArray<FloatType>::View{
     typedef typename ManagedArray<FloatType>::View Base;
     int* _size;
@@ -175,6 +190,12 @@ public:
   //Lock the associated memory, preventing eviction
   inline void lock() const{ vals.lock(); }
   inline void unlock() const{ vals.unlock(); }
+
+  //Return a tensor where the last dimension contains the slice between idx_start and idx_end
+  Tensor sliceLastDimension(int idx_start, int idx_end) const;
+
+  //Insert a tensor of Dim-1 such that (*this)(i,j,k,..., idx) = ins(i,j,k,...)
+  void pokeLastDimension(const Tensor<FloatType,Dim-1> &ins, const int idx);
 };
 
 #undef _1D_TENSOR_ONLY

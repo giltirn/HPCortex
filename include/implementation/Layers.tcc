@@ -4,7 +4,10 @@ Matrix<FloatType> DNNlayer<FloatType,InputType,Store,ActivationFunc>::value(cons
     
   Matrix<FloatType> in = leaf.v.value(x);
   batch_size = in.size(1);
-  assert(in.size(0) == size1);
+  if(in.size(0) != size1){
+    std::stringstream ss; ss << "Expected input features " << in.size(0) << " to match number of columns of weight matrix " << size1;
+    throw std::runtime_error(ss.str());
+  }
    
   Matrix<FloatType> out = axpyMatThinMat(weights, in, bias);
 
@@ -268,6 +271,9 @@ Matrix<FloatType> FlattenLayer<FloatType,InputType,Store>::value(const InputType
     out_size *= in.size(i);
 
   Matrix<FloatType> out(out_size,batch_size);
+
+  //std::cout << "FLATTEN input tensor of dim " << tens_dim << " of size " << in.sizeArrayString() << " to matrix of size " << out_size << " " << batch_size << std::endl;
+  
   autoView(out_v,out,DeviceWrite);
   autoView(in_v,in,DeviceRead);
   accelerator_for2d(b,batch_size, i,out_size, 1,{
@@ -308,11 +314,85 @@ void FlattenLayer<FloatType,InputType,Store>::getParams(Vector<FloatType> &into,
 
 
 
+
+
+template<typename FloatType, int OutDimension, typename InputType, typename Store>
+Tensor<FloatType,OutDimension> UnflattenLayer<FloatType,OutDimension,InputType,Store>::value(const InputType &x){
+  LayerInputTensorType in = leaf.v.value(x);
+  int batch_size = _output_tens_size[OutDimension-1];
+  size_t flat_size = 1;
+  for(int i=0;i<OutDimension-1;i++)
+    flat_size *= _output_tens_size[i];
+
+  if(in.size(0) != flat_size){
+    std::ostringstream ss; ss << "Expected input matrix first dimension size " << flat_size << ", got " << in.size(0);    
+    throw std::runtime_error(ss.str());
+  }
+  if(in.size(1) != batch_size){
+    std::ostringstream ss; ss << "Expected input matrix second dimension size = batch_size = " << batch_size << ", got " << in.size(1);    
+    throw std::runtime_error(ss.str());
+  }
+
+  Tensor<FloatType,OutDimension> out(_output_tens_size);
+  autoView(out_v,out,DeviceWrite);
+  autoView(in_v,in,DeviceRead);
+  accelerator_for2d(b,batch_size, i,flat_size, 1,{
+      //rely on the fact that the batch index is the fastest moving,  eg. for a 3 tensor   off = b + batch_size*(z + zsize*(y + ysize*x))      i=(z + zsize*(y + ysize*x)) 
+      out_v.data()[b + batch_size*i] = in_v(i,b);
+    });
+  return out;
+}
+template<typename FloatType, int OutDimension, typename InputType, typename Store>
+void UnflattenLayer<FloatType,OutDimension,InputType,Store>::deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,OutDimension> &&_above_deriv, InputType* input_above_deriv_return) const{
+  int batch_size = _output_tens_size[OutDimension-1];
+  size_t flat_size = 1;
+  for(int i=0;i<OutDimension-1;i++)
+    flat_size *= _output_tens_size[i];
+  
+  Matrix<FloatType> above_deriv_passdown(flat_size,batch_size);
+  {
+    Tensor<FloatType,OutDimension> above_deriv_in(std::move(_above_deriv)); //dcost/dvalue_i
+    for(int d=0;d<OutDimension;d++) assert(above_deriv_in.size(d) == _output_tens_size[d]);
+
+    autoView(above_deriv_passdown_v,above_deriv_passdown,DeviceWrite);
+    autoView(above_deriv_in_v,above_deriv_in,DeviceRead);
+    accelerator_for2d(b,batch_size, i,flat_size, 1,{
+	//rely on the fact that the batch index is the fastest moving
+	above_deriv_passdown_v(i,b) = above_deriv_in_v.data()[b + i*batch_size];
+      });
+  }
+  leaf.v.deriv(cost_deriv,off, std::move(above_deriv_passdown),input_above_deriv_return);
+}
+template<typename FloatType, int OutDimension, typename InputType, typename Store>
+void UnflattenLayer<FloatType,OutDimension,InputType,Store>::update(int off, const Vector<FloatType> &new_params){
+  leaf.v.update(off,new_params);
+}
+template<typename FloatType, int OutDimension, typename InputType, typename Store>   
+void UnflattenLayer<FloatType,OutDimension,InputType,Store>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
+  leaf.v.step(off,derivs,eps);
+}
+template<typename FloatType, int OutDimension, typename InputType, typename Store>  
+void UnflattenLayer<FloatType,OutDimension,InputType,Store>::getParams(Vector<FloatType> &into, int off){
+  leaf.v.getParams(into,off);
+}
+
+
+
+
+
+
+
+
 template<typename FloatType, typename InputType, typename Store, typename ActivationFunc, typename PaddingFunc>
 Tensor<FloatType,3> ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::value(const InputType &x){
   LayerInputTensorType in = leaf.v.value(x);
+
+  //std::cout << "Conv1d input tensor of size " << in.sizeArrayString() << std::endl;
+  
   in = padding_func.padInput(in);
 
+  //std::cout << "Conv1d padded input to size " << in.sizeArrayString() << std::endl;
+  
   if(!init){
     batch_size = in.size(2);
     padded_data_len = in.size(1);
@@ -324,11 +404,15 @@ Tensor<FloatType,3> ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,
   assert(padded_data_len >= kernel_size);
 
   int out_data_len = (padded_data_len - kernel_size + stride)/stride;
+
+  //std::cout << "Conv1d output data length ( padded_data_len="  << padded_data_len << " -  kernel_size=" << kernel_size << " + stride=" << stride << ")/stride gives " << out_data_len << std::endl;
   
   //A convolution is just a multi-dim generalization of a dot product
   int out_size[3] = { depth, out_data_len, batch_size };
   Tensor<FloatType, 3> out(out_size, 0.);
 
+  //std::cout << "Conv1d output size " << out.sizeArrayString() << std::endl;
+  
   {
     autoView(out_v,out,DeviceReadWrite);
     autoView(in_v,in,DeviceRead);

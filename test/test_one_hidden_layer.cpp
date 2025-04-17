@@ -12,7 +12,7 @@ void testOneHiddenLayer(){
   int nepoch = 20;
   int ndata = batch_size * nbatch;
 
-  std::vector<XYpair<FloatType> > data(ndata);
+  std::vector<XYpair<FloatType,1,1> > data(ndata);
   std::vector<int> didx(ndata);
   
   for(int i=0;i<ndata;i++){ //i = b + batch_size * B
@@ -41,7 +41,7 @@ void testOneHiddenLayer(){
     Vector<FloatType> p = model.getParams();
     
     for(int d=1;d<5;d++){ //first 5 batches (unscrambled)
-      batchedXYpair<FloatType> bxy = batchData(didx.data() + d*batch_size, batch_size, data);
+      auto bxy = batchData(didx.data() + d*batch_size, batch_size, data);
       
       double c1 = model.loss(bxy.x,bxy.y);
       Vector<FloatType> pd = model.deriv();

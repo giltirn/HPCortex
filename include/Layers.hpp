@@ -1,4 +1,5 @@
 #pragma once
+#include <sstream>
 #include <Tensors.hpp>
 #include <InstanceStorage.hpp>
 #include <ActivationFuncs.hpp>
@@ -27,6 +28,8 @@ public:
   inline InputLayer(const InputLayer &r) = delete;
 
   inline const InputType &value(const InputType &x){
+    //std::cout << "InputLayer with tensor of dim " << x.dimension() << " and sizes " << x.sizeArrayString() << std::endl;
+    
     //Simply reflect the passed-down input value back up to commence forwards propagation
     return x;
   }
@@ -179,7 +182,8 @@ class FlattenLayer{
 public:
   typedef _FloatType FloatType;
   typedef _InputType InputType;
-  typedef LAYEROUTPUTTYPE(typename Store::type) LayerInputTensorType; //expect a Tensor ;; //TODO, add a compile-time test to ensure this!  
+  typedef LAYEROUTPUTTYPE(typename Store::type) LayerInputTensorType; //expect a Tensor
+  static_assert(std::is_same<LayerInputTensorType, Tensor<FloatType, LayerInputTensorType::dimension()> >::value == true );
 private:
   Store leaf;
   int _input_tens_size[LayerInputTensorType::dimension()];
@@ -219,6 +223,58 @@ auto flatten_layer(U &&u)->FlattenLayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u)>{
   return FlattenLayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u)>(std::forward<U>(u));
 }
 
+
+//Unflatten an input matrix into a tensor, lexicographically; performs the inverse of FlattenLayer
+template<typename _FloatType, int OutDimension, typename _InputType, typename Store>
+class UnflattenLayer{
+public:
+  typedef _FloatType FloatType;
+  typedef _InputType InputType;
+  typedef LAYEROUTPUTTYPE(typename Store::type) LayerInputTensorType; //expect a Matrix
+  static_assert(std::is_same<LayerInputTensorType, Matrix<FloatType> >::value == true );
+private:
+  Store leaf;
+  int _output_tens_size[OutDimension];
+public:
+  typedef LeafTag tag;
+
+  UnflattenLayer(Store &&leaf, int const* output_tens_size): leaf(std::move(leaf)){
+    memcpy(_output_tens_size, output_tens_size, OutDimension*sizeof(int));
+  }
+  
+  UnflattenLayer(const UnflattenLayer &r) = delete;
+  UnflattenLayer(UnflattenLayer &&r) = default;
+  
+  //Forward pass
+  Tensor<FloatType, OutDimension> value(const InputType &x);
+
+  void deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType, OutDimension> &&_above_deriv, InputType* input_above_deriv_return = nullptr) const;
+
+  void update(int off, const Vector<FloatType> &new_params);
+  
+  void step(int off, const Vector<FloatType> &derivs, FloatType eps);
+
+  //accumulated #params for layers here and below
+  inline int nparams() const{ return leaf.v.nparams(); }
+
+  //off measured from *end*, return new off
+  void getParams(Vector<FloatType> &into, int off);
+
+  //For pipelining
+  inline void resizeInputBuffer(size_t to){
+    leaf.v.resizeInputBuffer(to);
+  }
+
+};
+
+template<int OutDimension, typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
+auto unflatten_layer(U &&u, int const* output_tens_dim)->UnflattenLayer<FLOATTYPE(U),OutDimension,INPUTTYPE(U),DDST(u)>{
+  return UnflattenLayer<FLOATTYPE(U),OutDimension,INPUTTYPE(U),DDST(u)>(std::forward<U>(u), output_tens_dim);
+}
+
+
+
+
 template<typename _FloatType, typename _InputType, typename Store, typename ActivationFunc, typename PaddingFunc>
 class ConvolutionLayer1D{
 public:
@@ -255,6 +311,7 @@ private:
 public:
   typedef LeafTag tag;
 
+  //Create a 1Dconvolutional layer. The filter should be of size out_channels * in_channels * kernel_size
   ConvolutionLayer1D(Store &&leaf, const Tensor<FloatType,3> &_filter, 
 		     const ActivationFunc &activation_func, const PaddingFunc &padding_func, int stride=1):
     leaf(std::move(leaf)), filter(_filter), init(false), depth(_filter.size(0)), channels(_filter.size(1)), kernel_size(_filter.size(2)),

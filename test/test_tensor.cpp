@@ -4,7 +4,7 @@
 void testTensor(){
   typedef double FloatType; 
   typedef std::vector<FloatType> vecD;
-
+  std::mt19937 rng(1234);
   //Test some basic functionality
   {
     int dims[3] = {2,3,4};
@@ -135,7 +135,38 @@ void testTensor(){
 		for(int l=0;l<5;l++)
 		  assert(tens_4_v(i,j,k,l) == init[l+5*(k+4*(j+3*i))]);
 	});
-    } 
+    }
+
+    { //test pokeLastDimension
+      int sz[3] = {2,3,4};
+      Tensor<FloatType,3> orig(sz);
+      random(orig,rng);
+
+      int szp[2] = {2,3};
+      Tensor<FloatType,2> topoke(szp);
+      Tensor<FloatType,2> topoke2(szp);
+      random(topoke,rng);
+      random(topoke2,rng);
+
+      Tensor<FloatType,3> result(orig);
+      result.pokeLastDimension(topoke,0);
+      doHost2(result, topoke, {
+	  for(int i=0;i<2;i++)
+	    for(int j=0;j<3;j++)
+		assert(result_v(i,j,0) == topoke_v(i,j));
+	});
+      result.pokeLastDimension(topoke2,2);
+      
+      doHost3(result, topoke, topoke2, {
+	  for(int i=0;i<2;i++)
+	    for(int j=0;j<3;j++){
+		assert(result_v(i,j,0) == topoke_v(i,j));
+		assert(result_v(i,j,2) == topoke2_v(i,j));
+	      }		
+	});
+    }
+
+    
 
   }
 

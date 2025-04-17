@@ -18,6 +18,8 @@ void testSimpleLinearPipelineDDP(){
   int nepoch = 20;
   
   int call_batch_size = 2; //how many samples are processed at a time by each pipeline rank
+  int in_out_dims[2] = {1, call_batch_size}; //all matrices here have the same dimension
+  
   int glob_batch_size = 6 * nranks_tot; //how many samples in an overall batch
   int nbatch = 50; //how many batches in the data set
   
@@ -27,7 +29,7 @@ void testSimpleLinearPipelineDDP(){
   
   int ndata = nbatch * glob_batch_size;
  
-  std::vector<XYpair<FloatType> > data(ndata);
+  std::vector<XYpair<FloatType,1,1> > data(ndata);
 
   for(int i=0;i<ndata;i++){
     data[i].x = Vector<FloatType>(1);
@@ -49,9 +51,9 @@ void testSimpleLinearPipelineDDP(){
 
   auto rank_model = pipe_rank == pipe_nranks-1 ? enwrap( dnn_layer(input_layer<FloatType>(), winit, binit) )  : enwrap( dnn_layer(input_layer<FloatType>(), winit, binit, ReLU<FloatType>()) );
  
-  auto rank_block = pipeline_block(rank_model, call_batch_size, 1,1,1);
+  auto rank_block = pipeline_block< Matrix<FloatType>, Matrix<FloatType> >(rank_model, in_out_dims, in_out_dims);
 
-  auto cost = BatchPipelineCostFuncWrapper<FloatType,decltype(rank_block), MSEcostFunc<Matrix<FloatType> > >(rank_block, call_batch_size);
+  auto cost = BatchPipelineCostFuncWrapper<decltype(rank_block), MSEcostFunc<Matrix<FloatType> > >(rank_block, call_batch_size);
 
   auto full_model = enwrap( dnn_layer(input_layer<FloatType>(), winit, binit) );
   for(int i=0;i<pipe_nranks-1;i++)

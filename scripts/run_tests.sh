@@ -19,3 +19,5 @@ mpirun -n 4 ./test_simple_linear_pipeline_ddp 2>&1 | tee test_simple_linear_pipe
 mpirun -n 2 ./test_skip_connection_pipeline 2>&1 | tee test_skip_connection_pipeline.log
 ./test_flatten_layer 2>&1 | tee test_flatten_layer.log
 ./test_conv1d 2>&1 | tee test_conv1d.log
+./test_simple_linear_2d 2>&1 | tee test_simple_linear_2d.log
+mpirun -n 3 ./test_conv1d_pipeline 2>&1 | tee test_conv1d_pipeline.log
