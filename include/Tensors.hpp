@@ -196,6 +196,10 @@ public:
 
   //Insert a tensor of Dim-1 such that (*this)(i,j,k,..., idx) = ins(i,j,k,...)
   void pokeLastDimension(const Tensor<FloatType,Dim-1> &ins, const int idx);
+
+  //Return tensor of Dim-1 such that out(i,j,k,...) = (*this)(i,j,k,..., idx)
+  Tensor<FloatType,Dim-1> peekLastDimension(const int idx) const;
+
 };
 
 #undef _1D_TENSOR_ONLY

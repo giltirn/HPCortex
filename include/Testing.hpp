@@ -114,7 +114,32 @@ bool abs_near(const Tensor<FloatType,Dim> &a,const Tensor<FloatType,Dim> &b, Flo
   return true;
 }
 
-
+template<typename FloatType, int Dim>
+bool equal(const Tensor<FloatType,Dim> &a,const Tensor<FloatType,Dim> &b, bool verbose=false){
+  int const* a_sz = a.sizeArray();
+  int const* b_sz = b.sizeArray();
+  for(int d=0;d<Dim;d++) if(a_sz[d] != b_sz[d]) return false;
+  
+  autoView(a_v,a,HostRead);
+  autoView(b_v,b,HostRead);
+  for(size_t v = 0; v < a_v.data_len(); v++){
+    FloatType aa = a_v.data()[v];
+    FloatType bb = b_v.data()[v];
+    
+    bool eq = aa == bb;
+    if(!eq){
+      if(verbose){     
+	int coord[Dim];    
+	tensorOffsetUnmap<Dim>(coord,a_sz,v);
+	for(int d=0;d<Dim;d++)
+	  std::cout << coord[d] << " ";
+	std::cout << "a:" << aa << " b:" << bb << " abs.diff:" << aa-bb << std::endl;
+      }
+      return false;
+    }
+  }
+  return true;
+}
 
 template<typename FloatType, typename RNG>
 void random(Matrix<FloatType> &m, RNG &rng){

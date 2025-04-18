@@ -137,7 +137,7 @@ void testTensor(){
 	});
     }
 
-    { //test pokeLastDimension
+    { //test peek/pokeLastDimension
       int sz[3] = {2,3,4};
       Tensor<FloatType,3> orig(sz);
       random(orig,rng);
@@ -164,9 +164,12 @@ void testTensor(){
 		assert(result_v(i,j,2) == topoke2_v(i,j));
 	      }		
 	});
-    }
 
-    
+      Tensor<FloatType,2> r0 = result.peekLastDimension(0);
+      Tensor<FloatType,2> r2 = result.peekLastDimension(2);
+      assert(equal(r0,topoke));
+      assert(equal(r2,topoke2));
+    }
 
   }
 

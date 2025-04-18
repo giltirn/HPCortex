@@ -100,6 +100,7 @@ struct XYpair{
   Tensor<FloatType,DimY> y;
 };
 
+//Insert data of with indices 'indices[i]' for i in 0..batch_size-1 into the last dimension of the output
 template<typename FloatType, int DimX, int DimY>
 inline XYpair<FloatType,DimX+1,DimY+1> batchData(int const* indices, int batch_size, const std::vector<XYpair<FloatType,DimX,DimY> > &data){
   assert(data.size()>0);

@@ -34,6 +34,25 @@ void Tensor<FloatType,Dim>::pokeLastDimension(const Tensor<FloatType,Dim-1> &ins
     });
 }
 
+template<typename FloatType, int Dim>
+Tensor<FloatType,Dim-1> Tensor<FloatType,Dim>::peekLastDimension(const int idx) const{
+  size_t other_size = 1;
+  int out_size[Dim-1];
+  for(int i=0;i<Dim-1;i++){
+    out_size[i] = this->size(i);
+    other_size *= out_size[i];
+  }
+  int size_last = this->size(Dim-1);
+  
+  Tensor<FloatType,Dim-1> out(out_size);
+  autoView(out_v,out,DeviceWrite);
+  autoView(t_v,(*this),DeviceRead);
+  accelerator_for2d(dummy1,1, i,other_size,32,{
+      out_v.data()[i] = t_v.data()[idx + size_last *i];
+    });
+  return out;
+}
+
 
 
 template<typename FloatType>
