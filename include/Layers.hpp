@@ -5,3 +5,4 @@
 #include<layers/FlattenLayer.hpp>
 #include<layers/UnflattenLayer.hpp>
 #include<layers/ConvolutionLayer1D.hpp>
+#include<layers/SoftMaxLayer.hpp>

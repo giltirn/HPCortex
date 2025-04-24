@@ -126,39 +126,6 @@ std::ostream & operator<<(std::ostream &os, const Matrix<FloatType> &v){
 }
 
 template<typename FloatType>
-Matrix<FloatType> & operator+=(Matrix<FloatType> &a, const Matrix<FloatType> &b){
-  size_t size0 = a.size(0);
-  size_t size1 = a.size(1);
-  assert(b.size(0)==size0 && b.size(1) == size1);
-
-  autoView(a_v,a,DeviceReadWrite);
-  autoView(b_v,b,DeviceRead);
-  accelerator_for2d(j,size1,i,size0,1,{
-      a_v(i,j) += b_v(i,j);
-    });
-  return a;
-}
-
-template<typename FloatType>
-Matrix<FloatType> operator+(const Matrix<FloatType> &a, const Matrix<FloatType> &b){
-  size_t size0 = a.size(0);
-  size_t size1 = a.size(1);
-  assert(b.size(0)==size0 && b.size(1) == size1);
-  Matrix<FloatType> out(size0,size1);
-    
-  autoView(a_v,a,DeviceRead);
-  autoView(b_v,b,DeviceRead);
-  autoView(out_v,out,DeviceWrite);
-  accelerator_for2d(j,size1,i,size0,1,{
-      out_v(i,j) = a_v(i,j) + b_v(i,j);
-    });
-  return out;
-}
-
-
-
-
-template<typename FloatType>
 Vector<FloatType> operator*(const Matrix<FloatType> &A, const Vector<FloatType> &x){
   size_t size0 = A.size(0), size1 = A.size(1);
   assert(size1 == x.size(0));
@@ -176,67 +143,84 @@ Vector<FloatType> operator*(const Matrix<FloatType> &A, const Vector<FloatType> 
   return out;
 }
 
-template<typename FloatType>
-Vector<FloatType> operator+(const Vector<FloatType> &a, const Vector<FloatType> &b){
-  size_t size = a.size(0);
-  assert(b.size(0) == size);
-  Vector<FloatType> out(size);
-  autoView(out_v,out,DeviceWrite);
-  autoView(a_v,a,DeviceRead);
-  autoView(b_v,b,DeviceRead);
-  accelerator_for(i,size,{
-    out_v(i) = a_v(i) + b_v(i);
-    });
-  return out;
-}
-
-template<typename FloatType>
-Vector<FloatType> & operator+=(Vector<FloatType> &a, const Vector<FloatType> &b){
-  size_t size = a.size(0);
-  assert(b.size(0) == size);
+template<typename FloatType,int Dim>
+Tensor<FloatType,Dim> & operator+=(Tensor<FloatType,Dim> &a, const Tensor<FloatType,Dim> &b){
+  for(int d=0;d<Dim;d++) assert(a.size(d) == b.size(d));
+  size_t size = a.data_len();
+  
   autoView(a_v,a,DeviceReadWrite);
   autoView(b_v,b,DeviceRead);
   accelerator_for(i,size,{
-    a_v(i) += b_v(i);
+      a_v.data()[i] += b_v.data()[i];
     });
   return a;
 }
 
-template<typename FloatType>
-Vector<FloatType> operator-(const Vector<FloatType> &a, const Vector<FloatType> &b){
-  size_t size = a.size(0);
-  assert(b.size(0) == size);
-  Vector<FloatType> out(size);
+template<typename FloatType, int Dim>
+Tensor<FloatType,Dim> operator+(const Tensor<FloatType,Dim> &a, const Tensor<FloatType,Dim> &b){
+  for(int d=0;d<Dim;d++) assert(a.size(d) == b.size(d));
+  size_t size = a.data_len();
+
+  Tensor<FloatType,Dim> out(a.sizeArray());
   autoView(out_v,out,DeviceWrite);
   autoView(a_v,a,DeviceRead);
   autoView(b_v,b,DeviceRead);
 
   accelerator_for(i,size,{
-    out_v(i) = a_v(i) - b_v(i);
+      out_v.data()[i] = a_v.data()[i] + b_v.data()[i];
     });
   return out;
 }
 
-template<typename FloatType>
-Vector<FloatType> operator*(FloatType eps, const Vector<FloatType> &b){
-  size_t size = b.size(0);
-  Vector<FloatType> out(size);
+template<typename FloatType,int Dim>
+Tensor<FloatType,Dim> & operator-=(Tensor<FloatType, Dim> &a, const Tensor<FloatType,Dim> &b){
+  for(int d=0;d<Dim;d++) assert(a.size(d) == b.size(d));
+  size_t size = a.data_len();
+  
+  autoView(a_v,a,DeviceReadWrite);
+  autoView(b_v,b,DeviceRead);
+  accelerator_for(i,size,{
+      a_v.data()[i] -= b_v.data()[i];
+    });
+  return a;
+}
+
+template<typename FloatType, int Dim>
+Tensor<FloatType,Dim> operator-(const Tensor<FloatType,Dim> &a, const Tensor<FloatType,Dim> &b){
+  for(int d=0;d<Dim;d++) assert(a.size(d) == b.size(d));
+  size_t size = a.data_len();
+
+  Tensor<FloatType,Dim> out(a.sizeArray());
+  autoView(out_v,out,DeviceWrite);
+  autoView(a_v,a,DeviceRead);
+  autoView(b_v,b,DeviceRead);
+
+  accelerator_for(i,size,{
+      out_v.data()[i] = a_v.data()[i] - b_v.data()[i];
+    });
+  return out;
+}
+
+template<typename FloatType, int Dim>
+Tensor<FloatType,Dim> operator*(FloatType eps, const Tensor<FloatType,Dim> &b){
+  size_t size = b.data_len();
+  Tensor<FloatType,Dim> out(b.sizeArray());
   autoView(out_v,out,DeviceWrite);
   autoView(b_v,b,DeviceRead);
 
   accelerator_for(i,size,{
-    out_v(i) = eps * b_v(i);
+      out_v.data()[i] = eps * b_v.data()[i];
     });
   return out;
 }
 
-template<typename FloatType>
-Vector<FloatType> & operator*=(Vector<FloatType> &a, FloatType eps){
-  size_t size = a.size(0);
+template<typename FloatType, int Dim>
+Tensor<FloatType,Dim> & operator*=(Tensor<FloatType,Dim> &a, FloatType eps){
+  size_t size = a.data_len();
   
   autoView(a_v,a,DeviceReadWrite);
   accelerator_for(i, size, {
-    a_v(i) *= eps;
+      a_v.data()[i] *= eps;
     });
   return a;
 }

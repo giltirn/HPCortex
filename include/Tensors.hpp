@@ -110,6 +110,9 @@ public:
     os << this->size(Dim-1) << ")";
     return os.str();
   }
+
+  //Linear size
+  inline size_t data_len() const{ return vals.size(); }
   
   class View: private ManagedArray<FloatType>::View{
     typedef typename ManagedArray<FloatType>::View Base;
@@ -236,29 +239,31 @@ std::ostream & operator<<(std::ostream &os, const Vector<FloatType> &v);
 template<typename FloatType>
 std::ostream & operator<<(std::ostream &os, const Matrix<FloatType> &v);
 
-template<typename FloatType>
-Matrix<FloatType> & operator+=(Matrix<FloatType> &a, const Matrix<FloatType> &b);
-
-template<typename FloatType>
-Matrix<FloatType> operator+(const Matrix<FloatType> &a, const Matrix<FloatType> &b);
-
+//Matrix-vector product
 template<typename FloatType>
 Vector<FloatType> operator*(const Matrix<FloatType> &A, const Vector<FloatType> &x);
 
-template<typename FloatType>
-Vector<FloatType> operator+(const Vector<FloatType> &a, const Vector<FloatType> &b);
+template<typename FloatType,int Dim>
+Tensor<FloatType,Dim> & operator+=(Tensor<FloatType,Dim> &a, const Tensor<FloatType,Dim> &b);
 
-template<typename FloatType>
-Vector<FloatType> & operator+=(Vector<FloatType> &a, const Vector<FloatType> &b);
+template<typename FloatType, int Dim>
+Tensor<FloatType,Dim> operator+(const Tensor<FloatType,Dim> &a, const Tensor<FloatType,Dim> &b);
 
-template<typename FloatType>
-Vector<FloatType> operator-(const Vector<FloatType> &a, const Vector<FloatType> &b);
+template<typename FloatType,int Dim>
+Tensor<FloatType,Dim> & operator-=(Tensor<FloatType,Dim> &a, const Tensor<FloatType,Dim> &b);
 
-template<typename FloatType>
-Vector<FloatType> operator*(FloatType eps, const Vector<FloatType> &b);
+template<typename FloatType, int Dim>
+Tensor<FloatType,Dim> operator-(const Tensor<FloatType,Dim> &a, const Tensor<FloatType,Dim> &b);
 
-template<typename FloatType>
-Vector<FloatType> & operator*=(Vector<FloatType> &a, FloatType eps);
+template<typename FloatType, int Dim>
+Tensor<FloatType,Dim> & operator*=(Tensor<FloatType,Dim> &a, FloatType eps);
+
+template<typename FloatType, int Dim>
+Tensor<FloatType,Dim> operator*(FloatType eps, const Tensor<FloatType,Dim> &b);
+
+template<typename FloatType, int Dim>
+inline Tensor<FloatType,Dim> operator*(const Tensor<FloatType,Dim> &b, FloatType eps){ return eps*b; }
+
 
 #include "implementation/Tensors.tcc"
 
