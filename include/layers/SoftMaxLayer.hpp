@@ -1,6 +1,8 @@
 #pragma once
 #include "LayerCommon.hpp"
+#include <components/SoftMaxComponent.hpp>
 
+//Inputs are assumed to be matrices of size k * b   where b is the batch size. The softmax normalization is performed over k for fixed b
 template<typename _FloatType, typename _InputType, typename Store >
 class SoftMaxLayer{  
 public:
@@ -9,13 +11,10 @@ public:
   typedef LeafTag tag;
 private:
   Store leaf;
-  FloatType beta;
-  mutable RingBuffer<Matrix<FloatType> > out_buf;
-  int nlogp; //rows of input/output
-  int batch_size;
+  SoftMaxComponent<FloatType,2> cpt;
 public:
   
-  inline SoftMaxLayer(Store &&leaf, FloatType beta = 1.0): leaf(std::move(leaf)), beta(beta){}
+  inline SoftMaxLayer(Store &&leaf, FloatType beta = 1.0): leaf(std::move(leaf)), cpt(0,beta){}
   inline SoftMaxLayer(SoftMaxLayer &&r) = default;
   inline SoftMaxLayer(const SoftMaxLayer &r) = delete;
 
@@ -33,7 +32,7 @@ public:
 
   //For pipelining
   inline void resizeInputBuffer(size_t to){
-    out_buf.resize(to);
+    cpt.resizeInputBuffer(to);
     leaf.v.resizeInputBuffer(to);
   }
 };

@@ -41,6 +41,11 @@ public:
   //Return whether the RingBuffer has been populated such that pop() can be performed
   bool isFilled() const{ return filled; }
   
-  size_t size() const{ return ring.size(); } 
+  size_t size() const{ return ring.size(); }
+
+  const T &latest() const{    
+    return ring[  (off - 1 + ring.size()) % ring.size() ];
+  }
+    
 };
     

@@ -185,6 +185,18 @@ public:
     accelerator_inline size_t data_len() const{ return this->Base::size(); }
 
     accelerator_inline size_t size(int i) const{ return _size[i]; }
+    accelerator_inline int const* sizeArray() const{ return _size; }
+    
+    //compact the first Dim-2 dimensions into one linear index 'i'
+    accelerator_inline FloatType & compact3(int i,int j,int k){
+      return *( this->Base::data() + k + _size[Dim-1]*( j + _size[Dim-2]*i ) );
+    }
+    accelerator_inline FloatType compact3(int i,int j,int k) const{
+      return *( this->Base::data() + k + _size[Dim-1]*( j + _size[Dim-2]*i ) );
+    }
+
+    
+    
   };
 
   View view(ViewMode mode) const{
@@ -264,7 +276,33 @@ Tensor<FloatType,Dim> operator*(FloatType eps, const Tensor<FloatType,Dim> &b);
 template<typename FloatType, int Dim>
 inline Tensor<FloatType,Dim> operator*(const Tensor<FloatType,Dim> &b, FloatType eps){ return eps*b; }
 
+template<int Dim, typename FloatType>
+Vector<FloatType> flatten(const Tensor<FloatType,Dim> &t);
 
+//unflatten a vector into a tensor. The output tensor sizes should be set correctly
+template<int Dim, typename FloatType>
+void unflatten(Tensor<FloatType,Dim> &out, const Vector<FloatType> &t);
+
+//flatten two tensors into a single contiguous array
+template<int Dim1, int Dim2, typename FloatType>
+Vector<FloatType> flatten2(const Tensor<FloatType,Dim1> &t1, const Tensor<FloatType,Dim2> &t2);
+    
+template<int Dim1, int Dim2, typename FloatType>
+void unflatten2(Tensor<FloatType,Dim1> &t1,  Tensor<FloatType,Dim2> &t2, const Vector<FloatType> &v);
+
+
+//Compute the stride for iterating over a specific dimension 'iter_dim' for a tensor with dimensions 'size'
+template<int Dim>
+accelerator_inline size_t tensorDimensionStride(int iter_dim, int const* size);
+  
+//Compute the pointer offset for the base element for iterating over a specific dimension 'iter_dim'. The coordinates for the other dimensions (size Dim-1) should be contained in 'other_coord', and 'size' is the overall tensor size
+template<int Dim>
+accelerator_inline size_t tensorDimensionBase(int iter_dim, int const* other_coord, int const *size);
+
+//Similar to the above but for batch tensors (last dim is the batch dimension) and with the coordinates in dimensions apart from iter_dim and Dim-1 expressed as a lexicographic linear index
+template<int Dim>
+accelerator_inline size_t batchTensorDimensionBaseLin(int iter_dim, int batch_idx, size_t other_dim_lin, int const *size);
+  
 #include "implementation/Tensors.tcc"
 
 // #ifndef TENSORS_EXTERN_TEMPLATE_INST

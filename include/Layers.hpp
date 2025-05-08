@@ -6,3 +6,5 @@
 #include<layers/UnflattenLayer.hpp>
 #include<layers/ConvolutionLayer1D.hpp>
 #include<layers/SoftMaxLayer.hpp>
+#include<layers/MatrixTensorContractLayer.hpp>
+#include<layers/ScaledDotProductSelfAttentionLayer.hpp>

@@ -22,3 +22,6 @@ mpirun -n 2 ./test_skip_connection_pipeline 2>&1 | tee test_skip_connection_pipe
 ./test_conv1d 2>&1 | tee test_conv1d.log
 ./test_simple_linear_2d 2>&1 | tee test_simple_linear_2d.log
 mpirun -n 3 ./test_conv1d_pipeline 2>&1 | tee test_conv1d_pipeline.log
+./test_softmax 2>&1 | tee test_softmax.log
+./test_matrix_tensor_contract 2>&1 | tee test_matrix_tensor_contract.log
+./test_scaled_dotproduct_self_attention 2>&1 | tee test_scaled_dotproduct_self_attention.log

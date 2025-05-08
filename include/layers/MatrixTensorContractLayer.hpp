@@ -1,0 +1,70 @@
+#pragma once
+#include "LayerCommon.hpp"
+#include <components/MatrixTensorContractComponent.hpp>
+
+//A layer implementing    W_{ij} X_{..., j, b}   where W is a weight matrix and X is a tensor of at least dimension 2. The last dimension is always assumed to be the batch dimension
+template<typename _FloatType, int TensDim, typename _InputType, typename Store>
+class MatrixTensorContractLayer{
+public:
+  typedef _FloatType FloatType;
+  typedef _InputType InputType;
+private:
+  // Matrix<FloatType> weights;
+  Store leaf;
+  // int size0;
+  // int size1;
+  // int batch_size;
+  
+  // int in_dims[TensDim];
+  // int out_dims[TensDim];
+  // size_t other_size; //volume of dimensions < TensDim-2
+  // bool setup;
+  
+  // //Storage from last call to "value"
+  // //Buffer size > 1 depending on rank if doing pipelining
+  // mutable RingBuffer<Tensor<FloatType,TensDim> > leaf_buf;
+
+  MatrixTensorContractComponent<FloatType,TensDim> cpt;
+public:
+  typedef LeafTag tag;
+  
+  MatrixTensorContractLayer(Store &&leaf, const Matrix<FloatType> &weights): cpt(weights), leaf(std::move(leaf))
+    // leaf(std::move(leaf)), weights(weights),
+    // size0(weights.size(0)), size1(weights.size(1)),
+    // batch_size(0), setup(false)
+  {  }
+  MatrixTensorContractLayer(const MatrixTensorContractLayer &r) = delete;
+  MatrixTensorContractLayer(MatrixTensorContractLayer &&r) = default;
+  
+  //Forward pass
+  Tensor<FloatType,TensDim> value(const InputType &x);
+
+  void deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,TensDim> &&_above_deriv, InputType* input_above_deriv_return = nullptr) const;
+
+  void update(int off, const Vector<FloatType> &new_params);
+  
+  void step(int off, const Vector<FloatType> &derivs, FloatType eps);
+
+  //accumulated #params for layers here and below
+  inline int nparams() const{ return cpt.nparams() + leaf.v.nparams(); }
+
+  //off measured from *end*, return new off
+  void getParams(Vector<FloatType> &into, int off);
+
+  //For pipelining
+  inline void resizeInputBuffer(size_t to){
+    //leaf_buf.resize(to);
+    cpt.resizeInputBuffer(to);
+    leaf.v.resizeInputBuffer(to);
+  }
+
+};
+
+#define LAYER_TYPE MatrixTensorContractLayer<FLOATTYPE(U),TensDim,INPUTTYPE(U),DDST(u)>
+template<int TensDim, typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
+auto matrix_tensor_contract_layer(U &&u, const Matrix<FLOATTYPE(U)> &weights)-> LAYER_TYPE{
+  return LAYER_TYPE(std::forward<U>(u), weights);
+}
+#undef LAYER_TYPE
+
+#include "implementation/MatrixTensorContractLayer.tcc"

@@ -174,13 +174,144 @@ void testTensor(){
   }
 
   
-  std::cout << "Test passed" << std::endl;
+  std::cout << "testTensor passed" << std::endl;
 }
 
+
+void testDimensionIteration(){
+  typedef double FloatType;
+  {
+    int size[2] = {3,4};
+    Tensor<FloatType,2> tens(size);
+
+    size_t stride0 = tensorDimensionStride<2>(0,size);
+    size_t stride1 = tensorDimensionStride<2>(1,size);
+        
+    doHost(tens, {
+	//iter_dim=0
+	for(int d1=0;d1<4;d1++){
+	  size_t base = tensorDimensionBase<2>(0, &d1, size);
+	  for(int d0=0;d0<3;d0++)      
+	    assert( tens_v.data()[base + d0*stride0] == tens_v(d0,d1) );
+	}
+
+	//iter_dim=1
+	for(int d0=0;d0<3;d0++){
+	  size_t base = tensorDimensionBase<2>(1, &d0, size);
+	  for(int d1=0;d1<4;d1++)      
+	    assert( tens_v.data()[base + d1*stride1] == tens_v(d0,d1) );
+	}
+      });
+  }
+
+  {
+    int size[3] = {3,4,5};
+    Tensor<FloatType,3> tens(size);
+
+    size_t stride0 = tensorDimensionStride<3>(0,size);
+    size_t stride1 = tensorDimensionStride<3>(1,size);
+    size_t stride2 = tensorDimensionStride<3>(2,size);
+
+    doHost(tens, {
+	//iter_dim=0
+	int other_coord[2];
+	for(int d1=0;d1<size[1];d1++){
+	  for(int d2=0;d2<size[2];d2++){
+	    other_coord[0] = d1;
+	    other_coord[1] = d2;
+	    size_t base = tensorDimensionBase<3>(0, other_coord, size);
+	    for(int d0=0;d0<size[0];d0++)      
+	      assert( tens_v.data()[base + d0*stride0] == tens_v(d0,d1,d2) );
+	  }
+	}
+	//iter_dim=1
+	for(int d0=0;d0<size[0];d0++){
+	  for(int d2=0;d2<size[2];d2++){
+	    other_coord[0] = d0;
+	    other_coord[1] = d2;
+	    size_t base = tensorDimensionBase<3>(1, other_coord, size);
+	    for(int d1=0;d1<size[1];d1++)      
+	      assert( tens_v.data()[base + d1*stride1] == tens_v(d0,d1,d2) );
+	  }
+	}
+	//iter_dim=2
+	for(int d0=0;d0<size[0];d0++){
+	  for(int d1=0;d1<size[1];d1++){
+	    other_coord[0] = d0;
+	    other_coord[1] = d1;
+	    size_t base = tensorDimensionBase<3>(2, other_coord, size);
+	    for(int d2=0;d2<size[2];d2++)      
+	      assert( tens_v.data()[base + d2*stride2] == tens_v(d0,d1,d2) );
+	  }
+	}
+      });
+  }
+
+
+  {
+    int size[4] = {2,3,4,5};
+    Tensor<FloatType,4> tens(size);
+
+    size_t stride0 = tensorDimensionStride<4>(0,size);
+    size_t stride1 = tensorDimensionStride<4>(1,size);
+    size_t stride2 = tensorDimensionStride<4>(2,size);
+    size_t stride3 = tensorDimensionStride<4>(3,size);
+    
+    doHost(tens, {
+	//iter_dim=0
+	for(int d1=0;d1<size[1];d1++){
+	  for(int d2=0;d2<size[2];d2++){
+	    for(int b=0; b<size[3]; b++){
+	      size_t o = d2 + size[2]*d1;
+	      size_t base = batchTensorDimensionBaseLin<4>(0, b, o, size);
+
+	      for(int d0=0;d0<size[0];d0++)      
+		assert( tens_v.data()[base + d0*stride0] == tens_v(d0,d1,d2,b) );
+	    }
+	  }
+	}
+
+	//iter_dim=1
+	for(int d0=0;d0<size[0];d0++){
+	  for(int d2=0;d2<size[2];d2++){
+	    for(int b=0; b<size[3]; b++){
+	      size_t o = d2 + size[2]*d0;
+	      size_t base = batchTensorDimensionBaseLin<4>(1, b, o, size);
+
+	      for(int d1=0;d1<size[1];d1++)      
+		assert( tens_v.data()[base + d1*stride1] == tens_v(d0,d1,d2,b) );
+	    }
+	  }
+	}
+
+	//iter_dim=2
+	for(int d0=0;d0<size[0];d0++){
+	  for(int d1=0;d1<size[1];d1++){
+	    for(int b=0; b<size[3]; b++){
+	      size_t o = d1 + size[1]*d0;
+	      size_t base = batchTensorDimensionBaseLin<4>(2, b, o, size);
+
+	      for(int d2=0;d2<size[2];d2++)      
+		assert( tens_v.data()[base + d2*stride2] == tens_v(d0,d1,d2,b) );
+	    }
+	  }
+	}
+	
+      });
+  }
+
+      
+  std::cout << "testDimensionIteration passed" << std::endl;
+}
+
+	
+  
+
+  
 int main(int argc, char** argv){
   initialize(argc,argv);
   
   testTensor();
-
+  testDimensionIteration();
   return 0;
 }

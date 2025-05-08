@@ -224,3 +224,99 @@ Tensor<FloatType,Dim> & operator*=(Tensor<FloatType,Dim> &a, FloatType eps){
     });
   return a;
 }
+
+template<int Dim, typename FloatType>
+Vector<FloatType> flatten(const Tensor<FloatType,Dim> &t){
+  size_t out_sz=t.data_len();
+  Vector<FloatType> out(out_sz);
+  {
+    autoView(out_v,out,DeviceWrite);
+    autoView(t_v,t,DeviceRead);
+    acceleratorCopyDeviceToDevice(out_v.data(),t_v.data(),out_sz*sizeof(FloatType));
+  }
+  return out;
+}
+
+template<int Dim, typename FloatType>
+void unflatten(Tensor<FloatType,Dim> &out, const Vector<FloatType> &t){
+  size_t sz = t.size(0);
+  size_t test_sz= out.data_len();
+  assert(sz == test_sz);
+  {
+    autoView(out_v,out,DeviceWrite);
+    autoView(t_v,t,DeviceRead);
+    acceleratorCopyDeviceToDevice(out_v.data(),t_v.data(),sz*sizeof(FloatType));
+  }
+}
+
+
+template<int Dim1, int Dim2, typename FloatType>
+Vector<FloatType> flatten2(const Tensor<FloatType,Dim1> &t1, const Tensor<FloatType,Dim2> &t2){
+  size_t t1_lin=t1.data_len();
+  size_t t2_lin=t2.data_len();
+  size_t out_lin = t1_lin + t2_lin;
+  
+  Vector<FloatType> out(out_lin);
+  {
+    autoView(out_v,out,DeviceWrite);
+    autoView(t1_v,t1,DeviceRead);
+    autoView(t2_v,t2,DeviceRead);
+    
+    acceleratorCopyDeviceToDevice(out_v.data(),t1_v.data(), t1_lin*sizeof(FloatType));
+    acceleratorCopyDeviceToDevice(out_v.data() + t1_lin, t2_v.data(), t2_lin*sizeof(FloatType));
+  }
+  return out;
+}
+  
+
+template<int Dim1, int Dim2, typename FloatType>
+void unflatten2(Tensor<FloatType,Dim1> &t1,  Tensor<FloatType,Dim2> &t2, const Vector<FloatType> &v){
+  size_t t1_lin = t1.data_len();
+  size_t t2_lin = t2.data_len();
+  
+  assert(v.size(0) == t1_lin + t2_lin);
+  
+  {
+    autoView(t1_v,t1,DeviceWrite);
+    autoView(t2_v,t2,DeviceWrite);
+    autoView(v_v,v,DeviceRead);
+    acceleratorCopyDeviceToDevice(t1_v.data(),v_v.data(), t1_lin*sizeof(FloatType));
+    acceleratorCopyDeviceToDevice(t2_v.data(),v_v.data() + t1_lin, t2_lin*sizeof(FloatType));
+  }
+}
+
+template<int Dim>
+accelerator_inline size_t tensorDimensionStride(int iter_dim, int const* size){
+  size_t stride = 1;
+#pragma unroll
+  for(int d=Dim-1;d>iter_dim;d--)
+    stride *= size[d];
+  return stride;
+}
+  
+template<int Dim>
+accelerator_inline size_t tensorDimensionBase(int iter_dim, int const* other_coord, int const *size){
+  int coord[Dim];
+  coord[iter_dim]=0;
+  int i=0;
+  for(int d=0;d<Dim;d++)
+    if(d!=iter_dim)
+      coord[d] = other_coord[i++];
+  return tensorOffset<Dim>(coord, size);  
+}
+
+template<int Dim>
+accelerator_inline size_t batchTensorDimensionBaseLin(int iter_dim, int batch_idx, size_t other_dim_lin, int const *size){
+  int coord[Dim];
+  coord[iter_dim]=0;
+  coord[Dim-1] = batch_idx;
+  size_t rem = other_dim_lin;
+
+  //other_dim_lin for, eg 3 dims, mapped as     z + dim3*( y + dim2 * x )
+  for(int d=Dim-2;d>=0;d--)
+    if(d!=iter_dim){
+      coord[d] = rem % size[d];
+      rem /= size[d];
+    }
+  return tensorOffset<Dim>(coord, size);
+}

@@ -1,7 +1,160 @@
 #include <HPCortex.hpp>
 #include <Testing.hpp>
 
-void testSoftMax(){
+template<typename _FloatType, int Dim>
+struct SoftMaxComponentWrapper{
+  typedef _FloatType FloatType;
+  
+  SoftMaxComponent<FloatType,Dim> &cpt;
+  int size[Dim];
+  size_t size_lin;
+
+  SoftMaxComponentWrapper(SoftMaxComponent<FloatType,Dim> &cpt, int const *sz): cpt(cpt){
+    memcpy(size,sz,Dim*sizeof(int));
+    size_lin = 1;
+    for(int d=0;d<Dim;d++) size_lin *= sz[d];
+  }
+
+  size_t outputLinearSize() const{ return size_lin; }
+  size_t inputLinearSize() const{ return size_lin; }
+  
+  Vector<FloatType> value(const Vector<FloatType> &in){
+    Tensor<FloatType,Dim> A(size);
+    unflatten(A,in);
+    Tensor<FloatType,Dim> C = cpt.value(A);
+    return flatten(C);
+  }
+  void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
+    Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);
+    Tensor<FloatType,Dim> above_deriv(size);
+    unflatten(above_deriv,above_deriv_lin);
+    Tensor<FloatType,Dim> dcost_by_dIn;
+    cpt.deriv(std::move(above_deriv), dcost_by_dIn);
+    cost_deriv_inputs = flatten(dcost_by_dIn);
+  }
+    
+  void update(int off, const Vector<FloatType> &new_params){}
+  void step(int off, const Vector<FloatType> &derivs, FloatType eps){}
+  inline int nparams() const{ return cpt.nparams(); }
+  void getParams(Vector<FloatType> &into, int off){}
+
+  std::string inCoord(size_t i) const{
+    std::ostringstream ss;
+    int coord[Dim];
+    tensorOffsetUnmap<Dim>(coord, size, i);
+    ss << "(";
+    for(int d=0;d<Dim;d++)
+      ss << coord[d] << (d==Dim-1? ")" : ", ");
+    return ss.str();
+  }       
+};
+
+void testSoftMaxComponent(){
+  typedef double FloatType;
+  FloatType delta = 1e-4;
+  std::mt19937 rng(1234);
+   
+  typedef std::vector<FloatType> vecD;
+
+  FloatType beta = 0.3;
+
+  {
+    int size[2] = {4,5};
+    Matrix<FloatType> logp(size);
+    random(logp,rng);
+
+    SoftMaxComponent<FloatType,2> cpt(0, beta);
+
+    Matrix<FloatType> vgot = cpt.value(logp);
+    Matrix<FloatType> vexpect(size);
+
+    doHost3(vexpect, vgot, logp, {
+	std::vector<FloatType> logp_pencil(size[0]);
+	for(int b=0;b<size[1];b++){
+	  for(int i=0;i<size[0];i++)
+	    logp_pencil[i] = logp_v(i,b);
+	  std::vector<FloatType> expect_pencil = softMaxVector(logp_pencil, beta);
+	  for(int i=0;i<size[0];i++){
+	    vexpect_v(i,b) = expect_pencil[i];
+	    std::cout << i << " " << b << " got " << vgot_v(i,b) << " expect " << vexpect_v(i,b) << std::endl;
+	  }
+	}
+      });
+    
+    assert(abs_near(vgot,vexpect,FloatType(1e-4),true));
+  }
+  {
+    int size[3] = {3,4,5};
+    Tensor<FloatType,3> logp(size);
+    random(logp,rng);
+
+    {//dim 0
+      SoftMaxComponent<FloatType,3> cpt(0, beta);
+
+      Tensor<FloatType,3> vgot = cpt.value(logp);
+      Tensor<FloatType,3> vexpect(size);
+
+      doHost3(vexpect, vgot, logp, {
+	  std::vector<FloatType> logp_pencil(size[0]);
+	  for(int j=0;j<size[1];j++){
+	    for(int b=0;b<size[2];b++){
+	      
+	      for(int i=0;i<size[0];i++)
+		logp_pencil[i] = logp_v(i,j,b);
+	      std::vector<FloatType> expect_pencil = softMaxVector(logp_pencil, beta);
+	      for(int i=0;i<size[0];i++){
+		vexpect_v(i,j,b) = expect_pencil[i];
+		std::cout << i << " " << j << " " << b << " got " << vgot_v(i,j,b) << " expect " << vexpect_v(i,j,b) << std::endl;
+	      }
+	      
+	    }
+	  }
+	});
+    
+      assert(abs_near(vgot,vexpect,FloatType(1e-4),true));
+    }
+    {//dim 1
+      SoftMaxComponent<FloatType,3> cpt(1, beta);
+
+      Tensor<FloatType,3> vgot = cpt.value(logp);
+      Tensor<FloatType,3> vexpect(size);
+
+      doHost3(vexpect, vgot, logp, {
+	  std::vector<FloatType> logp_pencil(size[1]);
+	  for(int i=0;i<size[0];i++){
+	    for(int b=0;b<size[2];b++){
+	      
+	      for(int j=0;j<size[1];j++)
+		logp_pencil[j] = logp_v(i,j,b);
+	      std::vector<FloatType> expect_pencil = softMaxVector(logp_pencil, beta);
+	      for(int j=0;j<size[1];j++){
+		vexpect_v(i,j,b) = expect_pencil[j];
+		std::cout << i << " " << j << " " << b << " got " << vgot_v(i,j,b) << " expect " << vexpect_v(i,j,b) << std::endl;
+	      }
+	      
+	    }
+	  }
+	});
+    
+      assert(abs_near(vgot,vexpect,FloatType(1e-4),true));
+    }
+
+      
+  }
+
+  //Check derivatives
+  for(int d=0;d<3;d++){
+    std::cout << "Testing derivs for softmax on dim " << d << std::endl;
+    int size[4] = {2,3,4,5};
+    SoftMaxComponent<FloatType,4> cpt(d, beta);
+    SoftMaxComponentWrapper<FloatType,4> wrp(cpt,size);
+    testComponentDeriv(wrp);
+  }
+    
+}
+
+
+void testSoftMaxLayer(){
   typedef float FloatType;
   FloatType delta = 1e-4;
   std::mt19937 rng(1234);
@@ -82,8 +235,8 @@ void testSoftMax(){
 
 int main(int argc, char** argv){
   initialize(argc,argv);
-  
-  testSoftMax();
+  testSoftMaxComponent();
+  testSoftMaxLayer();
 
   return 0;
 }
