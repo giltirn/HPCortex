@@ -1,8 +1,7 @@
 #pragma once
 #include "LayerCommon.hpp"
-#include <components/SoftMaxComponent.hpp>
 #include <components/MatrixTensorContractComponent.hpp>
-#include <components/Batch3tensorPairContractComponent.hpp>
+#include <components/ScaledDotProductAttentionComponent.hpp>
 
 //A layer implementing scaled dot-product self-attention. The input 3-tensor X is expected to have dimension C * E * B  in this order, where C is the size of the context, E the size of the embedding and B the batch size
 template<typename _FloatType, typename _InputType, typename Store>
@@ -32,10 +31,7 @@ private:
   MatTensMulCptType multWQ; //D_k * E  matrix  W_Q   operates on X   as  \sum_e (W_Q)_{d e} X_{ c e b }   -> 1)
   MatTensMulCptType multWK; //D_k * E  matrix  W_K   operates on X   as  \sum_e (W_K)_{d e} X_{ c e b }   -> 2)
   MatTensMulCptType multWV; //D_v * E  matrix  W_V   operates on X   as  \sum_e (W_V)_{v e} X_{ c e b }   -> 4)
-
-  Batch3tensorPairContractComponent<FloatType> mulQKtoGetS; //contract on indices 1,1 and normalize 1/sqrt(d_k)
-  SoftMaxComponent<FloatType,3> softmaxS_to_SS; //softmax on index 1
-  Batch3tensorPairContractComponent<FloatType> mulSSVtoGetOut; //contract SS with V on indices 1,0
+  ScaledDotProductAttentionComponent<FloatType> attentionQKV;
   
   Store leaf;
 
@@ -45,10 +41,8 @@ public:
   ScaledDotProductSelfAttentionLayer(Store &&leaf, const Matrix<FloatType> &W_Q, const Matrix<FloatType> &W_K, const Matrix<FloatType> &W_V):
     leaf(std::move(leaf)),
     multWQ(W_Q), multWK(W_K), multWV(W_V),    
-    d_k(W_Q.size(0)), d_v(W_V.size(0)), E(W_Q.size(1)), 
-    mulQKtoGetS(1,1, 1./sqrt(FloatType(d_k))),
-    softmaxS_to_SS(1),
-    mulSSVtoGetOut(1,0),
+    d_k(W_Q.size(0)), d_v(W_V.size(0)), E(W_Q.size(1)),
+    attentionQKV(d_k,d_v),
     setup(false)
   {
     assert(W_K.size(0) == d_k);
@@ -78,9 +72,7 @@ public:
     multWQ.resizeInputBuffer(to);
     multWK.resizeInputBuffer(to);
     multWV.resizeInputBuffer(to);
-    mulQKtoGetS.resizeInputBuffer(to);
-    mulSSVtoGetOut.resizeInputBuffer(to);
-    softmaxS_to_SS.resizeInputBuffer(to);
+    attentionQKV.resizeInputBuffer(to);
     leaf.v.resizeInputBuffer(to);
   }
 

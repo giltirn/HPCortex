@@ -11,9 +11,7 @@ Tensor<FloatType,3> ScaledDotProductSelfAttentionLayer<FloatType,InputType,Store
   Tensor<FloatType,3> Q = multWQ.value(X);
   Tensor<FloatType,3> K = multWK.value(X);
   Tensor<FloatType,3> V = multWV.value(X);
-  Tensor<FloatType,3> S = mulQKtoGetS.value(Q,K);
-  Tensor<FloatType,3> SS = softmaxS_to_SS.value(S);
-  return mulSSVtoGetOut.value(SS,V);
+  return attentionQKV.value(Q,K,V);
 }
 
 template<typename FloatType, typename InputType, typename Store>
@@ -25,14 +23,8 @@ void ScaledDotProductSelfAttentionLayer<FloatType,InputType,Store>::deriv(Vector
     Tensor<FloatType,3> above_deriv_Out = std::move(_above_deriv);
     assert(above_deriv_Out.size(0) == C && above_deriv_Out.size(1) == d_v && above_deriv_Out.size(2) == B);
     
-    Tensor<FloatType,3> above_deriv_SS, above_deriv_V;
-    mulSSVtoGetOut.deriv(std::move(above_deriv_Out), above_deriv_SS, above_deriv_V);
-
-    Tensor<FloatType,3> above_deriv_S;
-    softmaxS_to_SS.deriv(std::move(above_deriv_SS), above_deriv_S);
-
-    Tensor<FloatType,3> above_deriv_Q, above_deriv_K;
-    mulQKtoGetS.deriv(std::move(above_deriv_S), above_deriv_Q, above_deriv_K);
+    Tensor<FloatType,3> above_deriv_Q, above_deriv_K, above_deriv_V;
+    attentionQKV.deriv(std::move(above_deriv_Out), above_deriv_Q, above_deriv_K, above_deriv_V);
     
     Tensor<FloatType,3> layer_deriv_K, layer_deriv_Q, layer_deriv_V; //these are  dCost/dX_{ceb} through the different routes
     multWQ.deriv(cost_deriv, p, std::move(above_deriv_Q), layer_deriv_Q);
