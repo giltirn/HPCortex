@@ -1,7 +1,6 @@
 #pragma once
 #include "LayerCommon.hpp"
-#include <components/MatrixTensorContractComponent.hpp>
-#include <components/ScaledDotProductAttentionComponent.hpp>
+#include <components/ScaledDotProductAttentionHeadComponent.hpp>
 
 //A layer implementing scaled dot-product self-attention. The input 3-tensor X is expected to have dimension C * E * B  in this order, where C is the size of the context, E the size of the embedding and B the batch size
 template<typename _FloatType, typename _InputType, typename Store>
@@ -11,7 +10,6 @@ public:
   typedef _InputType InputType;
 private:
   typedef Tensor<FloatType,3> LayerInputType;
-  typedef MatrixTensorContractComponent<FloatType,3> MatTensMulCptType;
 
   //Attention:
   // 1)  Q_{ckb} = \sum_e (W_Q)_{k e} X_{c e b}     k \in {1.. d_k}
@@ -28,10 +26,7 @@ private:
   int d_v;
   bool setup;
   
-  MatTensMulCptType multWQ; //D_k * E  matrix  W_Q   operates on X   as  \sum_e (W_Q)_{d e} X_{ c e b }   -> 1)
-  MatTensMulCptType multWK; //D_k * E  matrix  W_K   operates on X   as  \sum_e (W_K)_{d e} X_{ c e b }   -> 2)
-  MatTensMulCptType multWV; //D_v * E  matrix  W_V   operates on X   as  \sum_e (W_V)_{v e} X_{ c e b }   -> 4)
-  ScaledDotProductAttentionComponent<FloatType> attentionQKV;
+  ScaledDotProductAttentionHeadComponent<FloatType> attentionQKV;
   
   Store leaf;
 
@@ -40,9 +35,8 @@ public:
   
   ScaledDotProductSelfAttentionLayer(Store &&leaf, const Matrix<FloatType> &W_Q, const Matrix<FloatType> &W_K, const Matrix<FloatType> &W_V):
     leaf(std::move(leaf)),
-    multWQ(W_Q), multWK(W_K), multWV(W_V),    
     d_k(W_Q.size(0)), d_v(W_V.size(0)), E(W_Q.size(1)),
-    attentionQKV(d_k,d_v),
+    attentionQKV(W_Q,W_K,W_V),
     setup(false)
   {
     assert(W_K.size(0) == d_k);
@@ -62,16 +56,13 @@ public:
   void step(int off, const Vector<FloatType> &derivs, FloatType eps);
 
   //accumulated #params for layers here and below
-  inline int nparams() const{ return multWQ.nparams() + multWK.nparams() + multWV.nparams() + leaf.v.nparams(); }
+  inline int nparams() const{ return attentionQKV.nparams() + leaf.v.nparams(); }
 
   //off measured from *end*, return new off
   void getParams(Vector<FloatType> &into, int off);
 
   //For pipelining
   inline void resizeInputBuffer(size_t to){
-    multWQ.resizeInputBuffer(to);
-    multWK.resizeInputBuffer(to);
-    multWV.resizeInputBuffer(to);
     attentionQKV.resizeInputBuffer(to);
     leaf.v.resizeInputBuffer(to);
   }
