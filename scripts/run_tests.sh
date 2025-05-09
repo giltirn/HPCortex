@@ -25,3 +25,4 @@ mpirun -n 3 ./test_conv1d_pipeline 2>&1 | tee test_conv1d_pipeline.log
 ./test_softmax 2>&1 | tee test_softmax.log
 ./test_matrix_tensor_contract 2>&1 | tee test_matrix_tensor_contract.log
 ./test_scaled_dotproduct_self_attention 2>&1 | tee test_scaled_dotproduct_self_attention.log
+./test_multihead_self_attention 2>&1 | tee test_multihead_self_attention.log

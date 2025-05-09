@@ -1,5 +1,5 @@
 template<typename FloatType>
-Tensor<FloatType,3> ScaledDotProductAttentionHeadComponent<FloatType>::value(const Tensor<FloatType,3> &Q, const Tensor<FloatType,3> &K, Tensor<FloatType,3> &V){
+Tensor<FloatType,3> ScaledDotProductAttentionHeadComponent<FloatType>::value(const Tensor<FloatType,3> &Q, const Tensor<FloatType,3> &K, const Tensor<FloatType,3> &V){
   //Q(C,E,B) ,  K(C,E,B)  and V(C,E,B)
   assert(Q.size(1) == E && K.size(1) == E && V.size(1) == E);
 

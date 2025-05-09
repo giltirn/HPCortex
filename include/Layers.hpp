@@ -8,3 +8,4 @@
 #include<layers/SoftMaxLayer.hpp>
 #include<layers/MatrixTensorContractLayer.hpp>
 #include<layers/ScaledDotProductSelfAttentionLayer.hpp>
+#include<layers/MultiHeadSelfAttentionLayer.hpp>
