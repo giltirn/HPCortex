@@ -285,6 +285,47 @@ void unflatten2(Tensor<FloatType,Dim1> &t1,  Tensor<FloatType,Dim2> &t2, const V
   }
 }
 
+
+template<int Dim, typename FloatType>
+Vector<FloatType> flattenNsameDim(Tensor<FloatType,Dim> const* const* tens, int N){
+  size_t out_lin=0;
+  for(int t=0;t<N;t++)
+    out_lin += tens[t]->data_len();
+  
+  Vector<FloatType> out(out_lin);
+  {
+    autoView(out_v,out,DeviceWrite);
+    size_t off = 0;
+    for(int t=0;t<N;t++){
+      autoView(t_v, (*tens[t]) ,DeviceRead);
+      acceleratorCopyDeviceToDevice(out_v.data() + off, t_v.data(), t_v.data_len()*sizeof(FloatType));
+      off += t_v.data_len();
+    }
+  }
+  return out;
+}
+  
+
+template<int Dim, typename FloatType>
+void unflattenNsameDim(Tensor<FloatType,Dim>* const* tens, int N, const Vector<FloatType> &v){
+  size_t t_lin=0;
+  for(int t=0;t<N;t++)
+    t_lin += tens[t]->data_len();
+  assert(t_lin == v.size(0));
+    
+  {
+    autoView(v_v,v,DeviceRead);
+    size_t off = 0;
+    for(int t=0;t<N;t++){
+      autoView(t_v, (*tens[t]) ,DeviceWrite);
+      acceleratorCopyDeviceToDevice(t_v.data(),v_v.data() + off, t_v.data_len()*sizeof(FloatType));
+      off += t_v.data_len();
+    }
+  }
+}
+
+
+
 template<int Dim>
 accelerator_inline size_t tensorDimensionStride(int iter_dim, int const* size){
   size_t stride = 1;
@@ -319,4 +360,91 @@ accelerator_inline size_t batchTensorDimensionBaseLin(int iter_dim, int batch_id
       rem /= size[d];
     }
   return tensorOffset<Dim>(coord, size);
+}
+
+template<int Dim, typename FloatType>
+Tensor<FloatType,Dim> batchTensorConcatenate(Tensor<FloatType,Dim> const* const* in, int Ntens, int concat_dim){
+  assert(concat_dim < Dim-1 && concat_dim >= 0); 
+  int out_sz[Dim] = {0};
+  size_t other_dim_len = 1;
+  for(int i=0;i<Ntens;i++){
+    for(int d=0;d<Dim;d++){
+      int isz = in[i]->size(d);
+      if(d==concat_dim)    
+	out_sz[d] += isz;
+      else{
+	if(i==0){
+	  out_sz[d] = isz;
+	  other_dim_len *= isz;
+	}else
+	  assert(isz == out_sz[d]);
+      }
+    }
+  }
+  int batch_size = out_sz[Dim-1];
+  size_t out_stride = tensorDimensionStride<Dim>(concat_dim, out_sz);
+  
+  Tensor<FloatType,Dim> out(out_sz);
+  int off = 0;
+  for(int i=0;i<Ntens;i++){
+    size_t in_stride = tensorDimensionStride<Dim>(concat_dim, in[i]->sizeArray());
+    size_t ooff = off * out_stride;
+    autoView(out_v,out, i==0 ? DeviceWrite : DeviceReadWrite);
+    autoView(in_v, (*in[i]), DeviceRead);
+    
+    accelerator_for2d(b,batch_size, o, other_dim_len,  1, {
+	FloatType* iptr = in_v.data() + batchTensorDimensionBaseLin<Dim>(concat_dim, b, o, in_v.sizeArray());
+	FloatType* optr = out_v.data() + batchTensorDimensionBaseLin<Dim>(concat_dim, b, o, out_v.sizeArray()) + ooff;
+	for(int k=0;k<in_v.size(concat_dim);k++){
+	  *optr = *iptr;
+	  iptr += in_stride;
+	  optr += out_stride;
+	}
+      });
+
+    off += in[i]->size(concat_dim);
+  }
+  return out;  
+}
+
+template<int Dim, typename FloatType>
+void batchTensorSplit(Tensor<FloatType,Dim>* const* out, int Ntens, const Tensor<FloatType,Dim> &in, int split_dim){
+  int split_dim_tot = 0;
+  for(int t=0;t<Ntens;t++){
+    for(int d=0;d<Dim;d++){
+      if(d== split_dim)
+	split_dim_tot += out[t]->size(d);
+      else assert(out[t]->size(d) == in.size(d));
+    }
+  }
+
+  assert(in.size(split_dim) == split_dim_tot);
+  
+  size_t other_dim_len = 1;
+  for(int d=0;d<Dim-1;d++)
+    if(d!=split_dim)
+      other_dim_len *= in.size(d);
+  
+  int batch_size = in.size(Dim-1);
+  size_t in_stride = tensorDimensionStride<Dim>(split_dim, in.sizeArray());
+  
+  int off = 0;
+  for(int i=0;i<Ntens;i++){
+    size_t out_stride = tensorDimensionStride<Dim>(split_dim, out[i]->sizeArray());
+    size_t ioff = off * in_stride;
+    autoView(out_v, (*out[i]), DeviceWrite);
+    autoView(in_v, in, DeviceRead);
+    
+    accelerator_for2d(b,batch_size, o, other_dim_len,  1, {
+	FloatType* iptr = in_v.data() + batchTensorDimensionBaseLin<Dim>(split_dim, b, o, in_v.sizeArray()) + ioff;
+	FloatType* optr = out_v.data() + batchTensorDimensionBaseLin<Dim>(split_dim, b, o, out_v.sizeArray());
+	for(int k=0;k<out_v.size(split_dim);k++){
+	  *optr = *iptr;
+	  iptr += in_stride;
+	  optr += out_stride;
+	}
+      });
+
+    off += out[i]->size(split_dim);
+  }
 }

@@ -180,9 +180,11 @@ void testTensor(){
 
 void testDimensionIteration(){
   typedef double FloatType;
+  std::mt19937 rng(1234);
   {
     int size[2] = {3,4};
     Tensor<FloatType,2> tens(size);
+    random(tens,rng);
 
     size_t stride0 = tensorDimensionStride<2>(0,size);
     size_t stride1 = tensorDimensionStride<2>(1,size);
@@ -207,7 +209,8 @@ void testDimensionIteration(){
   {
     int size[3] = {3,4,5};
     Tensor<FloatType,3> tens(size);
-
+    random(tens,rng);
+    
     size_t stride0 = tensorDimensionStride<3>(0,size);
     size_t stride1 = tensorDimensionStride<3>(1,size);
     size_t stride2 = tensorDimensionStride<3>(2,size);
@@ -251,7 +254,8 @@ void testDimensionIteration(){
   {
     int size[4] = {2,3,4,5};
     Tensor<FloatType,4> tens(size);
-
+    random(tens,rng);
+    
     size_t stride0 = tensorDimensionStride<4>(0,size);
     size_t stride1 = tensorDimensionStride<4>(1,size);
     size_t stride2 = tensorDimensionStride<4>(2,size);
@@ -305,7 +309,135 @@ void testDimensionIteration(){
 }
 
 	
+void testConcatenateSplit(){
+  typedef double FloatType;
+  std::mt19937 rng(1234);
   
+  { //contract dim 2
+    int size1[4] = {2,3,4,5};
+    int size2[4] = {2,3,3,5};
+    int size3[4] = {2,3,6,5};
+
+    std::vector<Tensor<FloatType,4>* > tens({ new Tensor<FloatType,4>(size1), new Tensor<FloatType,4>(size2), new Tensor<FloatType,4>(size3) });
+    for(int i=0;i<3;i++)
+      random(*tens[i],rng);
+
+    Tensor<FloatType,4> got = batchTensorConcatenate(tens.data(), 3,  2);
+    
+    int osize[4] = {2,3,4+3+6,5};
+    Tensor<FloatType,4> expect(osize, 0.);
+    int off = 0;
+    for(int t=0;t<3;t++){
+      autoView(out_v,expect,HostReadWrite);
+      autoView(in_v, (*tens[t]), HostRead);
+      int csz = tens[t]->size(2);
+      
+      for(int i=0;i<2;i++)
+	for(int j=0;j<3;j++)
+	  for(int b=0;b<5;b++)
+	    for(int k=0;k<csz;k++)
+	      out_v(i,j,off + k,b) = in_v(i,j,k,b);
+      off += csz;
+    }
+
+    assert(equal(got,expect,true));
+
+    std::vector<Tensor<FloatType,4>* > split_tens({ new Tensor<FloatType,4>(size1), new Tensor<FloatType,4>(size2), new Tensor<FloatType,4>(size3) });
+    
+    batchTensorSplit(split_tens.data(), 3, got, 2);
+    
+    for(int t=0;t<3;t++){
+      assert( equal(*split_tens[t], *tens[t], true) );
+      
+      delete tens[t];
+      delete split_tens[t];
+    }
+  }
+
+  { //contract dim 1
+    int size1[4] = {2,4,3,5};
+    int size2[4] = {2,3,3,5};
+    int size3[4] = {2,6,3,5};
+
+    std::vector<Tensor<FloatType,4>* > tens({ new Tensor<FloatType,4>(size1), new Tensor<FloatType,4>(size2), new Tensor<FloatType,4>(size3) });
+    for(int i=0;i<3;i++)
+      random(*tens[i],rng);
+
+    Tensor<FloatType,4> got = batchTensorConcatenate<4,FloatType>(tens.data(), 3,  1);
+    
+    int osize[4] = {2,4+3+6,3,5};
+    Tensor<FloatType,4> expect(osize, 0.);
+    int off = 0;
+    for(int t=0;t<3;t++){
+      autoView(out_v,expect,HostReadWrite);
+      autoView(in_v, (*tens[t]), HostRead);
+      int csz = tens[t]->size(1);
+      
+      for(int i=0;i<2;i++)	  
+	for(int k=0;k<3;k++)
+	  for(int b=0;b<5;b++)
+	    for(int j=0;j<csz;j++)
+	      out_v(i,off + j,k,b) = in_v(i,j,k,b);
+      off += csz;
+    }
+
+    assert(equal(got,expect,true));
+
+    std::vector<Tensor<FloatType,4>* > split_tens({ new Tensor<FloatType,4>(size1), new Tensor<FloatType,4>(size2), new Tensor<FloatType,4>(size3) });
+    
+    batchTensorSplit(split_tens.data(), 3, got, 1);
+    
+    for(int t=0;t<3;t++){
+      assert( equal(*split_tens[t], *tens[t], true) );
+      
+      delete tens[t];
+      delete split_tens[t];
+    }
+  }
+
+  { //contract dim 0
+    int size1[4] = {4,2,3,5};
+    int size2[4] = {3,2,3,5};
+    int size3[4] = {6,2,3,5};
+
+    std::vector<Tensor<FloatType,4>* > tens({ new Tensor<FloatType,4>(size1), new Tensor<FloatType,4>(size2), new Tensor<FloatType,4>(size3) });
+    for(int i=0;i<3;i++)
+      random(*tens[i],rng);
+
+    Tensor<FloatType,4> got = batchTensorConcatenate<4,FloatType>(tens.data(), 3,  0);
+    
+    int osize[4] = {4+3+6,2,3,5};
+    Tensor<FloatType,4> expect(osize, 0.);
+    int off = 0;
+    for(int t=0;t<3;t++){
+      autoView(out_v,expect,HostReadWrite);
+      autoView(in_v, (*tens[t]), HostRead);
+      int csz = tens[t]->size(0);
+      
+      for(int j=0;j<2;j++)	  
+	for(int k=0;k<3;k++)
+	  for(int b=0;b<5;b++)
+	    for(int i=0;i<csz;i++)
+	      out_v(off + i,j,k,b) = in_v(i,j,k,b);
+      off += csz;
+    }
+
+    assert(equal(got,expect,true));
+
+    std::vector<Tensor<FloatType,4>* > split_tens({ new Tensor<FloatType,4>(size1), new Tensor<FloatType,4>(size2), new Tensor<FloatType,4>(size3) });
+    
+    batchTensorSplit(split_tens.data(), 3, got, 0);
+    
+    for(int t=0;t<3;t++){
+      assert( equal(*split_tens[t], *tens[t], true) );
+      
+      delete tens[t];
+      delete split_tens[t];
+    }
+    
+  }
+  std::cout << "testConcatenate passed" << std::endl;
+}
 
   
 int main(int argc, char** argv){
@@ -313,5 +445,6 @@ int main(int argc, char** argv){
   
   testTensor();
   testDimensionIteration();
+  testConcatenateSplit();
   return 0;
 }

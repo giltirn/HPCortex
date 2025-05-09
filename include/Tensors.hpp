@@ -32,6 +32,19 @@ accelerator_inline void tensorOffsetUnmap(int * coord, int const* dims, size_t o
     rem /= dims[i];
   }
 }
+
+//Compute the stride for iterating over a specific dimension 'iter_dim' for a tensor with dimensions 'size'
+template<int Dim>
+accelerator_inline size_t tensorDimensionStride(int iter_dim, int const* size);
+  
+//Compute the pointer offset for the base element for iterating over a specific dimension 'iter_dim'. The coordinates for the other dimensions (size Dim-1) should be contained in 'other_coord', and 'size' is the overall tensor size
+template<int Dim>
+accelerator_inline size_t tensorDimensionBase(int iter_dim, int const* other_coord, int const *size);
+
+//Similar to the above but for batch tensors (last dim is the batch dimension) and with the coordinates in dimensions apart from iter_dim and Dim-1 expressed as a lexicographic linear index
+template<int Dim>
+accelerator_inline size_t batchTensorDimensionBaseLin(int iter_dim, int batch_idx, size_t other_dim_lin, int const *size);
+
      
  
 
@@ -290,19 +303,21 @@ Vector<FloatType> flatten2(const Tensor<FloatType,Dim1> &t1, const Tensor<FloatT
 template<int Dim1, int Dim2, typename FloatType>
 void unflatten2(Tensor<FloatType,Dim1> &t1,  Tensor<FloatType,Dim2> &t2, const Vector<FloatType> &v);
 
+template<int Dim, typename FloatType>
+Vector<FloatType> flattenNsameDim(Tensor<FloatType,Dim> const* const* tens, int N);
 
-//Compute the stride for iterating over a specific dimension 'iter_dim' for a tensor with dimensions 'size'
-template<int Dim>
-accelerator_inline size_t tensorDimensionStride(int iter_dim, int const* size);
-  
-//Compute the pointer offset for the base element for iterating over a specific dimension 'iter_dim'. The coordinates for the other dimensions (size Dim-1) should be contained in 'other_coord', and 'size' is the overall tensor size
-template<int Dim>
-accelerator_inline size_t tensorDimensionBase(int iter_dim, int const* other_coord, int const *size);
+template<int Dim, typename FloatType>
+void unflattenNsameDim(Tensor<FloatType,Dim>* const* tens, int N, const Vector<FloatType> &v);
 
-//Similar to the above but for batch tensors (last dim is the batch dimension) and with the coordinates in dimensions apart from iter_dim and Dim-1 expressed as a lexicographic linear index
-template<int Dim>
-accelerator_inline size_t batchTensorDimensionBaseLin(int iter_dim, int batch_idx, size_t other_dim_lin, int const *size);
-  
+  //Concatenate Ntens tensors along a dimension concat_dim < Dim-1  (last dim is the batch index)
+template<int Dim, typename FloatType>
+Tensor<FloatType,Dim> batchTensorConcatenate(Tensor<FloatType,Dim> const* const* in, int Ntens, int concat_dim);
+
+//Splite Ntens tensors along a dimension concat_dim < Dim-1  (last dim is the batch index). The output tensors should be pre-initialized to the appropriate sizes
+template<int Dim, typename FloatType>
+void batchTensorSplit(Tensor<FloatType,Dim>* const* out, int Ntens, const Tensor<FloatType,Dim> &in, int split_dim);
+
+
 #include "implementation/Tensors.tcc"
 
 // #ifndef TENSORS_EXTERN_TEMPLATE_INST

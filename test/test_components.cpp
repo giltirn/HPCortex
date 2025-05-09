@@ -120,9 +120,107 @@ void testBatch3tensorPairContractComponent(){
 
 
 
+
+template<typename _FloatType, int TensDim>
+struct BatchTensorConcatenateComponentWrapper{
+  typedef _FloatType FloatType;
+  
+  BatchTensorConcatenateComponent<FloatType,TensDim> &cpt;
+  std::vector< std::array<int,TensDim> > in_sz;
+  size_t lin_sz;
+  int N;
+  int out_sz[TensDim];
+  std::vector<Tensor<FloatType,TensDim>* > tmp;
+    
+  BatchTensorConcatenateComponentWrapper(BatchTensorConcatenateComponent<FloatType,TensDim> &cpt, const std::vector< std::array<int,TensDim> > &in_sz, int concat_dim): cpt(cpt), in_sz(in_sz), N(in_sz.size()), tmp(N){
+    for(int d=0;d<TensDim;d++)      
+      out_sz[d] = in_sz[0][d];
+    for(int t=1;t<N;t++)
+      out_sz[concat_dim] += in_sz[t][concat_dim];
+
+    lin_sz=1;
+    for(int d=0;d<TensDim;d++) lin_sz *= out_sz[d];
+    
+    for(int t=0;t<N;t++) tmp[t] = new Tensor<FloatType,TensDim>(in_sz[t].data());
+  }
+  ~BatchTensorConcatenateComponentWrapper(){
+    for(int t=0;t<N;t++) delete tmp[t];
+  }
+  
+  size_t outputLinearSize() const{ return lin_sz; }
+  size_t inputLinearSize() const{ return lin_sz; }
+  
+  Vector<FloatType> value(const Vector<FloatType> &in){
+    unflattenNsameDim(tmp.data(),N,in);    
+    Tensor<FloatType,TensDim> out = cpt.value(tmp.data());
+    return flatten(out);
+  }
+  void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
+    Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);
+    Tensor<FloatType,TensDim> above_deriv(out_sz);
+    unflatten(above_deriv,above_deriv_lin);
+    cpt.deriv(std::move(above_deriv), tmp.data());
+    cost_deriv_inputs = flattenNsameDim(tmp.data(),N);
+  }
+    
+  void update(int off, const Vector<FloatType> &new_params){}
+  void step(int off, const Vector<FloatType> &derivs, FloatType eps){}
+  inline int nparams() const{ return cpt.nparams(); }
+  void getParams(Vector<FloatType> &into, int off){}
+
+  std::string inCoord(size_t i) const{
+    return std::to_string(i);
+  }
+
+    
+    
+};
+
+
+void testBatchTensorConcatenateComponent(){
+  typedef double FloatType;
+ 
+  { //contract dim 2
+    std::vector< std::array<int,4> > in_sz({
+	  {2,3,4,5},
+	  {2,3,3,5},
+	  {2,3,6,5} });
+        
+    BatchTensorConcatenateComponent<FloatType,4> cpt(2,  3);
+    BatchTensorConcatenateComponentWrapper<FloatType,4> wrp(cpt, in_sz, 2);
+    testComponentDeriv(wrp);
+  }
+
+  { //contract dim 1
+    std::vector< std::array<int,4> > in_sz({
+	{2,4,3,5},
+	{2,3,3,5},
+	{2,6,3,5} });
+        
+    BatchTensorConcatenateComponent<FloatType,4> cpt(1,  3);
+    BatchTensorConcatenateComponentWrapper<FloatType,4> wrp(cpt, in_sz, 1);
+    testComponentDeriv(wrp);
+  }
+
+  { //contract dim 0
+    std::vector< std::array<int,4> > in_sz({
+	{4,2,3,5},
+	{3,2,3,5},
+	{6,2,3,5} });
+        
+    BatchTensorConcatenateComponent<FloatType,4> cpt(0,  3);
+    BatchTensorConcatenateComponentWrapper<FloatType,4> wrp(cpt, in_sz, 0);
+    testComponentDeriv(wrp);
+  }
+}
+
+  
+
+
 int main(int argc, char** argv){
   initialize(argc,argv);
   testBatch3tensorPairContractComponent();
+  testBatchTensorConcatenateComponent();
   return 0;
 }
 
