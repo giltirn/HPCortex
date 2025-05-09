@@ -2,17 +2,18 @@
 #include <Tensors.hpp>
 #include <Accelerator.hpp>
 
-// C_jk = \sum_i  A_ji B_ki     for ni small-ish (batch size)  pointer version
+// C_jk = \sum_i  A_ji B_ki     for ni small-ish (batch size)  pointer version; pointer must be device writable
 template<typename FloatType>
 void thinMulMatMatTranspose_p(FloatType* out_p, const Matrix<FloatType> &a, const Matrix<FloatType> &b){
   int szj = a.size(0);
   int szi = a.size(1);
   int szk = b.size(0);
   assert(b.size(1) == szi);
-  
+
   autoView(a_v,a,DeviceRead);
   autoView(b_v,b,DeviceRead);
 
+#ifdef USE_CUDA 
   int jblocksize = 8;
   int jblocks = (szj + jblocksize-1)/jblocksize;
 
@@ -80,6 +81,17 @@ void thinMulMatMatTranspose_p(FloatType* out_p, const Matrix<FloatType> &a, cons
       if(j < szj && k < szk) out_p[k+szk*j] = v;
 	 
     });
+
+#else  
+    
+  accelerator_for3d(dummy,1, k,szk,j,szj,   64,{
+      FloatType v = a_v(j,0) * b_v(k,0);
+      for(int i=1;i<szi;i++)
+	v += a_v(j,i) * b_v(k,i);
+      out_p[k+szk*j] = v;
+    });
+  
+#endif
 }
 
 
@@ -101,6 +113,8 @@ Matrix<FloatType> mulMatTransposeThinMat(const Matrix<FloatType> &a, const Matri
   int sizek = b.size(1);
   assert(b.size(0) == sizej);
 
+#ifdef USE_CUDA
+  
   if(sizej < 300){
     Matrix<FloatType> c(sizei,sizek);
     autoView(c_v,c,DeviceWrite);
@@ -180,6 +194,22 @@ Matrix<FloatType> mulMatTransposeThinMat(const Matrix<FloatType> &a, const Matri
       });
     return c;
   }
+#else
+  Matrix<FloatType> c(sizei,sizek);
+  autoView(c_v,c,DeviceWrite);
+  autoView(a_v,a,DeviceRead);
+  autoView(b_v,b,DeviceRead);
+    
+  accelerator_for2d(k, sizek,i,sizei,1,{
+      FloatType v = a_v(0,i) * b_v(0,k);
+      for(int j=1;j<sizej;j++)
+	v += a_v(j,i) * b_v(j,k);
+      c_v(i,k) = v;
+    });
+
+  return c;
+#endif
+  
 }
 
 

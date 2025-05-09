@@ -246,6 +246,12 @@ inline void labelRegionBegin(char const* label){
 inline void labelRegionEnd(){
 }
 
+template<typename FloatType>
+inline void atomicAdd(FloatType *p, const FloatType v){
+#pragma omp atomic
+  *p += v;
+}
+
 #endif // CPU target
 
 

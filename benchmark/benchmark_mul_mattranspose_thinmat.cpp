@@ -1,3 +1,5 @@
+#ifdef USE_CUDA
+
 #include<HPCortex.hpp>
 #include<Testing.hpp>
 #include<cuda_pipeline.h>
@@ -803,3 +805,9 @@ int main(int argc, char** argv){
       
   return 0;
 }
+
+#else
+int main(void){
+  return 0;
+}
+#endif
