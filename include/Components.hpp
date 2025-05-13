@@ -5,3 +5,4 @@
 #include "components/ScaledDotProductAttentionComponent.hpp"
 #include "components/ScaledDotProductAttentionHeadComponent.hpp"
 #include "components/BatchTensorConcatenateComponent.hpp"
+#include "components/NormComponent.hpp"

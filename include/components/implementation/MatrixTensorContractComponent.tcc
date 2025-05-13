@@ -127,8 +127,6 @@ void MatrixTensorContractComponent<FloatType,TensDim>::step(int off, const Vecto
 }
 
 
-
-//off measured from *end*, return new off
 template<typename FloatType, int TensDim>
 void MatrixTensorContractComponent<FloatType,TensDim>::getParams(Vector<FloatType> &into, int off){
   autoView(into_v,into,DeviceReadWrite);

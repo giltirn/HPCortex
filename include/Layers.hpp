@@ -9,3 +9,4 @@
 #include<layers/MatrixTensorContractLayer.hpp>
 #include<layers/ScaledDotProductSelfAttentionLayer.hpp>
 #include<layers/MultiHeadSelfAttentionLayer.hpp>
+#include<layers/NormLayer.hpp>
