@@ -3,7 +3,6 @@
 
 void testBatching(){
   typedef double FloatType;
-  FloatType delta = 1e-4;
   
   typedef std::vector<FloatType> vec;
   

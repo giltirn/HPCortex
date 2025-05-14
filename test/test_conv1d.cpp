@@ -7,8 +7,6 @@ typedef Tensor<FloatType,3> Tens;
 
 
 void testSamePaddingZero1D(){
-  FloatType delta = 1e-6;
-
   std::vector<int> kernel_sizes = {1,2,3,4,5,6,7};
   std::vector<int> in_sizes = {3,4,9,10,19,20};
   std::vector<int> strides = {1,2,3,4};

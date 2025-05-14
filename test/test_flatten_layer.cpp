@@ -3,7 +3,6 @@
 
 void testFlattenLayer(){
   typedef double FloatType; //more precise derivatives
-  FloatType delta = 1e-6;
 
   int dims[3] = {2,3,4};
   typedef std::vector<FloatType> vecD;
@@ -43,7 +42,6 @@ void testFlattenLayer(){
 
 void testUnflattenLayer(){
   typedef double FloatType; //more precise derivatives
-  FloatType delta = 1e-6;
 
   int dims[3] = {2,3,4};
   typedef std::vector<FloatType> vecD;

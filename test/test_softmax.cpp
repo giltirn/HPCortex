@@ -51,7 +51,6 @@ struct SoftMaxComponentWrapper{
 
 void testSoftMaxComponent(){
   typedef double FloatType;
-  FloatType delta = 1e-4;
   std::mt19937 rng(1234);
    
   typedef std::vector<FloatType> vecD;
@@ -284,7 +283,6 @@ struct BatchedMatrixRowSoftMaxComponentWrapper{
 
 void testBatchedMatrixRowSoftMaxComponent(){
   typedef double FloatType;
-  FloatType delta = 1e-4;
   std::mt19937 rng(1234);
    
   typedef std::vector<FloatType> vecD;
