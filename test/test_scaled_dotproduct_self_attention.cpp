@@ -6,7 +6,8 @@ Tensor<FloatType,3> naiveImpl(const Tensor<FloatType,3> &X,
 			      const Matrix<FloatType> &W_Q,
 			      const Matrix<FloatType> &W_K,
 			      const Matrix<FloatType> &W_V,
-			      int C, int E, int B, int d_k, int d_v){
+			      int C, int E, int B, int d_k, int d_v,
+			      bool use_mask){
   
   //Attention:
   // 1)  Q_{ckb} = \sum_e (W_Q)_{k e} X_{c e b}     k \in {1.. d_k}
@@ -57,6 +58,7 @@ Tensor<FloatType,3> naiveImpl(const Tensor<FloatType,3> &X,
       for(int b=0;b<B;b++){
 	for(int k=0;k<d_k;k++)
 	  S_v(c,cp,b) += Q_v(c,k,b) * K_v(cp,k,b);
+	if(use_mask && cp > c) S_v(c,cp,b) += -10000;	  
       }
     }
   }
@@ -103,21 +105,23 @@ void testScaledDotProductSelfAttention(){
   random(in_W_Q,rng);
   random(in_W_K,rng);
   random(in_W_V,rng);
-  
-  auto model = scaled_dotproduct_self_attention_layer(input_layer<FloatType, Tensor<FloatType,3> >(), in_W_Q, in_W_K, in_W_V);
 
-  Tensor<FloatType,3> X(C,E,B);
-  random(X,rng);
-  
-  Tensor<FloatType,3> got = model.value(X);  
-  Tensor<FloatType,3> expect = naiveImpl(X,in_W_Q,in_W_K,in_W_V,C,E,B,d_k,d_v);
+  for(int use_mask = 0; use_mask < 2; use_mask++){
+    auto model = scaled_dotproduct_self_attention_layer(input_layer<FloatType, Tensor<FloatType,3> >(), in_W_Q, in_W_K, in_W_V, use_mask);
 
-  assert(abs_near(got,expect,FloatType(1e-4),true));
-
-  int in_sizes[3] = {C,E,B};
-  int out_sizes[3] = {C,d_v,B};
+    Tensor<FloatType,3> X(C,E,B);
+    random(X,rng);
   
-  testDeriv(model, in_sizes, out_sizes, FloatType(1e-6));
+    Tensor<FloatType,3> got = model.value(X);  
+    Tensor<FloatType,3> expect = naiveImpl(X,in_W_Q,in_W_K,in_W_V,C,E,B,d_k,d_v,use_mask);
+
+    assert(abs_near(got,expect,FloatType(1e-4),true));
+
+    int in_sizes[3] = {C,E,B};
+    int out_sizes[3] = {C,d_v,B};
+  
+    testDeriv(model, in_sizes, out_sizes, FloatType(1e-6));
+  }
 
   std::cout << "Tests passed" << std::endl;
 }

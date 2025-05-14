@@ -6,10 +6,10 @@
 #include <RingBuffer.hpp>
 #include <Linalg.hpp>
 
-#include <components/SoftMaxComponent.hpp>
+#include <components/BatchedMatrixRowSoftMaxComponent.hpp>
 #include <components/Batch3tensorPairContractComponent.hpp>
 
-//A component implementing scaled dot-product  attention. Expects input tensors Q(C,d_k,B) ,  K(C,d_k,B)  and V(C,d_v,B)   where C is the context window size, B the batch size and d_k, d_v arbitrary
+//A component implementing scaled dot-product attention with optional masking. Expects input tensors Q(C,d_k,B) ,  K(C,d_k,B)  and V(C,d_v,B)   where C is the context window size, B the batch size and d_k, d_v arbitrary
 template<typename _FloatType>
 class ScaledDotProductAttentionComponent{
 public:
@@ -27,15 +27,15 @@ private:
   bool setup;
   
   Batch3tensorPairContractComponent<FloatType> mulQKtoGetS; //contract on indices 1,1 and normalize 1/sqrt(d_k)
-  SoftMaxComponent<FloatType,3> softmaxS_to_SS; //softmax on index 1
+  BatchedMatrixRowSoftMaxComponent<FloatType> softmaxS_to_SS; //softmax on index 1
   Batch3tensorPairContractComponent<FloatType> mulSSVtoGetOut; //contract SS with V on indices 1,0 
 
 public:
   
-  ScaledDotProductAttentionComponent(int d_k, int d_v): 
+  ScaledDotProductAttentionComponent(int d_k, int d_v, int use_mask = false): 
     d_k(d_k), d_v(d_v),
     mulQKtoGetS(1,1, 1./sqrt(FloatType(d_k))),
-    softmaxS_to_SS(1),
+    softmaxS_to_SS(use_mask),
     mulSSVtoGetOut(1,0),
     setup(false)
   { }

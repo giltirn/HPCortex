@@ -17,7 +17,7 @@ private:
 public:
   typedef LeafTag tag;
   
-  MultiHeadSelfAttentionLayer(Store &&leaf, int Nheads, Matrix<FloatType> const* const* W_Q, Matrix<FloatType> const* const* W_K, Matrix<FloatType> const* const* W_V, const Matrix<FloatType> &W_O);
+  MultiHeadSelfAttentionLayer(Store &&leaf, int Nheads, Matrix<FloatType> const* const* W_Q, Matrix<FloatType> const* const* W_K, Matrix<FloatType> const* const* W_V, const Matrix<FloatType> &W_O, bool use_mask = false);
   MultiHeadSelfAttentionLayer(const MultiHeadSelfAttentionLayer &r) = delete;
   MultiHeadSelfAttentionLayer(MultiHeadSelfAttentionLayer &&r) = default;
   
@@ -48,8 +48,9 @@ auto multihead_self_attention_layer(U &&u,
 				    Matrix<FLOATTYPE(U)> const* const* W_Q,
 				    Matrix<FLOATTYPE(U)> const* const* W_K,
 				    Matrix<FLOATTYPE(U)> const* const* W_V,
-				    const Matrix<FLOATTYPE(U)> &W_O)-> LAYER_TYPE{
-  return LAYER_TYPE(std::forward<U>(u), Nheads, W_Q, W_K, W_V, W_O);
+				    const Matrix<FLOATTYPE(U)> &W_O,
+				    bool use_mask = false)-> LAYER_TYPE{
+  return LAYER_TYPE(std::forward<U>(u), Nheads, W_Q, W_K, W_V, W_O, use_mask);
 }
 #undef LAYER_TYPE
 

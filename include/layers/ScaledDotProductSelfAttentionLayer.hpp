@@ -2,7 +2,7 @@
 #include "LayerCommon.hpp"
 #include <components/ScaledDotProductAttentionHeadComponent.hpp>
 
-//A layer implementing scaled dot-product self-attention. The input 3-tensor X is expected to have dimension C * E * B  in this order, where C is the size of the context, E the size of the embedding and B the batch size
+//A layer implementing scaled dot-product self-attention with optional masking. The input 3-tensor X is expected to have dimension C * E * B  in this order, where C is the size of the context, E the size of the embedding and B the batch size
 template<typename _FloatType, typename _InputType, typename Store>
 class ScaledDotProductSelfAttentionLayer{
 public:
@@ -33,10 +33,10 @@ private:
 public:
   typedef LeafTag tag;
   
-  ScaledDotProductSelfAttentionLayer(Store &&leaf, const Matrix<FloatType> &W_Q, const Matrix<FloatType> &W_K, const Matrix<FloatType> &W_V):
+  ScaledDotProductSelfAttentionLayer(Store &&leaf, const Matrix<FloatType> &W_Q, const Matrix<FloatType> &W_K, const Matrix<FloatType> &W_V, bool use_mask = false):
     leaf(std::move(leaf)),
     d_k(W_Q.size(0)), d_v(W_V.size(0)), E(W_Q.size(1)),
-    attentionQKV(W_Q,W_K,W_V),
+    attentionQKV(W_Q,W_K,W_V,use_mask),
     setup(false)
   {
     assert(W_K.size(0) == d_k);
@@ -74,8 +74,9 @@ template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
 auto scaled_dotproduct_self_attention_layer(U &&u,
 				       const Matrix<FLOATTYPE(U)> &W_Q,
 				       const Matrix<FLOATTYPE(U)> &W_K,
-				       const Matrix<FLOATTYPE(U)> &W_V)-> LAYER_TYPE{
-  return LAYER_TYPE(std::forward<U>(u), W_Q, W_K, W_V);
+				       const Matrix<FLOATTYPE(U)> &W_V,
+				       bool use_mask = false)-> LAYER_TYPE{
+  return LAYER_TYPE(std::forward<U>(u), W_Q, W_K, W_V, use_mask);
 }
 #undef LAYER_TYPE
 

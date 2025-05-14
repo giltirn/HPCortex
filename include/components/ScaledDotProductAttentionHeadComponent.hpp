@@ -1,7 +1,7 @@
 #pragma once
 #include <components/ScaledDotProductAttentionComponent.hpp>
 
-//An attention head is scaled dot-product attention but with the inputs multiplied by learnable weight matrics
+//An attention head is scaled dot-product attention with optional masking but with the inputs multiplied by learnable weight matrics
 //Expects input tensors Q(C,E,B) ,  K(C,E,B)  and V(C,E,B)   where C is the context window size, B the batch size and E the embedding size (assumed equal)
 template<typename _FloatType>
 class ScaledDotProductAttentionHeadComponent{
@@ -30,10 +30,10 @@ private:
   ScaledDotProductAttentionComponent<FloatType> attention;
 
 public:
-  ScaledDotProductAttentionHeadComponent(const Matrix<FloatType> &W_Q, const Matrix<FloatType> &W_K, const Matrix<FloatType> &W_V):
+  ScaledDotProductAttentionHeadComponent(const Matrix<FloatType> &W_Q, const Matrix<FloatType> &W_K, const Matrix<FloatType> &W_V, bool use_mask = false):
     multWQ(W_Q), multWK(W_K), multWV(W_V),    
     d_k(W_Q.size(0)), d_v(W_V.size(0)), E(W_Q.size(1)),
-    attention(d_k,d_v),
+    attention(d_k,d_v,use_mask),
     setup(false)
   {
     assert(W_K.size(0) == d_k);

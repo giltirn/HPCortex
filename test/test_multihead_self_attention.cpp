@@ -7,7 +7,7 @@ Tensor<FloatType,3> naiveImpl(const Tensor<FloatType,3> &X,
 			      const std::vector< Matrix<FloatType> > &W_K,
 			      const std::vector< Matrix<FloatType> > &W_V,
 			      const Matrix<FloatType> &W_O,
-			      int C, int E, int B){
+			      int C, int E, int B, bool use_mask){
   int Nheads = W_V.size();
   int sdv=0;
   for(int i=0;i<Nheads; i++)
@@ -20,7 +20,7 @@ Tensor<FloatType,3> naiveImpl(const Tensor<FloatType,3> &X,
   //We assume the attention head is correct as it is tested elsewhere
   int off =0;
   for(int h=0;h<Nheads;h++){
-    ScaledDotProductAttentionHeadComponent<FloatType> head(W_Q[h],W_K[h],W_V[h]);
+    ScaledDotProductAttentionHeadComponent<FloatType> head(W_Q[h],W_K[h],W_V[h],use_mask);
     Tensor<FloatType,3> Yh = head.value(X,X,X);
     doHost2(Yh,Yconcat, {    
 	for(int c=0;c<C;c++)
@@ -76,22 +76,23 @@ void testMultiHeadSelfAttention(){
   int d_o = 8;
   Matrix<FloatType> in_W_O(d_o,dsv);
   random(in_W_O,rng);
- 
-  auto model = multihead_self_attention_layer(input_layer<FloatType, Tensor<FloatType,3> >(), Nheads, in_W_Q_p.data(), in_W_K_p.data(), in_W_V_p.data(), in_W_O);
 
-  Tensor<FloatType,3> X(C,E,B);
-  random(X,rng);
+  for(int use_mask=0;use_mask<2;use_mask++){
+    auto model = multihead_self_attention_layer(input_layer<FloatType, Tensor<FloatType,3> >(), Nheads, in_W_Q_p.data(), in_W_K_p.data(), in_W_V_p.data(), in_W_O, use_mask);
+
+    Tensor<FloatType,3> X(C,E,B);
+    random(X,rng);
   
-  Tensor<FloatType,3> got = model.value(X);
-  Tensor<FloatType,3> expect = naiveImpl(X,in_W_Q,in_W_K,in_W_V,in_W_O,C,E,B);
+    Tensor<FloatType,3> got = model.value(X);
+    Tensor<FloatType,3> expect = naiveImpl(X,in_W_Q,in_W_K,in_W_V,in_W_O,C,E,B,use_mask);
 
-  assert(abs_near(got,expect,FloatType(1e-4),true));
+    assert(abs_near(got,expect,FloatType(1e-4),true));
 
-  int in_sizes[3] = {C,E,B};
-  int out_sizes[3] = {C,d_o,B};
+    int in_sizes[3] = {C,E,B};
+    int out_sizes[3] = {C,d_o,B};
   
-  testDeriv(model, in_sizes, out_sizes, FloatType(1e-6));
-
+    testDeriv(model, in_sizes, out_sizes, FloatType(1e-6));
+  }
   std::cout << "Tests passed" << std::endl;
 }
 

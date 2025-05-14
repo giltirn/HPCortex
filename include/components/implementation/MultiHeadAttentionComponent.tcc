@@ -1,5 +1,5 @@
 template<typename FloatType>
-MultiHeadAttentionComponent<FloatType>::MultiHeadAttentionComponent(int Nheads, Matrix<FloatType> const* const* W_Q, Matrix<FloatType> const* const* W_K, Matrix<FloatType> const* const* W_V, const Matrix<FloatType> &W_O):
+MultiHeadAttentionComponent<FloatType>::MultiHeadAttentionComponent(int Nheads, Matrix<FloatType> const* const* W_Q, Matrix<FloatType> const* const* W_K, Matrix<FloatType> const* const* W_V, const Matrix<FloatType> &W_O, bool use_mask):
   concatY(1,Nheads),
   multW_O(W_O),
   heads(Nheads),
@@ -18,7 +18,7 @@ MultiHeadAttentionComponent<FloatType>::MultiHeadAttentionComponent(int Nheads, 
 
   Nparams_layer = multW_O.nparams();
   for(int h=0;h<Nheads;h++){
-    heads[h].reset(new ScaledDotProductAttentionHeadComponent<FloatType>(*W_Q[h],*W_K[h],*W_V[h]));
+    heads[h].reset(new ScaledDotProductAttentionHeadComponent<FloatType>(*W_Q[h],*W_K[h],*W_V[h],use_mask));
     Nparams_layer += heads[h]->nparams();
   }
 

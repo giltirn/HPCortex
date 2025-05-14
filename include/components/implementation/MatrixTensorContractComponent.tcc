@@ -26,7 +26,6 @@ Tensor<FloatType,TensDim> MatrixTensorContractComponent<FloatType,TensDim>::valu
     autoView(weights_v, weights, DeviceRead);
     autoView(out_v, out, DeviceWrite);
     
-    int _batch_size = batch_size;
     int _sizej = size1;
     int _sizei = size0;
     

@@ -23,7 +23,7 @@ private:
 
 public:
   
-  MultiHeadAttentionComponent(int Nheads, Matrix<FloatType> const* const* W_Q, Matrix<FloatType> const* const* W_K, Matrix<FloatType> const* const* W_V, const Matrix<FloatType> &W_O);
+  MultiHeadAttentionComponent(int Nheads, Matrix<FloatType> const* const* W_Q, Matrix<FloatType> const* const* W_K, Matrix<FloatType> const* const* W_V, const Matrix<FloatType> &W_O, bool use_mask=false);
   MultiHeadAttentionComponent(const MultiHeadAttentionComponent &r) = delete;
   MultiHeadAttentionComponent(MultiHeadAttentionComponent &&r) = default;
   

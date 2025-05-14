@@ -1,7 +1,7 @@
 template<typename FloatType, typename InputType, typename Store>
-MultiHeadSelfAttentionLayer<FloatType,InputType,Store>::MultiHeadSelfAttentionLayer(Store &&leaf, int Nheads, Matrix<FloatType> const* const* W_Q, Matrix<FloatType> const* const* W_K, Matrix<FloatType> const* const* W_V, const Matrix<FloatType> &W_O):
+MultiHeadSelfAttentionLayer<FloatType,InputType,Store>::MultiHeadSelfAttentionLayer(Store &&leaf, int Nheads, Matrix<FloatType> const* const* W_Q, Matrix<FloatType> const* const* W_K, Matrix<FloatType> const* const* W_V, const Matrix<FloatType> &W_O, bool use_mask):
   leaf(std::move(leaf)),
-  mha(Nheads,W_Q,W_K,W_V,W_O){}
+  mha(Nheads,W_Q,W_K,W_V,W_O,use_mask){}
 
 template<typename FloatType, typename InputType, typename Store>
 Tensor<FloatType,3> MultiHeadSelfAttentionLayer<FloatType,InputType,Store>::value(const InputType &x){
