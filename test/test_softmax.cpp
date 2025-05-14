@@ -233,10 +233,102 @@ void testSoftMaxLayer(){
   std::cout << "Tests passed" << std::endl;
 }
 
+
+template<typename _FloatType>
+struct BatchedMatrixRowSoftMaxComponentWrapper{
+  typedef _FloatType FloatType;
+  
+  BatchedMatrixRowSoftMaxComponent<FloatType> &cpt;
+  int size[3];
+  size_t size_lin;
+
+  BatchedMatrixRowSoftMaxComponentWrapper(BatchedMatrixRowSoftMaxComponent<FloatType> &cpt, int const *sz): cpt(cpt){
+    memcpy(size,sz,3*sizeof(int));
+    size_lin = 1;
+    for(int d=0;d<3;d++) size_lin *= sz[d];
+  }
+
+  size_t outputLinearSize() const{ return size_lin; }
+  size_t inputLinearSize() const{ return size_lin; }
+  
+  Vector<FloatType> value(const Vector<FloatType> &in){
+    Tensor<FloatType,3> A(size);
+    unflatten(A,in);
+    Tensor<FloatType,3> C = cpt.value(A);
+    return flatten(C);
+  }
+  void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
+    Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);
+    Tensor<FloatType,3> above_deriv(size);
+    unflatten(above_deriv,above_deriv_lin);
+    Tensor<FloatType,3> dcost_by_dIn;
+    cpt.deriv(std::move(above_deriv), dcost_by_dIn);
+    cost_deriv_inputs = flatten(dcost_by_dIn);
+  }
+    
+  void update(int off, const Vector<FloatType> &new_params){}
+  void step(int off, const Vector<FloatType> &derivs, FloatType eps){}
+  inline int nparams() const{ return cpt.nparams(); }
+  void getParams(Vector<FloatType> &into, int off){}
+
+  std::string inCoord(size_t i) const{
+    std::ostringstream ss;
+    int coord[3];
+    tensorOffsetUnmap<3>(coord, size, i);
+    ss << "(";
+    for(int d=0;d<3;d++)
+      ss << coord[d] << (d==3-1? ")" : ", ");
+    return ss.str();
+  }       
+};
+
+void testBatchedMatrixRowSoftMaxComponent(){
+  typedef double FloatType;
+  FloatType delta = 1e-4;
+  std::mt19937 rng(1234);
+   
+  typedef std::vector<FloatType> vecD;
+
+  FloatType beta = 0.3;
+
+  int size[3] = {4,4,5};
+  Tensor<FloatType,3> logp(size);
+  random(logp,rng);
+  
+  for(int use_mask = 0; use_mask < 2; use_mask++){
+    std::cout << "Testing " << (use_mask ? "WITH" : "WITHOUT") << " mask" << std::endl;
+    
+    BatchedMatrixRowSoftMaxComponent<FloatType> cpt((bool)use_mask, beta);
+    SoftMaxComponent<FloatType,3> compare(1, beta); //tested above
+
+    Tensor<FloatType,3> vgot = cpt.value(logp);
+
+    Tensor<FloatType,3> logp_cmp(logp);
+    if(use_mask){
+      assert(size[0]==size[1]);
+
+      autoView(logp_cmp_v,logp_cmp,HostReadWrite);
+      for(int b=0;b<size[2];b++)
+	for(int r=0;r<size[1];r++)
+	  for(int c=r+1;c<size[1];c++) //softmax(In + M)  where M is *strictly* upper triangular (diagonal elements also zero) with nonzero elements =-inf
+	    logp_cmp_v(r,c,b) = -1000000;
+    }  
+	
+    Tensor<FloatType,3> vexpect = compare.value(logp_cmp);
+    
+    assert(abs_near(vgot,vexpect,FloatType(1e-4),true));
+ 
+    BatchedMatrixRowSoftMaxComponentWrapper<FloatType> wrp(cpt,size);
+    testComponentDeriv(wrp);
+  }
+}
+
+
+
 int main(int argc, char** argv){
   initialize(argc,argv);
   testSoftMaxComponent();
   testSoftMaxLayer();
-
+  testBatchedMatrixRowSoftMaxComponent();
   return 0;
 }
