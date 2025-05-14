@@ -1,7 +1,6 @@
 #pragma once
 #include "LayerCommon.hpp"
-#include <components/ScaledDotProductAttentionHeadComponent.hpp>
-#include <components/BatchTensorConcatenateComponent.hpp>
+#include <components/MultiHeadAttentionComponent.hpp>
 
 //A layer implementing multi-head scaled dot-product self-attention. The input 3-tensor X is expected to have dimension C * E * B  in this order, where C is the size of the context, E the size of the embedding and B the batch size
 template<typename _FloatType, typename _InputType, typename Store>
@@ -12,16 +11,7 @@ public:
 private:
   typedef Tensor<FloatType,3> LayerInputType;
 
-  int C;
-  int E;
-  int B;
-  int Nparams_layer;
-  bool setup;
-
-  std::vector< std::unique_ptr<ScaledDotProductAttentionHeadComponent<FloatType> > > heads; //Y^h = attention(X,X,X)
-  BatchTensorConcatenateComponent<FloatType,3> concatY; //Yconcat_{c,:,b} = concat_h( Y^h_{c,:,b} )
-  
-  MatrixTensorContractComponent<FloatType,3> multW_O; //W_O{oy} Yconcat_{c, y, b}
+  MultiHeadAttentionComponent<FloatType> mha;
   Store leaf;
 
 public:
@@ -41,7 +31,7 @@ public:
   void step(int off, const Vector<FloatType> &derivs, FloatType eps);
 
   //accumulated #params for layers here and below
-  inline int nparams() const{ return Nparams_layer + leaf.v.nparams(); }
+  inline int nparams() const{ return mha.nparams() + leaf.v.nparams(); }
 
   //off measured from *end*, return new off
   void getParams(Vector<FloatType> &into, int off);
