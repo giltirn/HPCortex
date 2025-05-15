@@ -75,7 +75,17 @@ void pokeColumn(Matrix<FloatType> &into, int col, const Vector<FloatType> &data)
     t_v(i,col) = data_v(i);
     });
 }
-  
+
+template<typename FloatType>
+void pokeRow(Matrix<FloatType> &into, int row, const Vector<FloatType> &data){
+  assert(data.size(0) == into.size(1));
+  autoView(data_v,data,DeviceRead);
+  autoView(t_v,into,DeviceWrite);
+  accelerator_for(i,into.size(1),{
+    t_v(row,i) = data_v(i);
+    });
+}
+
 //Retrieve column 'col' of this matrix
 template<typename FloatType>
 Vector<FloatType> peekColumn(const Matrix<FloatType> &m, int col){

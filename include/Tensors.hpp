@@ -241,9 +241,14 @@ using Vector = Tensor<FloatType,1>;
 template<typename FloatType>
 using Matrix = Tensor<FloatType,2>;
 
-//Insert 'data' as column 'col' of this matrix
+//Insert 'data' as column 'col' of this matrix, i.e.  into(i,col) = data(i)  for i in 0..nrows-1
 template<typename FloatType>
 void pokeColumn(Matrix<FloatType> &into, int col, const Vector<FloatType> &data);
+
+//Insert 'data' as row 'row' of this matrix, i.e.  into(row,i) = data(i)  for i in 0..cols-1
+template<typename FloatType>
+void pokeRow(Matrix<FloatType> &into, int row, const Vector<FloatType> &data);
+
 
 //Retrieve column 'col' of this matrix
 template<typename FloatType>

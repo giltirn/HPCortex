@@ -3,7 +3,10 @@
 
 template<typename FloatType>
 class ReLU{
-public: 
+public:
+  //f(x)_i = max(x_i, 0) = x_i  |  x_i > 0
+  //                     = 0    |  x_i <= 0
+  //if deriv != nullptr, it is populated with df(x)_i / dx_i
   void operator()(Matrix<FloatType> &x, Matrix<FloatType> *deriv = nullptr) const;
   template<int Dim>
   void operator()(Tensor<FloatType,Dim> &x, Tensor<FloatType,Dim> *deriv = nullptr) const;
@@ -12,7 +15,7 @@ public:
 template<typename FloatType>
 class noActivation{
 public:
-  //f(x) = x
+  //f_i(x) = x_i
   inline void operator()(Matrix<FloatType> &x, Matrix<FloatType> *deriv = nullptr) const{
     if(deriv) *deriv = Matrix<FloatType>(x.size(0),x.size(1),1.0);
   }

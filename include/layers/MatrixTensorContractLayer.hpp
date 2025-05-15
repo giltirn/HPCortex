@@ -9,29 +9,12 @@ public:
   typedef _FloatType FloatType;
   typedef _InputType InputType;
 private:
-  // Matrix<FloatType> weights;
   Store leaf;
-  // int size0;
-  // int size1;
-  // int batch_size;
-  
-  // int in_dims[TensDim];
-  // int out_dims[TensDim];
-  // size_t other_size; //volume of dimensions < TensDim-2
-  // bool setup;
-  
-  // //Storage from last call to "value"
-  // //Buffer size > 1 depending on rank if doing pipelining
-  // mutable RingBuffer<Tensor<FloatType,TensDim> > leaf_buf;
-
   MatrixTensorContractComponent<FloatType,TensDim> cpt;
 public:
   typedef LeafTag tag;
   
   MatrixTensorContractLayer(Store &&leaf, const Matrix<FloatType> &weights): cpt(weights), leaf(std::move(leaf))
-    // leaf(std::move(leaf)), weights(weights),
-    // size0(weights.size(0)), size1(weights.size(1)),
-    // batch_size(0), setup(false)
   {  }
   MatrixTensorContractLayer(const MatrixTensorContractLayer &r) = delete;
   MatrixTensorContractLayer(MatrixTensorContractLayer &&r) = default;
@@ -53,7 +36,6 @@ public:
 
   //For pipelining
   inline void resizeInputBuffer(size_t to){
-    //leaf_buf.resize(to);
     cpt.resizeInputBuffer(to);
     leaf.v.resizeInputBuffer(to);
   }

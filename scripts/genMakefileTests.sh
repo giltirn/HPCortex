@@ -1,4 +1,4 @@
-#Generate a Makefile for the src directory (run from inside the directory)
+#Generate a Makefile for the test directory (run from inside the directory)
 
 out=Makefile.am
 echo 'SUBDIRS =' > ${out}

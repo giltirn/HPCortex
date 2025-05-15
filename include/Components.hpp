@@ -1,4 +1,5 @@
 #pragma once
+#include "components/BatchTensorDNNcomponent.hpp"
 #include "components/Batch3tensorPairContractComponent.hpp"
 #include "components/SoftMaxComponent.hpp"
 #include "components/BatchedMatrixRowSoftMaxComponent.hpp"
