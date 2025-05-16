@@ -1,6 +1,7 @@
 #pragma once
 #include<layers/InputLayer.hpp>
 #include<layers/DNNlayer.hpp>
+#include<layers/BatchTensorDNNlayer.hpp>
 #include<layers/SkipConnection.hpp>
 #include<layers/FlattenLayer.hpp>
 #include<layers/UnflattenLayer.hpp>

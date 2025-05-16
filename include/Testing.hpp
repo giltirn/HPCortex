@@ -218,7 +218,7 @@ typename TensType::FloatType testCost(const Vector<typename TensType::FloatType>
 //in_sizes, out_sizes : the tensor dimensions of the input and output
 //delta : the shift used to evaluate the discrete derivatives
 template<typename ModelType>
-void testDeriv(ModelType &model, int* in_sizes, int* out_sizes, typename ModelType::FloatType delta = typename ModelType::FloatType(1e-4)){
+void testDeriv(ModelType &model, int const* in_sizes, int const* out_sizes, typename ModelType::FloatType delta = typename ModelType::FloatType(1e-4)){
   typedef LAYEROUTPUTTYPE(ModelType) OutputType;
   typedef typename ModelType::InputType InputType;
   typedef typename ModelType::FloatType FloatType;
@@ -230,6 +230,8 @@ void testDeriv(ModelType &model, int* in_sizes, int* out_sizes, typename ModelTy
 
   //Check basic functionality
   int nparam = model.nparams(); //assumed correct
+  std::cout << "Nparam " << nparam << std::endl;
+  
   Vector<FloatType> base_params(nparam);
   random(base_params, rng);
 
@@ -264,7 +266,7 @@ void testDeriv(ModelType &model, int* in_sizes, int* out_sizes, typename ModelTy
 
   InputType in_base(in_sizes);
   random(in_base, rng);
-  
+ 
   OutputType val_base = model.value(in_base);
   Vector<FloatType> pderiv_got(nparam,0.);
 
@@ -284,7 +286,7 @@ void testDeriv(ModelType &model, int* in_sizes, int* out_sizes, typename ModelTy
     Vector<FloatType> pup(base_params);
     doHost(pup, { pup_v(j) += delta; });
     model.update(0,pup);
-    
+          
     OutputType vup = model.value(in_base);
     FloatType new_cost = testCost(c, vup);
 

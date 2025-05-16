@@ -114,7 +114,7 @@ struct BatchTensorDNNcomponentWrapper{
   }       
 };
 
-void testBatchTensorDNNcomponent(){
+void testBatchTensorDNNcomponentAndLayer(){
   std::mt19937 rng(1234);
     
   int tens_sizes[4] = {2,3,4,5};
@@ -144,23 +144,42 @@ void testBatchTensorDNNcomponent(){
       else
 	cpt.reset(new BatchTensorDNNcomponent<FloatType,4, ActivationFunc >(weights,contract_dim,activation));
 
+      int nparam_expect =  out_size*tens_sizes[contract_dim] + (use_bias ? out_size : 0);
+      std::cout << "Nparam " << cpt->nparams() << " expect " << nparam_expect << std::endl;
+      assert(cpt->nparams() == nparam_expect);
+      
       Tensor<FloatType,4> got = cpt->value(x);
       Tensor<FloatType,4> expect = expectContract(contract_dim, weights,bias,x,use_bias,activation);
       assert(abs_near(got,expect, 1e-6, true));
 
       BatchTensorDNNcomponentWrapper<FloatType,4, ActivationFunc> wrp(*cpt, x.sizeArray(),expect.sizeArray());
+      std::cout << "Test component deriv" << std::endl;
       testComponentDeriv(wrp);
+
+      std::cout << "Test layer deriv" << std::endl;
+      if(use_bias){
+	auto m = batch_tensor_dnn_layer<4>(input_layer<FloatType,Tensor<FloatType,4> >(), weights, bias, contract_dim, activation);
+	Tensor<FloatType,4> got2 = m.value(x);
+	assert(abs_near(got2,expect, 1e-6, true));
+	testDeriv(m, x.sizeArray(), expect.sizeArray(), 1e-8);
+      }else{
+	auto m = batch_tensor_dnn_layer<4>(input_layer<FloatType,Tensor<FloatType,4> >(), weights, contract_dim, activation);
+	Tensor<FloatType,4> got2 = m.value(x);
+	assert(abs_near(got2,expect, 1e-6, true));
+	testDeriv(m, x.sizeArray(), expect.sizeArray(), 1e-8);
+      }
+      
     }
   }
 
 
-  std::cout << "testBatchTensorDNNcomponent passed" << std::endl;
+  std::cout << "testBatchTensorDNNcomponentAndLayer passed" << std::endl;
 }
 
 
 int main(int argc, char** argv){
   initialize(argc,argv);
-  testBatchTensorDNNcomponent();
+  testBatchTensorDNNcomponentAndLayer();
   return 0;
 }
 

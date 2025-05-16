@@ -239,7 +239,7 @@ void BatchTensorDNNcomponent<FloatType,TensDim,ActivationFunc>::getParams(Vector
     p += weights.size(0)*weights.size(1);
   }
   if(use_bias){
-    autoView(bias_v,bias,DeviceReadWrite);
+    autoView(bias_v,bias,DeviceRead);
     accelerator_for2d(dummy1,1,i,weights.size(0),64,{
       int pp = p + i;
       into_v(pp) = bias_v(i);

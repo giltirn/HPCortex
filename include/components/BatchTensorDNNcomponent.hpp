@@ -55,7 +55,7 @@ public:
   void step(int off, const Vector<FloatType> &derivs, FloatType eps);
 
   //accumulated #params for layers here and below
-  inline int nparams() const{ return weights.size(0)*weights.size(1) + use_bias ? bias.size(0) : 0; }
+  inline int nparams() const{ return weights.size(0)*weights.size(1) + (use_bias ? bias.size(0) : 0);  }
 
   //off measured from *end*, return new off
   void getParams(Vector<FloatType> &into, int off);
