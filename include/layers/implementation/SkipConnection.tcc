@@ -1,29 +1,22 @@
 template<typename FloatType, typename InputType, typename ChainInternal, typename ChainBelow>
-Matrix<FloatType> SkipConnection<FloatType,InputType,ChainInternal,ChainBelow>::value(const InputType &x){
-  Matrix<FloatType> in = leaf_below.v.value(x);
-  Matrix<FloatType> out = in + leaf_internal.v.value(in);
+SkipConnection<FloatType,InputType,ChainInternal,ChainBelow>::LayerInputOutputType SkipConnection<FloatType,InputType,ChainInternal,ChainBelow>::value(const InputType &x){
+  LayerInputOutputType in = leaf_below.v.value(x);
+  LayerInputOutputType out = in + leaf_internal.v.value(in);
   
   in_buf.push(std::move(in));
-  in_size = in.size(0);
-  batch_size = in.size(1);
-  
   return out;
 }
 
 template<typename FloatType, typename InputType, typename ChainInternal, typename ChainBelow>
-void SkipConnection<FloatType,InputType,ChainInternal,ChainBelow>::deriv(Vector<FloatType> &cost_deriv, int off, Matrix<FloatType> &&_above_deriv, InputType* input_above_deriv_return) const{
-  assert(_above_deriv.size(0) == in_size);
-  assert(_above_deriv.size(1) == batch_size);
+void SkipConnection<FloatType,InputType,ChainInternal,ChainBelow>::deriv(Vector<FloatType> &cost_deriv, int off, LayerInputOutputType &&_above_deriv, InputType* input_above_deriv_return) const{
   int p=off;
-  Matrix<FloatType> layer_deriv;
+  LayerInputOutputType layer_deriv;
   {
-    Matrix<FloatType> above_deriv(std::move(_above_deriv)); //inside the braces above ensures this object is freed before the next layer is called
+    LayerInputOutputType above_deriv(std::move(_above_deriv)); //inside the braces above ensures this object is freed before the next layer is called
       
     //until the pipeline is "primed", the ring buffers will pop uninitialized values. We could in principle skip doing any computation until then
     //but for now we just initialize with zero values (TODO: revisit)
-    Matrix<FloatType> in = in_buf.isFilled() ? in_buf.pop(): Matrix<FloatType>(in_size,batch_size,0.);
-    assert(in.size(0) == in_size);
-    assert(in.size(1) == batch_size);
+    LayerInputOutputType in = in_buf.isFilled() ? in_buf.pop(): LayerInputOutputType(in_buf.latest());
       
     //f_i(x) = g_i(x) + x_i
 
@@ -38,7 +31,7 @@ void SkipConnection<FloatType,InputType,ChainInternal,ChainBelow>::deriv(Vector<
     //df_i/dparam_p = dg_i/dparam_p
 
     layer_deriv = above_deriv; //dcost/df_j
-    Matrix<FloatType> leaf_internal_deriv; //\sum_i dcost/df_i dg_i/dx_j
+    LayerInputOutputType leaf_internal_deriv; //\sum_i dcost/df_i dg_i/dx_j
     leaf_internal.v.deriv(cost_deriv, p, std::move(above_deriv), &leaf_internal_deriv);
 
     layer_deriv += leaf_internal_deriv;

@@ -13,3 +13,4 @@ struct LeafTag{};
 #define FLOATTYPE(a) typename std::decay<a>::type::FloatType
 #define INPUTTYPE(a) typename std::decay<a>::type::InputType
 #define LAYEROUTPUTTYPE(a) typename std::decay<decltype( std::declval<typename std::decay<a>::type&>().value( std::declval<INPUTTYPE(a)>() ) )>::type
+#define LAYERTYPEOUTPUTTYPE(a) typename std::decay<decltype( std::declval<a>().value( std::declval<typename a::InputType>() ) )>::type

@@ -3,27 +3,27 @@
 
 template<typename _FloatType, typename _InputType, typename ChainInternal, typename ChainBelow>
 class SkipConnection{
-  public:
+public:
   typedef _FloatType FloatType;
   typedef _InputType InputType;
+  typedef typename ChainBelow::type ChainBelowInternalType;
+  typedef LAYERTYPEOUTPUTTYPE(ChainBelowInternalType) LayerInputOutputType;
 private:
   ChainBelow leaf_below;
   ChainInternal leaf_internal; //must terminate on an InputLayer (even though it's not really an input layer)
-  size_t in_size;
-  size_t batch_size;
-  mutable RingBuffer<Matrix<FloatType> > in_buf;
+  mutable RingBuffer<LayerInputOutputType> in_buf;
 public:
   typedef LeafTag tag;
   
   SkipConnection(ChainInternal &&leaf_internal, ChainBelow &&leaf_below):
-    leaf_below(std::move(leaf_below)), leaf_internal(std::move(leaf_internal)),  in_buf(1), batch_size(0), in_size(0){  }
+    leaf_below(std::move(leaf_below)), leaf_internal(std::move(leaf_internal)){  }
   SkipConnection(const SkipConnection &r) = delete;
   SkipConnection(SkipConnection &&r) = default;
   
   //Forward pass
-  Matrix<FloatType> value(const InputType &x);
+  LayerInputOutputType value(const InputType &x);
 
-  void deriv(Vector<FloatType> &cost_deriv, int off, Matrix<FloatType> &&_above_deriv, InputType* input_above_deriv_return = nullptr) const;
+  void deriv(Vector<FloatType> &cost_deriv, int off, LayerInputOutputType &&_above_deriv, InputType* input_above_deriv_return = nullptr) const;
   
   void update(int off, const Vector<FloatType> &new_params);
   

@@ -124,8 +124,39 @@ void testSkipConnection(){
   }
 }
 
+void testSkipConnectionTensor(){
+  typedef double FloatType; 
+  FloatType delta = 1e-6;
+  typedef std::vector<FloatType> vecD;
+  std::mt19937 rng(1234);
+  
+  typedef Tensor<FloatType,3> TensorType;
+
+  int tens_size[3] = {3,4,5};
+  
+  Matrix<FloatType> w1_init(4,4);
+  Vector<FloatType> b1_init(4);
+  random(w1_init,rng);
+  random(b1_init,rng);
+  
+  auto skip_over = batch_tensor_dnn_layer<3>(input_layer<FloatType,TensorType>(), w1_init, b1_init, 1, ReLU<FloatType>());
+  auto skip = skip_connection( skip_over, input_layer<FloatType,TensorType>() );
+
+  TensorType x(tens_size);
+  random(x,rng);
+
+  TensorType got = skip.value(x);
+  TensorType expect = x + skip_over.value(x);
+  assert(abs_near(got,expect,1e-5,true));
+
+  testDeriv(skip, tens_size,tens_size);
+}
+
+
+
 int main(int argc, char** argv){
   initialize(argc,argv);
   testSkipConnection();
+  testSkipConnectionTensor();  
   return 0;
 }
