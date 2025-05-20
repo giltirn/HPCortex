@@ -23,9 +23,9 @@ void testBatching(){
   std::vector<XYpair<FloatType, 2,2> > data(ndata);
   for(int i=0;i<ndata;i++){
     Dtype x(dsizex);    
-    random(x,gen);
+    uniformRandom(x,gen);
     Dtype y(dsizey);
-    random(y,gen);
+    uniformRandom(y,gen);
     data[i].x = std::move(x);
     data[i].y = std::move(y);
   }

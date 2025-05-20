@@ -136,14 +136,14 @@ void testSkipConnectionTensor(){
   
   Matrix<FloatType> w1_init(4,4);
   Vector<FloatType> b1_init(4);
-  random(w1_init,rng);
-  random(b1_init,rng);
+  uniformRandom(w1_init,rng);
+  uniformRandom(b1_init,rng);
   
   auto skip_over = batch_tensor_dnn_layer<3>(input_layer<FloatType,TensorType>(), w1_init, b1_init, 1, ReLU<FloatType>());
   auto skip = skip_connection( skip_over, input_layer<FloatType,TensorType>() );
 
   TensorType x(tens_size);
-  random(x,rng);
+  uniformRandom(x,rng);
 
   TensorType got = skip.value(x);
   TensorType expect = x + skip_over.value(x);

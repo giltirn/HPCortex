@@ -11,7 +11,7 @@ void testMatrixTensorContract(){
   int size1 = 3;
   int batch_size = 5;
   Matrix<FloatType> winit(size0,size1);
-  random(winit, rng);
+  uniformRandom(winit, rng);
 
   typedef Tensor<FloatType,4> Tens;
   
@@ -21,7 +21,7 @@ void testMatrixTensorContract(){
   auto m = matrix_tensor_contract_layer<4>(input_layer<FloatType, Tens>(), winit);
 
   Tens in(in_sizes);
-  random(in, rng);
+  uniformRandom(in, rng);
 
   Tens vgot = m.value(in);
   Tens vexpect(out_sizes,0.0);
@@ -61,8 +61,8 @@ void testbatch3tensorContract(){
     int sizeB[3] = {3,6,4};
     
     Tensor<FloatType,3> A(sizeA), B(sizeB);
-    random(A,rng);
-    random(B,rng);
+    uniformRandom(A,rng);
+    uniformRandom(B,rng);
     Tensor<FloatType,3> C = batch3tensorContract(A,B,0,0);
     assert(C.size(0) == 5 && C.size(1) == 6 && C.size(2) == 4);
 
@@ -88,8 +88,8 @@ void testbatch3tensorContract(){
     int sizeB[3] = {7,3,4};
     
     Tensor<FloatType,3> A(sizeA), B(sizeB);
-    random(A,rng);
-    random(B,rng);
+    uniformRandom(A,rng);
+    uniformRandom(B,rng);
     Tensor<FloatType,3> C = batch3tensorContract(A,B,0,1);
     assert(C.size(0) == 5 && C.size(1) == 7 && C.size(2) == 4);
 
@@ -115,8 +115,8 @@ void testbatch3tensorContract(){
     int sizeB[3] = {5,4,4};
     
     Tensor<FloatType,3> A(sizeA), B(sizeB);
-    random(A,rng);
-    random(B,rng);
+    uniformRandom(A,rng);
+    uniformRandom(B,rng);
     Tensor<FloatType,3> C = batch3tensorContract(A,B,1,0);
     assert(C.size(0) == 3 && C.size(1) == 4 && C.size(2) == 4);
 
@@ -142,8 +142,8 @@ void testbatch3tensorContract(){
     int sizeB[3] = {6,5,4};
     
     Tensor<FloatType,3> A(sizeA), B(sizeB);
-    random(A,rng);
-    random(B,rng);
+    uniformRandom(A,rng);
+    uniformRandom(B,rng);
     Tensor<FloatType,3> C = batch3tensorContract(A,B,1,1);
     assert(C.size(0) == 3 && C.size(1) == 6 && C.size(2) == 4);
 

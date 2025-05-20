@@ -145,38 +145,6 @@ bool equal(const Tensor<FloatType,Dim> &a,const Tensor<FloatType,Dim> &b, bool v
   return true;
 }
 
-template<typename FloatType, typename RNG>
-void random(Matrix<FloatType> &m, RNG &rng){
-  if(m.data_len() == 0) return;
-  std::uniform_real_distribution<FloatType> dist(-1.0, 1.0);
-  autoView(m_v,m,HostWrite);
-  for(int i=0;i<m.size(0);i++)
-    for(int j=0;j<m.size(1);j++)
-      m_v(i,j) = dist(rng);
-}
-template<typename FloatType, typename RNG>
-void random(Vector<FloatType> &m, RNG &rng){
-  if(m.data_len() == 0) return;
-  std::uniform_real_distribution<FloatType> dist(-1.0, 1.0);
-  autoView(m_v,m,HostWrite);
-  for(int i=0;i<m.size(0);i++)
-    m_v(i) = dist(rng);
-}    
-template<typename FloatType, int Dim, typename RNG>
-void random(Tensor<FloatType,Dim> &m, RNG &rng){
-  if(m.data_len() == 0) return;
-  std::uniform_real_distribution<FloatType> dist(-1.0, 1.0);
-  autoView(m_v,m,HostWrite);
-  int const* dims = m.sizeArray();
-  size_t sz = tensorSize<Dim>(dims);
-  for(size_t i=0; i<sz; i++){
-    int coord[Dim];
-    tensorOffsetUnmap<Dim>(coord, dims, i);
-    m_v(coord) = dist(rng);
-  }
-}
-
-
 template<typename Op, typename PreOp>
 void benchmark(double &mean, double &std, int nrpt, int nwarmup, const Op &op, const PreOp &preop){
   auto t = now();
@@ -233,7 +201,7 @@ void testDeriv(ModelType &model, int const* in_sizes, int const* out_sizes, type
   std::cout << "Nparam " << nparam << std::endl;
   
   Vector<FloatType> base_params(nparam);
-  random(base_params, rng);
+  uniformRandom(base_params, rng);
 
   model.update(0, base_params);
   if(nparam>0){
@@ -243,7 +211,7 @@ void testDeriv(ModelType &model, int const* in_sizes, int const* out_sizes, type
   }
   if(nparam>0){
     Vector<FloatType> shifts(nparam);
-    random(shifts, rng);
+    uniformRandom(shifts, rng);
     model.step(0,shifts,0.33);
     
     Vector<FloatType> pexpect = base_params - 0.33*shifts;
@@ -262,10 +230,10 @@ void testDeriv(ModelType &model, int const* in_sizes, int const* out_sizes, type
   //let  cost = \sum_i c_i * out_i
   //above_deriv = dcost/dout_i = c_i
   Vector<FloatType> c(vout);
-  random(c,rng);
+  uniformRandom(c,rng);
 
   InputType in_base(in_sizes);
-  random(in_base, rng);
+  uniformRandom(in_base, rng);
  
   OutputType val_base = model.value(in_base);
   Vector<FloatType> pderiv_got(nparam,0.);
@@ -332,7 +300,7 @@ void testComponentDeriv(ComponentWrapper &cpt, typename ComponentWrapper::FloatT
   //Check basic functionality
   int nparam = cpt.nparams(); //assumed correct
   Vector<FloatType> base_params(nparam);
-  random(base_params, rng);
+  uniformRandom(base_params, rng);
 
   cpt.update(0, base_params);
   if(nparam > 0){
@@ -342,7 +310,7 @@ void testComponentDeriv(ComponentWrapper &cpt, typename ComponentWrapper::FloatT
   }
   if(nparam > 0){
     Vector<FloatType> shifts(nparam);
-    random(shifts, rng);
+    uniformRandom(shifts, rng);
     cpt.step(0,shifts,0.33);
     
     Vector<FloatType> pexpect = base_params - 0.33*shifts;
@@ -360,10 +328,10 @@ void testComponentDeriv(ComponentWrapper &cpt, typename ComponentWrapper::FloatT
   //let  cost = \sum_i c_i * out_i
   //above_deriv = dcost/dout_i = c_i
   Vector<FloatType> c(vout);
-  random(c,rng);
+  uniformRandom(c,rng);
 
   Vector<FloatType> in_base(vin);
-  random(in_base, rng);
+  uniformRandom(in_base, rng);
 
   Vector<FloatType> val_base = cpt.value(in_base);
   Vector<FloatType> pderiv_got(nparam,0.);

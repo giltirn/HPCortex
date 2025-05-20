@@ -78,7 +78,7 @@ void testNormComponent(){
   int size[4] = {2,3,4,5};
   
   Tensor<FloatType,4> v(size);
-  random(v,rng);
+  uniformRandom(v,rng);
   FloatType eps = 0.55;
  
   {
@@ -186,13 +186,13 @@ void testNormLayer(){
   int size[4] = {2,3,4,5};
   
   Tensor<FloatType,4> v(size);
-  random(v,rng);
+  uniformRandom(v,rng);
   FloatType eps = 0.55;
   
   {
     //dim 0
     Vector<FloatType> gamma(size[0]), beta(size[0]);
-    random(gamma,rng); random(beta,rng);
+    uniformRandom(gamma,rng); uniformRandom(beta,rng);
 
     auto m = norm_layer<4>(input_layer<FloatType,Tensor<FloatType,4> >(),
 			0, size[0], true, true, gamma, beta, eps);
@@ -228,7 +228,7 @@ void testNormLayer(){
   {
     //dim 1
     Vector<FloatType> gamma(size[1]), beta(size[1]);
-    random(gamma,rng); random(beta,rng);
+    uniformRandom(gamma,rng); uniformRandom(beta,rng);
 
     auto m = norm_layer<4>(input_layer<FloatType,Tensor<FloatType,4> >(),
 			1, size[1], true, true, gamma, beta, eps);
@@ -264,7 +264,7 @@ void testNormLayer(){
   {
     //dim 2
     Vector<FloatType> gamma(size[2]), beta(size[2]);
-    random(gamma,rng); random(beta,rng);
+    uniformRandom(gamma,rng); uniformRandom(beta,rng);
 
     auto m = norm_layer<4>(input_layer<FloatType,Tensor<FloatType,4> >(),
 			2, size[2], true, true, gamma, beta, eps);

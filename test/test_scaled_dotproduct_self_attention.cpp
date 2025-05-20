@@ -102,15 +102,15 @@ void testScaledDotProductSelfAttention(){
   int d_v = 12; //output embedding size
 
   Matrix<FloatType> in_W_Q(d_k,E), in_W_K(d_k,E), in_W_V(d_v,E);
-  random(in_W_Q,rng);
-  random(in_W_K,rng);
-  random(in_W_V,rng);
+  uniformRandom(in_W_Q,rng);
+  uniformRandom(in_W_K,rng);
+  uniformRandom(in_W_V,rng);
 
   for(int use_mask = 0; use_mask < 2; use_mask++){
     auto model = scaled_dotproduct_self_attention_layer(input_layer<FloatType, Tensor<FloatType,3> >(), in_W_Q, in_W_K, in_W_V, use_mask);
 
     Tensor<FloatType,3> X(C,E,B);
-    random(X,rng);
+    uniformRandom(X,rng);
   
     Tensor<FloatType,3> got = model.value(X);  
     Tensor<FloatType,3> expect = naiveImpl(X,in_W_Q,in_W_K,in_W_V,C,E,B,d_k,d_v,use_mask);

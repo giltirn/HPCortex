@@ -125,9 +125,9 @@ void testMultiHeadCrossAttention(){
     in_W_Q[h] = Matrix<FloatType>(d_k[h],E);
     in_W_K[h] = Matrix<FloatType>(d_k[h],E);
     in_W_V[h] = Matrix<FloatType>(d_v[h],E);    
-    random(in_W_Q[h],rng);
-    random(in_W_K[h],rng);
-    random(in_W_V[h],rng);
+    uniformRandom(in_W_Q[h],rng);
+    uniformRandom(in_W_K[h],rng);
+    uniformRandom(in_W_V[h],rng);
     in_W_Q_p[h] = &in_W_Q[h];
     in_W_K_p[h] = &in_W_K[h];
     in_W_V_p[h] = &in_W_V[h];
@@ -136,7 +136,7 @@ void testMultiHeadCrossAttention(){
   int dsv = 5+6+7;
   int d_o = 8;
   Matrix<FloatType> in_W_O(d_o,dsv);
-  random(in_W_O,rng);
+  uniformRandom(in_W_O,rng);
 
   for(int use_mask=0;use_mask<2;use_mask++){
     auto model = multihead_cross_attention_layer(
@@ -146,8 +146,8 @@ void testMultiHeadCrossAttention(){
 						 );
     typedef Tensor<FloatType,3> TensorType;
     std::pair<TensorType, TensorType> X({ TensorType(C,E,B), TensorType(C,E,B) });
-    random(X.first,rng);
-    random(X.second,rng);
+    uniformRandom(X.first,rng);
+    uniformRandom(X.second,rng);
       
     Tensor<FloatType,3> got = model.value(X);
     Tensor<FloatType,3> expect = naiveImpl(X.first,X.second,in_W_Q,in_W_K,in_W_V,in_W_O,use_mask);

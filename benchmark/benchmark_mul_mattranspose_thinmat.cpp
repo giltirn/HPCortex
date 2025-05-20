@@ -781,8 +781,8 @@ int main(int argc, char** argv){
 	//C_ik = \sum_j A_ji B_jk for nk small-ish (batch size)
 	Matrix<float> a(size0, size1);
 	Matrix<float> b(size0, batch_size);
-	random(a,rng);
-	random(b,rng);
+	uniformRandom(a,rng);
+	uniformRandom(b,rng);
 
 	Matrix<float> c = mulMatTransposeThinMat_v15(a,b);
 	Matrix<float> ctest = mulMatTransposeThinMatBase(a,b);

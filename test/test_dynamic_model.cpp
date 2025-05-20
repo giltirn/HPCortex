@@ -43,7 +43,7 @@ void testDynamicModel(){
 
     typedef Tensor<FloatType,3> Tens3;
     Tens3 filter(1,1,kernel_size);
-    random(filter,rng);
+    uniformRandom(filter,rng);
     NoPadding<FloatType> padding;
     int conv_out_len = padding.layerOutputLength(input_size,kernel_size,stride);
 
@@ -52,13 +52,13 @@ void testDynamicModel(){
     auto flatten_layer_w = enwrap(flatten_layer(conv_layer_w));
     Matrix<FloatType> weights(2,conv_out_len);
     Vector<FloatType> bias(2);
-    random(weights,rng);
-    random(bias,rng);
+    uniformRandom(weights,rng);
+    uniformRandom(bias,rng);
     auto dnn_layer_w = enwrap( dnn_layer( flatten_layer_w, weights, bias ) );
 
     int batch_size = 3;
     Tens3 input(1,input_size,batch_size);
-    random(input,rng);
+    uniformRandom(input,rng);
     
     Matrix<FloatType> got = dnn_layer_w.value(input);
     assert(got.size(0) == 2 && got.size(1) == batch_size);

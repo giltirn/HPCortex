@@ -60,7 +60,7 @@ void testSoftMaxComponent(){
   {
     int size[2] = {4,5};
     Matrix<FloatType> logp(size);
-    random(logp,rng);
+    uniformRandom(logp,rng);
 
     SoftMaxComponent<FloatType,2> cpt(0, beta);
 
@@ -85,7 +85,7 @@ void testSoftMaxComponent(){
   {
     int size[3] = {3,4,5};
     Tensor<FloatType,3> logp(size);
-    random(logp,rng);
+    uniformRandom(logp,rng);
 
     {//dim 0
       SoftMaxComponent<FloatType,3> cpt(0, beta);
@@ -167,7 +167,7 @@ void testSoftMaxLayer(){
   int batch_size = 5;
   
   Matrix<FloatType> logp(np,batch_size);
-  random(logp,rng);
+  uniformRandom(logp,rng);
 
   ///value
   Matrix<FloatType> vgot = m.value(logp);
@@ -200,7 +200,7 @@ void testSoftMaxLayer(){
   //let  cost = \sum_i c_i * out_i
   //above_deriv = dcost/dout_i = c_i
   Vector<FloatType> c(np);
-  random(c,rng);
+  uniformRandom(c,rng);
     
   Matrix<FloatType> above_deriv(np,batch_size); //dcost/dout_i
   doHost2(above_deriv, c, {
@@ -291,7 +291,7 @@ void testBatchedMatrixRowSoftMaxComponent(){
 
   int size[3] = {4,4,5};
   Tensor<FloatType,3> logp(size);
-  random(logp,rng);
+  uniformRandom(logp,rng);
   
   for(int use_mask = 0; use_mask < 2; use_mask++){
     std::cout << "Testing " << (use_mask ? "WITH" : "WITHOUT") << " mask" << std::endl;

@@ -64,9 +64,9 @@ void testMultiHeadSelfAttention(){
     in_W_Q[h] = Matrix<FloatType>(d_k[h],E);
     in_W_K[h] = Matrix<FloatType>(d_k[h],E);
     in_W_V[h] = Matrix<FloatType>(d_v[h],E);    
-    random(in_W_Q[h],rng);
-    random(in_W_K[h],rng);
-    random(in_W_V[h],rng);
+    uniformRandom(in_W_Q[h],rng);
+    uniformRandom(in_W_K[h],rng);
+    uniformRandom(in_W_V[h],rng);
     in_W_Q_p[h] = &in_W_Q[h];
     in_W_K_p[h] = &in_W_K[h];
     in_W_V_p[h] = &in_W_V[h];
@@ -75,13 +75,13 @@ void testMultiHeadSelfAttention(){
   int dsv = 5+6+7;
   int d_o = 8;
   Matrix<FloatType> in_W_O(d_o,dsv);
-  random(in_W_O,rng);
+  uniformRandom(in_W_O,rng);
 
   for(int use_mask=0;use_mask<2;use_mask++){
     auto model = multihead_self_attention_layer(input_layer<FloatType, Tensor<FloatType,3> >(), Nheads, in_W_Q_p.data(), in_W_K_p.data(), in_W_V_p.data(), in_W_O, use_mask);
 
     Tensor<FloatType,3> X(C,E,B);
-    random(X,rng);
+    uniformRandom(X,rng);
   
     Tensor<FloatType,3> got = model.value(X);
     Tensor<FloatType,3> expect = naiveImpl(X,in_W_Q,in_W_K,in_W_V,in_W_O,C,E,B,use_mask);

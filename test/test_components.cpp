@@ -291,12 +291,12 @@ void testScaleComponent(){
   int size[4] = {2,3,4,5};
   
   Tensor<FloatType,4> v(size);
-  random(v,rng);
+  uniformRandom(v,rng);
  
   {
     //dim 0
     Vector<FloatType> gamma(size[0]), beta(size[0]);
-    random(gamma,rng); random(beta,rng);
+    uniformRandom(gamma,rng); uniformRandom(beta,rng);
     
     ScaleComponent<FloatType,4> cpt(0,size[0],true,true,gamma,beta);
     Tensor<FloatType,4> got = cpt.value(v);
@@ -332,7 +332,7 @@ void testScaleComponent(){
   {
     //dim 1
     Vector<FloatType> gamma(size[1]), beta(size[1]);
-    random(gamma,rng); random(beta,rng);
+    uniformRandom(gamma,rng); uniformRandom(beta,rng);
     
     ScaleComponent<FloatType,4> cpt(1,size[1],true,true,gamma,beta);
     Tensor<FloatType,4> got = cpt.value(v);
@@ -368,7 +368,7 @@ void testScaleComponent(){
   {
     //dim 2
     Vector<FloatType> gamma(size[2]), beta(size[2]);
-    random(gamma,rng); random(beta,rng);
+    uniformRandom(gamma,rng); uniformRandom(beta,rng);
     
     ScaleComponent<FloatType,4> cpt(2,size[2],true,true,gamma,beta);
     Tensor<FloatType,4> got = cpt.value(v);

@@ -19,3 +19,20 @@ Tensor<FloatType,3> embedPositionsSinusoidal(const Tensor<FloatType,3> &in){
   }
   return out;
 }
+//Same as above but for unbatched data of size C x E
+template<typename FloatType>
+Tensor<FloatType,2> embedPositionsSinusoidal(const Tensor<FloatType,2> &in){
+  Tensor<FloatType,2> out(in.sizeArray());
+  int C = in.size(0), E = in.size(1);
+  {
+    autoView(out_v,out,DeviceWrite);
+    autoView(in_v,out,DeviceRead);
+    
+    accelerator_for2d(e,E,c,C, 1,{
+	size_t i = e/2;
+	FloatType angle = FloatType(c)/pow(FloatType(10000.), FloatType(2*i)/E);
+	out_v(c,e) = in_v(c,e) + (e % 2 == 0 ? sin(angle) : cos(angle));
+    });
+  }
+  return out;
+}

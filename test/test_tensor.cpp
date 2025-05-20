@@ -140,13 +140,13 @@ void testTensor(){
     { //test peek/pokeLastDimension
       int sz[3] = {2,3,4};
       Tensor<FloatType,3> orig(sz);
-      random(orig,rng);
+      uniformRandom(orig,rng);
 
       int szp[2] = {2,3};
       Tensor<FloatType,2> topoke(szp);
       Tensor<FloatType,2> topoke2(szp);
-      random(topoke,rng);
-      random(topoke2,rng);
+      uniformRandom(topoke,rng);
+      uniformRandom(topoke2,rng);
 
       Tensor<FloatType,3> result(orig);
       result.pokeLastDimension(topoke,0);
@@ -184,7 +184,7 @@ void testDimensionIteration(){
   {
     int size[2] = {3,4};
     Tensor<FloatType,2> tens(size);
-    random(tens,rng);
+    uniformRandom(tens,rng);
 
     size_t stride0 = tensorDimensionStride<2>(0,size);
     size_t stride1 = tensorDimensionStride<2>(1,size);
@@ -209,7 +209,7 @@ void testDimensionIteration(){
   {
     int size[3] = {3,4,5};
     Tensor<FloatType,3> tens(size);
-    random(tens,rng);
+    uniformRandom(tens,rng);
     
     size_t stride0 = tensorDimensionStride<3>(0,size);
     size_t stride1 = tensorDimensionStride<3>(1,size);
@@ -254,7 +254,7 @@ void testDimensionIteration(){
   {
     int size[4] = {2,3,4,5};
     Tensor<FloatType,4> tens(size);
-    random(tens,rng);
+    uniformRandom(tens,rng);
     
     size_t stride0 = tensorDimensionStride<4>(0,size);
     size_t stride1 = tensorDimensionStride<4>(1,size);
@@ -320,7 +320,7 @@ void testConcatenateSplit(){
 
     std::vector<Tensor<FloatType,4>* > tens({ new Tensor<FloatType,4>(size1), new Tensor<FloatType,4>(size2), new Tensor<FloatType,4>(size3) });
     for(int i=0;i<3;i++)
-      random(*tens[i],rng);
+      uniformRandom(*tens[i],rng);
 
     Tensor<FloatType,4> got = batchTensorConcatenate(tens.data(), 3,  2);
     
@@ -361,7 +361,7 @@ void testConcatenateSplit(){
 
     std::vector<Tensor<FloatType,4>* > tens({ new Tensor<FloatType,4>(size1), new Tensor<FloatType,4>(size2), new Tensor<FloatType,4>(size3) });
     for(int i=0;i<3;i++)
-      random(*tens[i],rng);
+      uniformRandom(*tens[i],rng);
 
     Tensor<FloatType,4> got = batchTensorConcatenate<4,FloatType>(tens.data(), 3,  1);
     
@@ -402,7 +402,7 @@ void testConcatenateSplit(){
 
     std::vector<Tensor<FloatType,4>* > tens({ new Tensor<FloatType,4>(size1), new Tensor<FloatType,4>(size2), new Tensor<FloatType,4>(size3) });
     for(int i=0;i<3;i++)
-      random(*tens[i],rng);
+      uniformRandom(*tens[i],rng);
 
     Tensor<FloatType,4> got = batchTensorConcatenate<4,FloatType>(tens.data(), 3,  0);
     

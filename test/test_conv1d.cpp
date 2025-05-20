@@ -243,7 +243,7 @@ void testConv1D(){
       PaddingType pad = convExpect<PaddingType>::initPadding(kernel_size, stride); 
       int filter_dims[3] = { out_chan,in_chan,kernel_size };
       Tens init_filter(filter_dims);
-      random(init_filter, rng);
+      uniformRandom(init_filter, rng);
   
       ReLU<FloatType> act;
     
@@ -251,7 +251,7 @@ void testConv1D(){
 
       int input_dims[3] = { in_chan, in_data_len, batch_size };
       Tens x(input_dims);
-      random(x, rng);
+      uniformRandom(x, rng);
       
       ////////////////////// TEST VALUE //////////////////////////////
       Tens got_value = layer.value(x);
@@ -277,7 +277,7 @@ void testConv1D(){
       { //update
 	auto layer_tmp = conv1d_layer(input_layer<FloatType,Tens>(), init_filter, act, pad, stride);    
 	Tens new_filter(filter_dims);
-	random(new_filter, rng);
+	uniformRandom(new_filter, rng);
 
 	Vector<FloatType> new_filter_flat(layer_tmp.nparams());
 	doHost2(new_filter_flat, new_filter, {
@@ -301,7 +301,7 @@ void testConv1D(){
       { //step
 	auto layer_tmp = conv1d_layer(input_layer<FloatType,Tens>(), init_filter, act, pad, stride);
 	Vector<FloatType> deriv(layer_tmp.nparams());
-	random(deriv,rng);
+	uniformRandom(deriv,rng);
     
 	layer_tmp.step(0, deriv, 1e-2);
 

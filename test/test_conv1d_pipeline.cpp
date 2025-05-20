@@ -56,8 +56,8 @@ void testConvPipeline(){
   std::vector<OutputType> y(ndata, OutputType(output_data_sz)  );
   std::vector<InputType> x(ndata, InputType(input_data_sz)  );
   for(int i=0;i<ndata;i++){
-    random(x[i],rng);
-    random(y[i],rng);
+    uniformRandom(x[i],rng);
+    uniformRandom(y[i],rng);
   }
   
   ///////////////////////////////////////////////////////////////////////
@@ -65,7 +65,7 @@ void testConvPipeline(){
   SamePaddingZero1D<FloatType> padding(kernel_size,stride);
 
   Tensor<FloatType,3> filter_init(out_channels, in_channels, kernel_size);
-  random(filter_init, rng);
+  uniformRandom(filter_init, rng);
 
   auto conv_block = conv1d_layer( input_layer<FloatType,InputType>(), filter_init, ReLU<FloatType>(), padding, stride ); //last rank
   int conv_block_output_data_sz[3] = {out_channels, in_len, call_batch_size }; //same padding
@@ -76,9 +76,9 @@ void testConvPipeline(){
   int intermediate_block_data_sz[2] = { flat_size, call_batch_size };
   
   Matrix<FloatType> weight_init(flat_size, flat_size);
-  random(weight_init, rng);
+  uniformRandom(weight_init, rng);
   Vector<FloatType> bias_init(flat_size);
-  random(bias_init, rng);
+  uniformRandom(bias_init, rng);
   
   auto dnn_first = dnn_layer(
 			      flatten_layer( input_layer<FloatType,InputType>() ),
@@ -98,9 +98,9 @@ void testConvPipeline(){
   int out_flat_size = out_len * out_channels;
   
   Matrix<FloatType> weight_out_init(out_flat_size, flat_size);
-  random(weight_out_init, rng);
+  uniformRandom(weight_out_init, rng);
   Vector<FloatType> bias_out_init(out_flat_size);
-  random(bias_out_init, rng);
+  uniformRandom(bias_out_init, rng);
   
   auto output_block = unflatten_layer<3>( dnn_layer(
 						 input_layer<FloatType,Matrix<FloatType> >(),

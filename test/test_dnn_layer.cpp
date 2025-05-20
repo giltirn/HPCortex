@@ -121,19 +121,19 @@ void testBatchTensorDNNcomponentAndLayer(){
   int out_size = 6;
 
   Vector<FloatType> bias(out_size);
-  random(bias,rng);
+  uniformRandom(bias,rng);
 
   //typedef noActivation<FloatType> ActivationFunc;
   typedef ReLU<FloatType> ActivationFunc;
   ActivationFunc activation;
 
   Tensor<FloatType,4> x(tens_sizes);
-  random(x,rng);
+  uniformRandom(x,rng);
  
   for(int contract_dim=0;contract_dim < 3;contract_dim++){
     std::cout << "Contract dim " << contract_dim << std::endl;
     Matrix<FloatType> weights(out_size,tens_sizes[contract_dim]);
-    random(weights,rng);
+    uniformRandom(weights,rng);
 
     for(int use_bias = 0; use_bias < 1; use_bias++){
       std::cout << (use_bias ? "WITH" : "WITHOUT") << " bias" << std::endl;

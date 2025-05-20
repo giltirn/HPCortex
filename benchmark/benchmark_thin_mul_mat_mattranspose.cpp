@@ -286,8 +286,8 @@ int main(int argc, char** argv){
 
       Matrix<float> a(data_size, batch_size);
       Matrix<float> b(data_size, batch_size);
-      random(a,rng);
-      random(b,rng);
+      uniformRandom(a,rng);
+      uniformRandom(b,rng);
 
       double mu, sigma;
 
