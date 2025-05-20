@@ -236,12 +236,12 @@ void testDeriv(ModelType &model, int const* in_sizes, int const* out_sizes, type
   random(base_params, rng);
 
   model.update(0, base_params);
-  {
+  if(nparam>0){
     Vector<FloatType> testp(nparam);
     model.getParams(testp,0);
     assert(equal(testp,base_params,true));
   }
-  {
+  if(nparam>0){
     Vector<FloatType> shifts(nparam);
     random(shifts, rng);
     model.step(0,shifts,0.33);
