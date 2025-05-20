@@ -8,4 +8,5 @@
 #include "components/ScaledDotProductAttentionHeadComponent.hpp"
 #include "components/MultiHeadAttentionComponent.hpp"
 #include "components/BatchTensorConcatenateComponent.hpp"
+#include "components/ScaleComponent.hpp"
 #include "components/NormComponent.hpp"

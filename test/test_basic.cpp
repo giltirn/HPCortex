@@ -182,10 +182,59 @@ void basicTests(){
   assert(near(got_l,expect_l,FloatType(1e-4)));
 }
 
+template<int Dim>
+accelerator_inline size_t batchTensorDimensionBaseLinOrig(int iter_dim, int batch_idx, size_t other_dim_lin, int const *size){
+  int coord[Dim];
+  coord[iter_dim]=0;
+  coord[Dim-1] = batch_idx;
+  size_t rem = other_dim_lin;
+
+  //other_dim_lin for, eg 3 dims, mapped as     z + dim3*( y + dim2 * x )
+  for(int d=Dim-2;d>=0;d--)
+    if(d!=iter_dim){
+      coord[d] = rem % size[d];
+      rem /= size[d];
+    }
+  return tensorOffset<Dim>(coord, size);
+}
+template<int Dim>
+accelerator_inline size_t batchTensorDimensionBaseLinTest(int iter_dim, int batch_idx, size_t other_dim_lin, int const *size){
+  size_t out = batch_idx;
+  size_t coeff = size[Dim-1];
+  size_t rem = other_dim_lin;
+#pragma unroll
+  for(int d=Dim-2;d>=0;d--){
+    int coord_d;
+    if(d==iter_dim){
+      coord_d = 0;
+    }else{
+      coord_d = rem % size[d];
+      rem /= size[d];
+    }
+    out += coord_d * coeff;
+    coeff *= size[d];
+  }
+  return out;
+}
+
+void testTensorOffset(){
+  int size[4] = {2,3,4,5};
+  for(int iter_dim=0;iter_dim<3;iter_dim++){
+    size_t other_dim_sz = 1;
+    for(int d=0;d<4;d++)
+      if(d!=iter_dim)
+	other_dim_sz *= size[d];
+    for(size_t o=0; o<other_dim_sz; o++)
+      for(int b=0;b< size[3]; b++)
+	assert(batchTensorDimensionBaseLinTest<4>(iter_dim,b,o,size) == batchTensorDimensionBaseLinOrig<4>(iter_dim,b,o,size) );
+  }
+}
+
+
 int main(int argc, char** argv){
   initialize(argc,argv);
   
-  basicTests();
-
+  //basicTests();
+  testTensorOffset();
   return 0;
 }

@@ -355,21 +355,24 @@ accelerator_inline size_t tensorDimensionBase(int iter_dim, int const* other_coo
       coord[d] = other_coord[i++];
   return tensorOffset<Dim>(coord, size);  
 }
-
 template<int Dim>
 accelerator_inline size_t batchTensorDimensionBaseLin(int iter_dim, int batch_idx, size_t other_dim_lin, int const *size){
-  int coord[Dim];
-  coord[iter_dim]=0;
-  coord[Dim-1] = batch_idx;
+  size_t out = batch_idx;
+  size_t coeff = size[Dim-1];
   size_t rem = other_dim_lin;
-
-  //other_dim_lin for, eg 3 dims, mapped as     z + dim3*( y + dim2 * x )
-  for(int d=Dim-2;d>=0;d--)
-    if(d!=iter_dim){
-      coord[d] = rem % size[d];
+#pragma unroll
+  for(int d=Dim-2;d>=0;d--){
+    int coord_d;
+    if(d==iter_dim){
+      coord_d = 0;
+    }else{
+      coord_d = rem % size[d];
       rem /= size[d];
     }
-  return tensorOffset<Dim>(coord, size);
+    out += coord_d * coeff;
+    coeff *= size[d];
+  }
+  return out;
 }
 
 template<int Dim, typename FloatType>
