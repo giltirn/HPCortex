@@ -18,6 +18,8 @@ public:
   typedef LeafTag tag;
   
   MultiHeadSelfAttentionLayer(Store &&leaf, int Nheads, Matrix<FloatType> const* const* W_Q, Matrix<FloatType> const* const* W_K, Matrix<FloatType> const* const* W_V, const Matrix<FloatType> &W_O, bool use_mask = false);
+  MultiHeadSelfAttentionLayer(Store &&leaf, int Nheads, const std::vector<Matrix<FloatType> > &W_Q, const std::vector<Matrix<FloatType> > &W_K, const std::vector<Matrix<FloatType> > &W_V, const Matrix<FloatType> &W_O, bool use_mask = false);
+  
   MultiHeadSelfAttentionLayer(const MultiHeadSelfAttentionLayer &r) = delete;
   MultiHeadSelfAttentionLayer(MultiHeadSelfAttentionLayer &&r) = default;
   
@@ -52,6 +54,30 @@ auto multihead_self_attention_layer(U &&u,
 				    bool use_mask = false)-> LAYER_TYPE{
   return LAYER_TYPE(std::forward<U>(u), Nheads, W_Q, W_K, W_V, W_O, use_mask);
 }
+
+//Default initialization has W_Q,W_K,W_V all of size E/Nheads x E  and W_O of size ExE
+//each initialized using Glorot uniform
+template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
+auto multihead_self_attention_layer(U &&u,
+				    int Nheads,
+				    int E,
+				    bool use_mask = false)-> LAYER_TYPE{
+  typedef FLOATTYPE(U) FloatType;
+  assert(E % Nheads == 0);
+  int d_qkv = E/Nheads;
+  std::vector< Matrix<FloatType> > W_Q(Nheads, Matrix<FloatType>(d_qkv,E));
+  std::vector< Matrix<FloatType> > W_K(Nheads, Matrix<FloatType>(d_qkv,E));
+  std::vector< Matrix<FloatType> > W_V(Nheads, Matrix<FloatType>(d_qkv,E));
+  for(int h=0;h<Nheads;h++){
+    glorotUniformRandom(W_Q[h]); glorotUniformRandom(W_K[h]); glorotUniformRandom(W_V[h]);
+  }
+  Matrix<FloatType> W_O(E,E);
+  glorotUniformRandom(W_O);
+  
+  auto layer = LAYER_TYPE(std::forward<U>(u), Nheads, W_Q, W_K, W_V, W_O, use_mask);  
+  return layer;
+}
+
 #undef LAYER_TYPE
 
 #include "implementation/MultiHeadSelfAttentionLayer.tcc"

@@ -38,7 +38,7 @@ public:
 };
 
 template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto softmax_layer(U &&u, FLOATTYPE(U) beta)->SoftMaxLayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u)>{
+auto softmax_layer(U &&u, FLOATTYPE(U) beta=FLOATTYPE(U)(1.0) )->SoftMaxLayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u)>{
   return SoftMaxLayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u)>(std::forward<U>(u), beta);
 }
 

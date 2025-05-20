@@ -25,6 +25,35 @@ MultiHeadAttentionComponent<FloatType>::MultiHeadAttentionComponent(int Nheads, 
 }
 
 template<typename FloatType>
+MultiHeadAttentionComponent<FloatType>::MultiHeadAttentionComponent(int Nheads, const std::vector<Matrix<FloatType> > &W_Q, const std::vector<Matrix<FloatType> > &W_K, const std::vector<Matrix<FloatType> > &W_V, const Matrix<FloatType> &W_O, bool use_mask):
+  concatY(1,Nheads),
+  multW_O(W_O),
+  heads(Nheads),
+  setup(false)
+{
+  assert(Nheads > 0);
+  //ensure that d_v all sum to the right size
+  int sdv=0;
+  for(int h=0;h<Nheads;h++)
+    sdv += W_V[h].size(0);
+  assert(sdv == W_O.size(1));
+
+  E = W_K[0].size(1);
+  for(int h=1;h<Nheads;h++)
+    assert(W_K[h].size(1) == E);
+
+  Nparams_layer = multW_O.nparams();
+  for(int h=0;h<Nheads;h++){
+    heads[h].reset(new ScaledDotProductAttentionHeadComponent<FloatType>(W_Q[h],W_K[h],W_V[h],use_mask));
+    Nparams_layer += heads[h]->nparams();
+  }
+
+}
+
+
+
+
+template<typename FloatType>
 Tensor<FloatType,3> MultiHeadAttentionComponent<FloatType>::value(const TensorType &Q, const TensorType &K, const TensorType &V){
   //Q(C,E,B) ,  K(C,E,B)  and V(C,E,B)
   assert(Q.size(1) == E && K.size(1) == E && V.size(1) == E);

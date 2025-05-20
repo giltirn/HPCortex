@@ -56,6 +56,26 @@ template<int TensDim, typename U, typename ActivationFunc, typename std::enable_
 auto batch_tensor_dnn_layer(U &&u, const Matrix<FLOATTYPE(U)> &weights, int contract_dim, const ActivationFunc &activation)-> LAYER_TYPE{
   return LAYER_TYPE(std::forward<U>(u), weights, contract_dim, activation);
 }
+
+//default initialization of weights of size fan_out x fan_in using glorotUniformRandom   and bias of size fan_out to zeros.
+template<int TensDim, typename U, typename ActivationFunc, typename std::enable_if<ISLEAF(U), int>::type = 0>
+auto batch_tensor_dnn_layer(U &&u, int contract_dim, int fan_out, int fan_in, const ActivationFunc &activation)-> LAYER_TYPE{
+  Matrix<FLOATTYPE(U)> weights(fan_out, fan_in);
+  glorotUniformRandom(weights);
+  Vector<FLOATTYPE(U)> bias(fan_out, 0.);  
+  return LAYER_TYPE(std::forward<U>(u), weights, bias, contract_dim, activation);
+}
+
+//default initialization of weights of size fan_out x fan_in using glorotUniformRandom   and *no bias*
+template<int TensDim, typename U, typename ActivationFunc, typename std::enable_if<ISLEAF(U), int>::type = 0>
+auto batch_tensor_linear_layer(U &&u, int contract_dim, int fan_out, int fan_in, const ActivationFunc &activation)-> LAYER_TYPE{
+  Matrix<FLOATTYPE(U)> weights(fan_out, fan_in);
+  glorotUniformRandom(weights);
+  return LAYER_TYPE(std::forward<U>(u), weights, contract_dim, activation);
+}
+
+
+
 #undef LAYER_TYPE
 
 #include "implementation/BatchTensorDNNlayer.tcc"
