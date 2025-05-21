@@ -9,7 +9,7 @@ Tensor<FloatType,3> embedPositionsSinusoidal(const Tensor<FloatType,3> &in){
   int C = in.size(0), E = in.size(1), B = in.size(2);
   {
     autoView(out_v,out,DeviceWrite);
-    autoView(in_v,out,DeviceRead);
+    autoView(in_v,in,DeviceRead);
     
     accelerator_for3d(b,B,e,E,c,C, 1,{
 	size_t i = e/2;
@@ -26,7 +26,7 @@ Tensor<FloatType,2> embedPositionsSinusoidal(const Tensor<FloatType,2> &in){
   int C = in.size(0), E = in.size(1);
   {
     autoView(out_v,out,DeviceWrite);
-    autoView(in_v,out,DeviceRead);
+    autoView(in_v,in,DeviceRead);
     
     accelerator_for2d(e,E,c,C, 1,{
 	size_t i = e/2;

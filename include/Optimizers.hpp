@@ -5,12 +5,26 @@
 #include <Comms.hpp>
 #include <DDP.hpp>
 
-template<typename FloatType, typename LRscheduler>
+//LRscheduler must have the following method:
+//FloatType operator()(const int epoch) const    :  return the learning rate for the given epoch
+
+template<typename FloatType>
+struct noScheduler{
+  FloatType lr;
+  noScheduler(FloatType lr): lr(lr){}
+  
+  FloatType operator()(const int epoch) const{ return lr; }
+};
+
+template<typename FloatType, typename LRscheduler = noScheduler<FloatType> >
 class GradientDescentOptimizer{
-  const LRscheduler &sched;
+  LRscheduler sched;
   FloatType eps;  
 public:
   GradientDescentOptimizer(const LRscheduler &sched): sched(sched), eps(0.){}
+
+  template<typename L=LRscheduler, typename std::enable_if<std::is_same<L,noScheduler<FloatType> >::value, int>::type = 0>
+  GradientDescentOptimizer(FloatType lr): sched(lr){}  
   
   void epochStart(int epoch, bool verbose = true){
     eps = sched(epoch);
@@ -31,9 +45,9 @@ struct AdamParams{ //NB, alpha comes from the learning scheduler
   AdamParams( FloatType beta1=0.99, FloatType beta2=0.999, FloatType eps=1e-8): beta1(beta1), beta2(beta2), eps(eps){}
 };
 
-template<typename FloatType, typename LRscheduler>
+template<typename FloatType, typename LRscheduler = noScheduler<FloatType> >
 class AdamOptimizer{
-  const LRscheduler &sched;
+  LRscheduler sched;
   AdamParams<FloatType> ap;
   FloatType alpha;
   size_t t;
@@ -48,6 +62,13 @@ class AdamOptimizer{
   }
 public:
   AdamOptimizer(const AdamParams<FloatType> &ap, const LRscheduler &sched): sched(sched), ap(ap), alpha(0.), t(0){}
+  AdamOptimizer(const LRscheduler &sched): AdamOptimizer( AdamParams<FloatType>(), sched){}
+  
+  template<typename L=LRscheduler, typename std::enable_if<std::is_same<L,noScheduler<FloatType> >::value, int>::type = 0>
+  AdamOptimizer(const AdamParams<FloatType> &ap, FloatType lr): sched(lr), ap(ap), alpha(0.), t(0){}
+
+  template<typename L=LRscheduler, typename std::enable_if<std::is_same<L,noScheduler<FloatType> >::value, int>::type = 0>
+  AdamOptimizer(FloatType lr): AdamOptimizer( AdamParams<FloatType>(), lr){}
   
   void epochStart(int epoch, bool verbose = true){
     alpha = sched(epoch);
@@ -94,44 +115,18 @@ public:
   FloatType operator()(const int epoch) const{ return eps * 1./(1. + decay_rate * epoch); }
 };
 
-template<typename FloatType, int DimX, int DimY>
-struct XYpair{
-  Tensor<FloatType,DimX> x;
-  Tensor<FloatType,DimY> y;
-};
-
-//Insert data of with indices 'indices[i]' for i in 0..batch_size-1 into the last dimension of the output
-template<typename FloatType, int DimX, int DimY>
-inline XYpair<FloatType,DimX+1,DimY+1> batchData(int const* indices, int batch_size, const std::vector<XYpair<FloatType,DimX,DimY> > &data){
-  assert(data.size()>0);
-  int const *x_sz_in = data[0].x.sizeArray();
-  int const *y_sz_in = data[0].y.sizeArray();
-  
-  int x_sz_out[DimX+1];
-  int y_sz_out[DimY+1];
-  memcpy(x_sz_out,x_sz_in,DimX*sizeof(int));
-  memcpy(y_sz_out,y_sz_in,DimY*sizeof(int));
-  x_sz_out[DimX] = batch_size;
-  y_sz_out[DimY] = batch_size;
-  
-  XYpair<FloatType,DimX+1,DimY+1> out;
-  out.x = Tensor<FloatType,DimX+1>(x_sz_out);
-  out.y = Tensor<FloatType,DimY+1>(y_sz_out);
-
-  for(int b=0;b<batch_size;b++){
-    int i = indices[b];
-    out.x.pokeLastDimension(data[i].x, b);
-    out.y.pokeLastDimension(data[i].y, b);
-  }
-  return out;
-}
-
-
-template<typename FloatType, int DimX, int DimY, typename ModelType, typename Optimizer>
-std::vector<FloatType> train(ModelType &model, const std::vector<XYpair<FloatType,DimX,DimY> > &data, Optimizer &optimizer, int nepoch, int batch_size, bool suppress_logging = false){
+//DataLoaders are expected to contain the following methods:
+//size_t size() const   :  return the total amount of data
+//BatchType batch(int const* indices, int batch_size) const   : return the batch with batch size and indices as specified. BatchType must contain members 'x' and 'y', which are taken as the inputs to the model's loss function
+template<typename DataLoader, typename ModelType, typename Optimizer>
+std::vector<typename ModelType::FloatType> train(ModelType &model, const DataLoader &data, Optimizer &optimizer, int nepoch, int batch_size, bool suppress_logging = false){
+  typedef typename ModelType::FloatType FloatType;
   std::default_random_engine gen(1234); //important that every rank shuffles in the same way
 
   //We want to divide the data evenly over batches. This means we may need to discard some data
+  if(batch_size > data.size())
+    batch_size = data.size();
+
   int nbatch = data.size() / batch_size;
   int ndata = nbatch * batch_size;
   std::uniform_int_distribution<int> dist(0,ndata-1);
@@ -167,7 +162,7 @@ std::vector<FloatType> train(ModelType &model, const std::vector<XYpair<FloatTyp
 	int bidx = block*blocksize + me; //which batch are we doing?
 
 	//Get the batch
-	auto bxy = batchData(didx.data() + bidx*batch_size, batch_size, data);
+	auto bxy = data.batch(didx.data() + bidx*batch_size, batch_size);
 	
 	loss = model.loss(bxy.x, bxy.y);
 	deriv = model.deriv();
@@ -187,5 +182,60 @@ std::vector<FloatType> train(ModelType &model, const std::vector<XYpair<FloatTyp
   }
   return losses;
 }
+
+
+template<typename FloatType, int DimX, int DimY>
+struct XYpair{
+  Tensor<FloatType,DimX> x;
+  Tensor<FloatType,DimY> y;
+};
+
+//Insert data of with indices 'indices[i]' for i in 0..batch_size-1 into the last dimension of the output
+template<typename FloatType, int DimX, int DimY>
+inline XYpair<FloatType,DimX+1,DimY+1> batchData(int const* indices, int batch_size, const std::vector<XYpair<FloatType,DimX,DimY> > &data){
+  assert(data.size()>0);
+  int const *x_sz_in = data[0].x.sizeArray();
+  int const *y_sz_in = data[0].y.sizeArray();
+  
+  int x_sz_out[DimX+1];
+  int y_sz_out[DimY+1];
+  memcpy(x_sz_out,x_sz_in,DimX*sizeof(int));
+  memcpy(y_sz_out,y_sz_in,DimY*sizeof(int));
+  x_sz_out[DimX] = batch_size;
+  y_sz_out[DimY] = batch_size;
+  
+  XYpair<FloatType,DimX+1,DimY+1> out;
+  out.x = Tensor<FloatType,DimX+1>(x_sz_out);
+  out.y = Tensor<FloatType,DimY+1>(y_sz_out);
+
+  for(int b=0;b<batch_size;b++){
+    int i = indices[b];
+    out.x.pokeLastDimension(data[i].x, b);
+    out.y.pokeLastDimension(data[i].y, b);
+  }
+  return out;
+}
+
+
+template<typename FloatType, int DimX, int DimY>
+class XYpairDataLoader{
+  const std::vector<XYpair<FloatType,DimX,DimY> > &data;
+public:
+  XYpairDataLoader(const std::vector<XYpair<FloatType,DimX,DimY> > &data): data(data){}
+  
+  size_t size() const{ return data.size(); }
+  
+  XYpair<FloatType,DimX+1,DimY+1> batch(int const* indices, int batch_size) const{
+    return batchData(indices,batch_size,data);
+  }
+};
+
+template<typename FloatType, int DimX, int DimY, typename ModelType, typename Optimizer>
+std::vector<FloatType> train(ModelType &model, const std::vector<XYpair<FloatType,DimX,DimY> > &data, Optimizer &optimizer, int nepoch, int batch_size, bool suppress_logging = false){
+  XYpairDataLoader<FloatType,DimX,DimY> loader(data);
+  return train(model, loader, optimizer, nepoch, batch_size, suppress_logging);
+}
+
+
 
 

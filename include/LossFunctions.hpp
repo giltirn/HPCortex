@@ -9,18 +9,20 @@ class CostFuncWrapper{
 public:
   typedef typename Store::type::FloatType FloatType;
   typedef typename Store::type::InputType InputType;
-  typedef LAYEROUTPUTTYPE(typename Store::type) OutputType; 
+  typedef typename CostFunc::PredictionType PredictionType; //the type of data output by the model
+  static_assert( std::is_same<LAYEROUTPUTTYPE(typename Store::type),  PredictionType>::value );
+  typedef typename CostFunc::ComparisonType ComparisonType; //the type of the data used to compare the predictions against (need not be the same as the PredictionType)
 private:  
   Store leaf;
   
-  OutputType ypred; //dim * batch_size
-  OutputType yval;
+  PredictionType ypred; //dim * batch_size
+  ComparisonType yval;
   CostFunc cost;
   int nparam;
 public:
   CostFuncWrapper(Store &&leaf, const CostFunc &cost = CostFunc()): cost(cost), leaf(std::move(leaf)), nparam(leaf.v.nparams()){}
   
-  FloatType loss(const InputType &x, const OutputType &y){
+  FloatType loss(const InputType &x, const ComparisonType &y){
     //std::cout << "Loss with tensor of dim " << x.dimension() << " and sizes " << x.sizeArrayString() << std::endl;
     
     ypred = leaf.v.value(x);
@@ -35,11 +37,11 @@ public:
     return cost_deriv;
   }
 
-  OutputType predict(const InputType &x){
+  PredictionType predict(const InputType &x){
     return leaf.v.value(x);
   }
 
-  template<typename O=OutputType, typename std::enable_if< std::is_same<O,Matrix<FloatType> >::value && std::is_same<InputType,Matrix<FloatType> >::value, int>::type = 0>
+  template<typename O=PredictionType, typename std::enable_if< std::is_same<O,Matrix<FloatType> >::value && std::is_same<O,ComparisonType>::value && std::is_same<InputType,Matrix<FloatType> >::value, int>::type = 0>
   Vector<FloatType> predict(const Vector<FloatType> &x){
     Matrix<FloatType> b(x.size(0),1);
     pokeColumn(b,0,x);
@@ -68,8 +70,11 @@ template<typename FloatType, int Dim>
 class MSEcostFunc<Tensor<FloatType,Dim> >{
 public:
   typedef Tensor<FloatType,Dim> DataType;
-  static FloatType loss(const Tensor<FloatType,Dim> &y, const Tensor<FloatType,Dim> &ypred);  
-  static Tensor<FloatType,Dim> layer_deriv(const Tensor<FloatType,Dim> &y, const Tensor<FloatType,Dim> &ypred);  
+  typedef DataType ComparisonType;
+  typedef DataType PredictionType;
+  
+  static FloatType loss(const ComparisonType &y, const PredictionType &ypred);  
+  static PredictionType layer_deriv(const ComparisonType &y, const PredictionType &ypred);  
 };
 
 
@@ -79,6 +84,17 @@ auto mse_cost(U &&u)->CWRP{
   return CWRP(std::forward<U>(u));
 }
 #undef CWRP
+
+template<typename CostFunc, typename U, typename std::enable_if<ISLEAF(U) && std::is_default_constructible<CostFunc>::value  , int>::type = 0>
+auto cost_func_wrap(U &&u){
+  return CostFuncWrapper<DDST(u), CostFunc>(std::forward<U>(u));
+}
+template<typename CostFunc, typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
+auto cost_func_wrap(U &&u, const CostFunc &cf){
+  return CostFuncWrapper<DDST(u), CostFunc>(std::forward<U>(u),cf);
+}
+
+
 
 #include "implementation/LossFunctions.tcc"
 

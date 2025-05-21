@@ -26,6 +26,16 @@ public:
   
 };
 
+template<typename FloatType>
+class GeLU{
+public:
+  //f(x)_i = x_i ( 1 + erf(x_i/sqrt2) )/2
+  template<int Dim>
+  void operator()(Tensor<FloatType,Dim> &x, Tensor<FloatType,Dim> *deriv = nullptr) const;
+};
+
+
+
 #include "implementation/ActivationFuncs.tcc"
 
 // #ifndef ACTIVATIONFUNC_EXTERN_TEMPLATE_INST
