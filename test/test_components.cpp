@@ -404,12 +404,145 @@ void testScaleComponent(){
   std::cout << "testScaleComponent passed" << std::endl;
 }
 
+
+template<typename _FloatType, int TensDim>
+struct BatchTensorDimensionSliceComponentWrapper{
+  typedef _FloatType FloatType;
+  
+  BatchTensorDimensionSliceComponent<FloatType,TensDim> &cpt;
+  int in_sz[TensDim];
+  int out_sz[TensDim-1];
+  size_t in_lin_sz;
+  size_t out_lin_sz;
+
+    
+  BatchTensorDimensionSliceComponentWrapper(BatchTensorDimensionSliceComponent<FloatType,TensDim> &cpt, int const* _in_sz, int const* _out_sz): cpt(cpt){
+    memcpy(in_sz,_in_sz,TensDim*sizeof(int));
+    memcpy(out_sz,_out_sz,(TensDim-1)*sizeof(int));
+    in_lin_sz = 1;
+    for(int d=0;d<TensDim;d++)
+      in_lin_sz *= in_sz[d];
+
+    out_lin_sz = 1;
+    for(int d=0;d<TensDim-1;d++)
+      out_lin_sz *= out_sz[d];
+  }
+  
+  size_t outputLinearSize() const{ return out_lin_sz; }
+  size_t inputLinearSize() const{ return in_lin_sz; }
+  
+  Vector<FloatType> value(const Vector<FloatType> &in){
+    Tensor<FloatType,TensDim> in_t(in_sz);
+    unflatten(in_t,in); 
+    Tensor<FloatType,TensDim-1> out = cpt.value(in_t);
+    return flatten(out);
+  }
+  void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
+    Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);
+    Tensor<FloatType,TensDim-1> above_deriv(out_sz);
+    unflatten(above_deriv,above_deriv_lin);
+    Tensor<FloatType,TensDim> tmp(in_sz);
+    cpt.deriv(std::move(above_deriv), tmp);
+    cost_deriv_inputs = flatten(tmp);
+  }
+    
+  void update(int off, const Vector<FloatType> &new_params){}
+  void step(int off, const Vector<FloatType> &derivs, FloatType eps){}
+  inline int nparams() const{ return cpt.nparams(); }
+  void getParams(Vector<FloatType> &into, int off){}
+
+  std::string inCoord(size_t i) const{
+    return std::to_string(i);
+  }
+
+};
+
+
+
+void testBatchTensorDimensionSliceComponent(){
+  typedef double FloatType;
+  std::mt19937 rng(1234);
+
+  int size[4] = {2,3,4,5};
+  
+  Tensor<FloatType,4> v(size);
+  uniformRandom(v,rng);
+
+  {
+    //dim 0
+    int size_out[3] = {size[1],size[2],size[3]};
+    for(int slice_idx=0;slice_idx<size[0];slice_idx++){
+      BatchTensorDimensionSliceComponent<FloatType,4> cpt(0,slice_idx);      
+      Tensor<FloatType,3> got = cpt.value(v);
+      Tensor<FloatType,3> expect(size_out);
+      doHost2(expect,v,{     
+	  for(int j=0;j<size[1];j++)
+	    for(int k=0;k<size[2];k++)
+	      for(int b=0;b<size[3];b++)
+		expect_v(j,k,b) = v_v(slice_idx,j,k,b);
+	});
+      assert(equal(got,expect,true));
+      BatchTensorDimensionSliceComponentWrapper<FloatType,4> wrp(cpt, v.sizeArray(),expect.sizeArray());
+      testComponentDeriv(wrp);
+    }
+    
+  }
+  {
+    //dim 1
+    int size_out[3] = {size[0],size[2],size[3]};
+    for(int slice_idx=0;slice_idx<size[1];slice_idx++){
+      BatchTensorDimensionSliceComponent<FloatType,4> cpt(1,slice_idx);      
+      Tensor<FloatType,3> got = cpt.value(v);     
+      Tensor<FloatType,3> expect(size_out);
+      doHost2(expect,v,{
+	  for(int i=0;i<size[0];i++)
+	    for(int k=0;k<size[2];k++)
+	      for(int b=0;b<size[3];b++)
+		expect_v(i,k,b) = v_v(i,slice_idx,k,b);
+	});
+      assert(equal(got,expect,true));
+      BatchTensorDimensionSliceComponentWrapper<FloatType,4> wrp(cpt, v.sizeArray(),expect.sizeArray());
+      testComponentDeriv(wrp);
+    }
+    
+  }
+    
+  {
+    //dim 2
+    int size_out[3] = {size[0],size[1],size[3]};
+    for(int slice_idx=0;slice_idx<size[2];slice_idx++){
+      BatchTensorDimensionSliceComponent<FloatType,4> cpt(2,slice_idx);      
+      Tensor<FloatType,3> got = cpt.value(v);
+      Tensor<FloatType,3> expect(size_out);
+      doHost2(expect,v,{     
+      for(int i=0;i<size[0];i++)
+	for(int j=0;j<size[1];j++)
+	  for(int b=0;b<size[3];b++)
+	    expect_v(i,j,b) = v_v(i,j,slice_idx,b);
+	});
+      assert(equal(got,expect,true));
+      BatchTensorDimensionSliceComponentWrapper<FloatType,4> wrp(cpt, v.sizeArray(),expect.sizeArray());
+      testComponentDeriv(wrp);
+    }
+    
+  }
+  
+  std::cout << "testBatchTensorDimensionSliceComponent passed" << std::endl;
+
+}
+
+
+
+
+
+
 int main(int argc, char** argv){
   initialize(argc,argv);
   testBatch3tensorPairContractComponent();
   testBatchTensorConcatenateComponent();
   testScaleComponent();
-
+  testBatchTensorDimensionSliceComponent();
+  
   return 0;
 }
 

@@ -10,3 +10,4 @@
 #include "components/BatchTensorConcatenateComponent.hpp"
 #include "components/ScaleComponent.hpp"
 #include "components/NormComponent.hpp"
+#include "components/BatchTensorDimensionSliceComponent.hpp"
