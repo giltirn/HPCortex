@@ -15,7 +15,7 @@ Tensor<FloatType,3> MultiHeadSelfAttentionLayer<FloatType,InputType,Store>::valu
   return mha.value(X,X,X);
 }
 template<typename FloatType, typename InputType, typename Store>
-void MultiHeadSelfAttentionLayer<FloatType,InputType,Store>::deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,3> &&_above_deriv, InputType* input_above_deriv_return) const{
+int MultiHeadSelfAttentionLayer<FloatType,InputType,Store>::deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,3> &&_above_deriv, InputType* input_above_deriv_return) const{
   Tensor<FloatType,3> dCost_by_dX;
   {
     Tensor<FloatType,3> dCost_by_dX_Q, dCost_by_dX_K, dCost_by_dX_V;
@@ -39,24 +39,24 @@ void MultiHeadSelfAttentionLayer<FloatType,InputType,Store>::deriv(Vector<FloatT
 	});      
     }
   }
-  leaf.v.deriv(cost_deriv, off+mha.nparams(), std::move(dCost_by_dX), input_above_deriv_return);
+  return leaf.v.deriv(cost_deriv, off+mha.nparams(), std::move(dCost_by_dX), input_above_deriv_return);
 }
 
 template<typename FloatType, typename InputType, typename Store>
-void MultiHeadSelfAttentionLayer<FloatType,InputType,Store>::update(int off, const Vector<FloatType> &new_params){
+int MultiHeadSelfAttentionLayer<FloatType,InputType,Store>::update(int off, const Vector<FloatType> &new_params){
   mha.update(off,new_params);
-  leaf.v.update(off + mha.nparams(),new_params);
+  return leaf.v.update(off + mha.nparams(),new_params);
 }
 
 template<typename FloatType, typename InputType, typename Store>
-void MultiHeadSelfAttentionLayer<FloatType,InputType,Store>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
+int MultiHeadSelfAttentionLayer<FloatType,InputType,Store>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
   mha.step(off,derivs,eps);
-  leaf.v.step(off+mha.nparams(),derivs,eps);
+  return leaf.v.step(off+mha.nparams(),derivs,eps);
 }
 template<typename FloatType, typename InputType, typename Store>
-void MultiHeadSelfAttentionLayer<FloatType,InputType,Store>::getParams(Vector<FloatType> &into, int off){
+int MultiHeadSelfAttentionLayer<FloatType,InputType,Store>::getParams(Vector<FloatType> &into, int off){
   mha.getParams(into,off);
-  leaf.v.getParams(into,off+mha.nparams());
+  return leaf.v.getParams(into,off+mha.nparams());
 }
 
 template<typename FloatType, typename InputType, typename Store>

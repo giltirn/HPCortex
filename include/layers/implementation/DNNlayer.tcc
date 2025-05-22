@@ -24,7 +24,7 @@ Matrix<FloatType> DNNlayer<FloatType,InputType,Store,ActivationFunc>::value(cons
 }
 
 template<typename FloatType, typename InputType, typename Store, typename ActivationFunc>
-void DNNlayer<FloatType,InputType,Store,ActivationFunc>::deriv(Vector<FloatType> &cost_deriv, int off, Matrix<FloatType> &&_above_deriv, InputType* input_above_deriv_return) const{
+int DNNlayer<FloatType,InputType,Store,ActivationFunc>::deriv(Vector<FloatType> &cost_deriv, int off, Matrix<FloatType> &&_above_deriv, InputType* input_above_deriv_return) const{
   profileStart();
   assert(_above_deriv.size(0) == size0);
   assert(_above_deriv.size(1) == batch_size);
@@ -97,13 +97,13 @@ void DNNlayer<FloatType,InputType,Store,ActivationFunc>::deriv(Vector<FloatType>
     }
     
   }//close views and free temporaries before calling layer below
-    
-  leaf.v.deriv(cost_deriv, p, std::move(layer_deriv), input_above_deriv_return);
+
   profileStop();
+  return leaf.v.deriv(cost_deriv, p, std::move(layer_deriv), input_above_deriv_return);
 }
 
 template<typename FloatType, typename InputType, typename Store, typename ActivationFunc>
-void DNNlayer<FloatType,InputType,Store,ActivationFunc>::update(int off, const Vector<FloatType> &new_params){
+int DNNlayer<FloatType,InputType,Store,ActivationFunc>::update(int off, const Vector<FloatType> &new_params){
   int p=off;
   {
     autoView(new_params_v,new_params,DeviceRead);
@@ -123,11 +123,11 @@ void DNNlayer<FloatType,InputType,Store,ActivationFunc>::update(int off, const V
       
     p += size0;
   }
-  leaf.v.update(p, new_params);
+  return leaf.v.update(p, new_params);
 }
 
 template<typename FloatType, typename InputType, typename Store, typename ActivationFunc>
-void DNNlayer<FloatType,InputType,Store,ActivationFunc>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
+int DNNlayer<FloatType,InputType,Store,ActivationFunc>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
   int p=off;
   {
     autoView(derivs_v,derivs,DeviceRead);
@@ -147,14 +147,11 @@ void DNNlayer<FloatType,InputType,Store,ActivationFunc>::step(int off, const Vec
       
     p += size0;
   }
-  leaf.v.step(p, derivs, eps);
+  return leaf.v.step(p, derivs, eps);
 }
 
-
-
-  //off measured from *end*, return new off
 template<typename FloatType, typename InputType, typename Store, typename ActivationFunc>
-void DNNlayer<FloatType,InputType,Store,ActivationFunc>::getParams(Vector<FloatType> &into, int off){
+int DNNlayer<FloatType,InputType,Store,ActivationFunc>::getParams(Vector<FloatType> &into, int off){
   int p = off;
   {
     autoView(into_v,into,DeviceReadWrite);
@@ -174,5 +171,5 @@ void DNNlayer<FloatType,InputType,Store,ActivationFunc>::getParams(Vector<FloatT
 
     p += size0;
   }
-  leaf.v.getParams(into, p);
+  return leaf.v.getParams(into, p);
 }

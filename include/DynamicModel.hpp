@@ -7,11 +7,11 @@ template<typename FloatType, typename InputType, typename LayerOutputType>
 class LayerWrapperInternalBase{
 public:
   virtual LayerOutputType value(const InputType &x) = 0;
-  virtual void deriv(Vector<FloatType> &cost_deriv, int off, LayerOutputType &&above_deriv, InputType* input_above_deriv_return = nullptr) const = 0;
+  virtual int deriv(Vector<FloatType> &cost_deriv, int off, LayerOutputType &&above_deriv, InputType* input_above_deriv_return = nullptr) const = 0;
   virtual int nparams() const = 0;
   virtual void resizeInputBuffer(size_t to) = 0;
-  virtual void getParams(Vector<FloatType> &into, int off) = 0;
-  virtual void step(int off, const Vector<FloatType> &derivs, FloatType eps) = 0;
+  virtual int getParams(Vector<FloatType> &into, int off) = 0;
+  virtual int step(int off, const Vector<FloatType> &derivs, FloatType eps) = 0;
   virtual ~LayerWrapperInternalBase(){}
 };
 template<typename Store, typename std::enable_if<ISSTORAGE(Store), int>::type = 0 >
@@ -30,14 +30,14 @@ public:
   LayerOutputType value(const InputType &x) override{
     return layer.v.value(x);
   }
-  void deriv(Vector<FloatType> &cost_deriv, int off, LayerOutputType &&above_deriv, InputType* input_above_deriv_return = nullptr) const override{
-    layer.v.deriv(cost_deriv,off,std::move(above_deriv), input_above_deriv_return);
+  int deriv(Vector<FloatType> &cost_deriv, int off, LayerOutputType &&above_deriv, InputType* input_above_deriv_return = nullptr) const override{
+    return layer.v.deriv(cost_deriv,off,std::move(above_deriv), input_above_deriv_return);
   }
   int nparams() const override{ return layer.v.nparams(); }
 
-  void getParams(Vector<FloatType> &into, int off) override{ layer.v.getParams(into,off); }
+  int getParams(Vector<FloatType> &into, int off) override{ return layer.v.getParams(into,off); }
 
-  void step(int off, const Vector<FloatType> &derivs, FloatType eps) override{ layer.v.step(off,derivs,eps); }
+  int step(int off, const Vector<FloatType> &derivs, FloatType eps) override{ return layer.v.step(off,derivs,eps); }
   
   void resizeInputBuffer(size_t to) override{ layer.v.resizeInputBuffer(to); }
 };
@@ -61,14 +61,14 @@ public:
   inline LayerOutputType value(const InputType &x){
     return layer->value(x);
   }
-  inline void deriv(Vector<FloatType> &cost_deriv, int off, LayerOutputType &&above_deriv, InputType* input_above_deriv_return = nullptr) const{
-    layer->deriv(cost_deriv,off, std::move(above_deriv), input_above_deriv_return);
+  inline int deriv(Vector<FloatType> &cost_deriv, int off, LayerOutputType &&above_deriv, InputType* input_above_deriv_return = nullptr) const{
+    return layer->deriv(cost_deriv,off, std::move(above_deriv), input_above_deriv_return);
   }
   inline int nparams() const{ return layer->nparams(); }
 
-  inline void getParams(Vector<FloatType> &into, int off){ return layer->getParams(into,off); }
+  inline int getParams(Vector<FloatType> &into, int off){ return layer->getParams(into,off); }
 
-  inline void step(int off, const Vector<FloatType> &derivs, FloatType eps){ return layer->step(off,derivs,eps); }
+  inline int step(int off, const Vector<FloatType> &derivs, FloatType eps){ return layer->step(off,derivs,eps); }
   
   inline void resizeInputBuffer(size_t to){ layer->resizeInputBuffer(to); }
 };

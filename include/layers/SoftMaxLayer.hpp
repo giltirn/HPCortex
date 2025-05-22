@@ -20,15 +20,15 @@ public:
 
   Tensor<FloatType,TensDim> value(const InputType &x);
   
-  void deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,TensDim> &&above_deriv, InputType* input_above_deriv_return = nullptr) const;
+  int deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,TensDim> &&above_deriv, InputType* input_above_deriv_return = nullptr) const;
   
-  inline void update(int off, const Vector<FloatType> &new_params){ leaf.v.update(off, new_params); }
+  inline int update(int off, const Vector<FloatType> &new_params){ return leaf.v.update(off, new_params); }
 
-  inline void step(int off, const Vector<FloatType> &derivs, FloatType eps){ leaf.v.step(off,derivs,eps); }
+  inline int step(int off, const Vector<FloatType> &derivs, FloatType eps){ return leaf.v.step(off,derivs,eps); }
   
   inline int nparams() const{ return leaf.v.nparams(); }
 
-  inline void getParams(Vector<FloatType> &into, int off){ leaf.v.getParams(into,off); }
+  inline int getParams(Vector<FloatType> &into, int off){ return leaf.v.getParams(into,off); }
 
   //For pipelining
   inline void resizeInputBuffer(size_t to){

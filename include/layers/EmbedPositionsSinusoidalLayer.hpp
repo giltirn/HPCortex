@@ -22,22 +22,22 @@ public:
   //Forward pass
   Tensor<FloatType,3> value(const InputType &x){ return embedPositionsSinusoidal(leaf.v.value(x)); }
 
-  inline void deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,3> &&_above_deriv, InputType* input_above_deriv_return = nullptr) const{
+  inline int deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,3> &&_above_deriv, InputType* input_above_deriv_return = nullptr) const{
     //This is a constant additive embedding so it doesn't touch the derivatives
-    leaf.v.deriv(cost_deriv,off,std::move(_above_deriv),input_above_deriv_return);
+    return leaf.v.deriv(cost_deriv,off,std::move(_above_deriv),input_above_deriv_return);
   }
-  inline void update(int off, const Vector<FloatType> &new_params){
-    leaf.v.update(off,new_params);
+  inline int update(int off, const Vector<FloatType> &new_params){
+    return leaf.v.update(off,new_params);
   }  
-  inline void step(int off, const Vector<FloatType> &derivs, FloatType eps){
-    leaf.v.step(off,derivs, eps);
+  inline int step(int off, const Vector<FloatType> &derivs, FloatType eps){
+    return leaf.v.step(off,derivs, eps);
   }
 
   //accumulated #params for layers here and below
   inline int nparams() const{ return leaf.v.nparams(); }
 
-  inline void getParams(Vector<FloatType> &into, int off){
-    leaf.v.getParams(into,off);
+  inline int getParams(Vector<FloatType> &into, int off){
+    return leaf.v.getParams(into,off);
   }
   inline void resizeInputBuffer(size_t to){
     leaf.v.resizeInputBuffer(to);

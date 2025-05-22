@@ -15,25 +15,24 @@ public:
   inline InputLayer(const InputLayer &r) = delete;
 
   inline const InputType &value(const InputType &x){
-    //std::cout << "InputLayer with tensor of dim " << x.dimension() << " and sizes " << x.sizeArrayString() << std::endl;
-    
     //Simply reflect the passed-down input value back up to commence forwards propagation
     return x;
   }
 
   //input_above_deriv_return is the derivative of the cost with respect to the inputs
-  inline void deriv(Vector<FloatType> &cost_deriv, int off, InputType &&above_deriv, InputType* input_above_deriv_return = nullptr) const{
+  inline int deriv(Vector<FloatType> &cost_deriv, int off, InputType &&above_deriv, InputType* input_above_deriv_return = nullptr) const{
     //We don't have to do anything for backpropagation as this is the last layer
     if(input_above_deriv_return) *input_above_deriv_return = std::move(above_deriv); //copy back the input derivative if desired
+    return off;
   }
   
-  inline void update(int off, const Vector<FloatType> &new_params){}
+  inline int update(int off, const Vector<FloatType> &new_params){ return off; }
 
-  inline void step(int off, const Vector<FloatType> &derivs, FloatType eps){}
+  inline int step(int off, const Vector<FloatType> &derivs, FloatType eps){ return off; }
   
   inline int nparams() const{ return 0; }
 
-  inline void getParams(Vector<FloatType> &into, int off){}
+  inline int getParams(Vector<FloatType> &into, int off){ return off; }
 
   //For pipelining
   inline void resizeInputBuffer(size_t to){}

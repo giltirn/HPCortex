@@ -28,28 +28,28 @@ public:
   //Forward pass
   inline Tensor<FloatType,TensDim> value(const InputType &x){ return scale.value(nrm.value(leaf.v.value(x))); }
 
-  inline void deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,TensDim> &&_above_deriv, InputType* input_above_deriv_return = nullptr) const{
+  inline int deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,TensDim> &&_above_deriv, InputType* input_above_deriv_return = nullptr) const{
     Tensor<FloatType,TensDim> layer_deriv_scale;
     scale.deriv(cost_deriv, off, std::move(_above_deriv), layer_deriv_scale);
     Tensor<FloatType,TensDim> layer_deriv;
     nrm.deriv(std::move(layer_deriv_scale), layer_deriv);
-    leaf.v.deriv(cost_deriv, off+scale.nparams(), std::move(layer_deriv), input_above_deriv_return);
+    return leaf.v.deriv(cost_deriv, off+scale.nparams(), std::move(layer_deriv), input_above_deriv_return);
   }
 
-  inline void update(int off, const Vector<FloatType> &new_params){
-    scale.update(off,new_params); leaf.v.update(off+scale.nparams(), new_params);
+  inline int update(int off, const Vector<FloatType> &new_params){
+    scale.update(off,new_params); return leaf.v.update(off+scale.nparams(), new_params);
   }    
   
-  inline void step(int off, const Vector<FloatType> &derivs, FloatType eps){
-    scale.step(off,derivs,eps); leaf.v.step(off+scale.nparams(), derivs,eps);
+  inline int step(int off, const Vector<FloatType> &derivs, FloatType eps){
+    scale.step(off,derivs,eps); return leaf.v.step(off+scale.nparams(), derivs,eps);
   }
   
   //accumulated #params for layers here and below
   inline int nparams() const{ return scale.nparams() + leaf.v.nparams(); }
 
   //off measured from *end*, return new off
-  void getParams(Vector<FloatType> &into, int off){
-    scale.getParams(into,off); leaf.v.getParams(into,off+scale.nparams());
+  int getParams(Vector<FloatType> &into, int off){
+    scale.getParams(into,off); return leaf.v.getParams(into,off+scale.nparams());
   }
 
   //For pipelining

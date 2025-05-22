@@ -32,7 +32,7 @@ public:
     return attention.value(in_QK,in_QK,in_V);
   }
   
-  void deriv(Vector<FloatType> &cost_deriv, int off, TensorType &&_above_deriv, InputType* input_above_deriv_return = nullptr) const{
+  int deriv(Vector<FloatType> &cost_deriv, int off, TensorType &&_above_deriv, InputType* input_above_deriv_return = nullptr) const{
     int p = off;
     TensorType layer_deriv_Q, layer_deriv_K, layer_deriv_V;
     attention.deriv(cost_deriv, p, std::move(_above_deriv), layer_deriv_Q, layer_deriv_K, layer_deriv_V);
@@ -50,39 +50,35 @@ public:
       TensorType throwaway(std::move(layer_deriv_K));
     }
 	
-    leaf_QK.v.deriv(cost_deriv, p, std::move(layer_deriv_Q), input_above_deriv_return != nullptr ? &input_above_deriv_return->first : nullptr);
-    p +=  leaf_QK.v.nparams();
-    leaf_V.v.deriv(cost_deriv, p, std::move(layer_deriv_V), input_above_deriv_return != nullptr ? &input_above_deriv_return->second : nullptr);
+    p = leaf_QK.v.deriv(cost_deriv, p, std::move(layer_deriv_Q), input_above_deriv_return != nullptr ? &input_above_deriv_return->first : nullptr);
+    return leaf_V.v.deriv(cost_deriv, p, std::move(layer_deriv_V), input_above_deriv_return != nullptr ? &input_above_deriv_return->second : nullptr);
   }
 
-  void update(int off, const Vector<FloatType> &new_params){
+  int update(int off, const Vector<FloatType> &new_params){
     int p=off;
     attention.update(p,new_params);
     p+=attention.nparams();
-    leaf_QK.v.update(p, new_params);
-    p+=leaf_QK.v.nparams();
-    leaf_V.v.update(p,new_params);
+    p = leaf_QK.v.update(p, new_params);
+    return leaf_V.v.update(p,new_params);
   }
-  void step(int off, const Vector<FloatType> &derivs, FloatType eps){
+  int step(int off, const Vector<FloatType> &derivs, FloatType eps){
     int p=off;
     attention.step(p,derivs,eps);
     p+=attention.nparams();
-    leaf_QK.v.step(p,derivs,eps);
-    p+=leaf_QK.v.nparams();
-    leaf_V.v.step(p,derivs,eps);
+    p = leaf_QK.v.step(p,derivs,eps);
+    return leaf_V.v.step(p,derivs,eps);
   }
 
 
   //accumulated #params for layers here and below
   inline int nparams() const{ return attention.nparams() + leaf_QK.v.nparams() +  leaf_V.v.nparams() ; }
 
-  void getParams(Vector<FloatType> &into, int off){
+  int getParams(Vector<FloatType> &into, int off){
     int p=off;
     attention.getParams(into,p);
     p+=attention.nparams();
-    leaf_QK.v.getParams(into,p);
-    p+=leaf_QK.v.nparams();
-    leaf_V.v.getParams(into,p);
+    p = leaf_QK.v.getParams(into,p);
+    return leaf_V.v.getParams(into,p);
   }
 
   inline void resizeInputBuffer(size_t to){

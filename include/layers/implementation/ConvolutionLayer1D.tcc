@@ -61,7 +61,7 @@ Tensor<FloatType,3> ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,
 }
 
 template<typename FloatType, typename InputType, typename Store, typename ActivationFunc, typename PaddingFunc>
-void ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,3> &&_above_deriv, InputType* input_above_deriv_return) const{
+int ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,3> &&_above_deriv, InputType* input_above_deriv_return) const{
   assert(init);
 
   //Out channel index = d
@@ -174,13 +174,13 @@ void ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::d
     p += depth*channels*kernel_size;
     
   }//close views and free temporaries before calling layer below
-    
-  leaf.v.deriv(cost_deriv, p, std::move(layer_deriv), input_above_deriv_return);
   profileStop();
+  
+  return leaf.v.deriv(cost_deriv, p, std::move(layer_deriv), input_above_deriv_return);
 }
 
 template<typename FloatType, typename InputType, typename Store, typename ActivationFunc, typename PaddingFunc>
-void ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::update(int off, const Vector<FloatType> &new_params){
+int ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::update(int off, const Vector<FloatType> &new_params){
   int p=off;
   {
     autoView(new_params_v,new_params,DeviceRead);
@@ -195,11 +195,11 @@ void ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::u
 
     p+= depth*channels*kernel_size;
   }
-  leaf.v.update(p, new_params);
+  return leaf.v.update(p, new_params);
 }
 
 template<typename FloatType, typename InputType, typename Store, typename ActivationFunc, typename PaddingFunc>
-void ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
+int ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
   int p=off;
   {
     autoView(derivs_v,derivs,DeviceRead);
@@ -214,14 +214,13 @@ void ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::s
 
     p+= depth*channels*kernel_size;
   }
-  leaf.v.step(p, derivs, eps);
+  return leaf.v.step(p, derivs, eps);
 }
 
 
 
-  //off measured from *end*, return new off
 template<typename FloatType, typename InputType, typename Store, typename ActivationFunc, typename PaddingFunc>
-void ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::getParams(Vector<FloatType> &into, int off){
+int ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::getParams(Vector<FloatType> &into, int off){
   int p = off;
   {
     autoView(into_v, into, DeviceReadWrite);
@@ -236,5 +235,5 @@ void ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::g
 
     p+= depth*channels*kernel_size;
   }
-  leaf.v.getParams(into, p);
+  return leaf.v.getParams(into, p);
 }

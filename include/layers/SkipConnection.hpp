@@ -23,17 +23,17 @@ public:
   //Forward pass
   LayerInputOutputType value(const InputType &x);
 
-  void deriv(Vector<FloatType> &cost_deriv, int off, LayerInputOutputType &&_above_deriv, InputType* input_above_deriv_return = nullptr) const;
+  int deriv(Vector<FloatType> &cost_deriv, int off, LayerInputOutputType &&_above_deriv, InputType* input_above_deriv_return = nullptr) const;
   
-  void update(int off, const Vector<FloatType> &new_params);
+  int update(int off, const Vector<FloatType> &new_params);
   
-  void step(int off, const Vector<FloatType> &derivs, FloatType eps);
+  int step(int off, const Vector<FloatType> &derivs, FloatType eps);
 
   //accumulated #params for layers here and below
   inline int nparams() const{ return leaf_internal.v.nparams() + leaf_below.v.nparams(); }
 
   //off measured from *end*, return new off
-  void getParams(Vector<FloatType> &into, int off);
+  int getParams(Vector<FloatType> &into, int off);
 
   //For pipelining
   inline void resizeInputBuffer(size_t to){

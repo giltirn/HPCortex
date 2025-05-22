@@ -25,7 +25,7 @@ Matrix<FloatType> FlattenLayer<FloatType,InputType,Store>::value(const InputType
   return out;
 }
 template<typename FloatType, typename InputType, typename Store>
-void FlattenLayer<FloatType,InputType,Store>::deriv(Vector<FloatType> &cost_deriv, int off, Matrix<FloatType> &&_above_deriv, InputType* input_above_deriv_return) const{
+int FlattenLayer<FloatType,InputType,Store>::deriv(Vector<FloatType> &cost_deriv, int off, Matrix<FloatType> &&_above_deriv, InputType* input_above_deriv_return) const{
   LayerInputTensorType above_deriv_passdown(_input_tens_size);
   {
     Matrix<FloatType> above_deriv_in(std::move(_above_deriv)); //dcost/dvalue_i
@@ -39,17 +39,17 @@ void FlattenLayer<FloatType,InputType,Store>::deriv(Vector<FloatType> &cost_deri
 	above_deriv_passdown_v.data()[b + i*batch_size] = above_deriv_in_v(i,b);
       });
   }
-  leaf.v.deriv(cost_deriv,off, std::move(above_deriv_passdown),input_above_deriv_return);
+  return leaf.v.deriv(cost_deriv,off, std::move(above_deriv_passdown),input_above_deriv_return);
 }
 template<typename FloatType, typename InputType, typename Store>
-void FlattenLayer<FloatType,InputType,Store>::update(int off, const Vector<FloatType> &new_params){
-  leaf.v.update(off,new_params);
+int FlattenLayer<FloatType,InputType,Store>::update(int off, const Vector<FloatType> &new_params){
+  return leaf.v.update(off,new_params);
 }
 template<typename FloatType, typename InputType, typename Store>   
-void FlattenLayer<FloatType,InputType,Store>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
-  leaf.v.step(off,derivs,eps);
+int FlattenLayer<FloatType,InputType,Store>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
+  return leaf.v.step(off,derivs,eps);
 }
 template<typename FloatType, typename InputType, typename Store>  
-void FlattenLayer<FloatType,InputType,Store>::getParams(Vector<FloatType> &into, int off){
-  leaf.v.getParams(into,off);
+int FlattenLayer<FloatType,InputType,Store>::getParams(Vector<FloatType> &into, int off){
+  return leaf.v.getParams(into,off);
 }

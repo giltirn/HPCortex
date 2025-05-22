@@ -12,7 +12,7 @@ Tensor<FloatType,3> ScaledDotProductSelfAttentionLayer<FloatType,InputType,Store
 }
 
 template<typename FloatType, typename InputType, typename Store>
-void ScaledDotProductSelfAttentionLayer<FloatType,InputType,Store>::deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,3> &&_above_deriv, InputType* input_above_deriv_return) const{
+int ScaledDotProductSelfAttentionLayer<FloatType,InputType,Store>::deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,3> &&_above_deriv, InputType* input_above_deriv_return) const{
   Tensor<FloatType,3> layer_deriv(C,E,B);
   {
     Tensor<FloatType,3> above_deriv_Out = std::move(_above_deriv);
@@ -32,24 +32,24 @@ void ScaledDotProductSelfAttentionLayer<FloatType,InputType,Store>::deriv(Vector
 	});
     }
   }
-  leaf.v.deriv(cost_deriv, off + attentionQKV.nparams(), std::move(layer_deriv),  input_above_deriv_return);
+  return leaf.v.deriv(cost_deriv, off + attentionQKV.nparams(), std::move(layer_deriv),  input_above_deriv_return);
 }
 
 template<typename FloatType, typename InputType, typename Store>
-void ScaledDotProductSelfAttentionLayer<FloatType,InputType,Store>::update(int off, const Vector<FloatType> &new_params){
+int ScaledDotProductSelfAttentionLayer<FloatType,InputType,Store>::update(int off, const Vector<FloatType> &new_params){
   attentionQKV.update(off,new_params);
-  leaf.v.update(off + attentionQKV.nparams(),new_params);
+  return leaf.v.update(off + attentionQKV.nparams(),new_params);
 }
   
 template<typename FloatType, typename InputType, typename Store>
-void ScaledDotProductSelfAttentionLayer<FloatType,InputType,Store>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
+int ScaledDotProductSelfAttentionLayer<FloatType,InputType,Store>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
   attentionQKV.step(off,derivs,eps);
-  leaf.v.step(off + attentionQKV.nparams(),derivs,eps);
+  return leaf.v.step(off + attentionQKV.nparams(),derivs,eps);
 }
 
 //off measured from *end*, return new off
 template<typename FloatType, typename InputType, typename Store>
-void ScaledDotProductSelfAttentionLayer<FloatType,InputType,Store>::getParams(Vector<FloatType> &into, int off){
+int ScaledDotProductSelfAttentionLayer<FloatType,InputType,Store>::getParams(Vector<FloatType> &into, int off){
   attentionQKV.getParams(into,off);
-  leaf.v.getParams(into,off + attentionQKV.nparams());
+  return leaf.v.getParams(into,off + attentionQKV.nparams());
 }

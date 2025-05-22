@@ -25,7 +25,7 @@ Tensor<FloatType,OutDimension> UnflattenLayer<FloatType,OutDimension,InputType,S
   return out;
 }
 template<typename FloatType, int OutDimension, typename InputType, typename Store>
-void UnflattenLayer<FloatType,OutDimension,InputType,Store>::deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,OutDimension> &&_above_deriv, InputType* input_above_deriv_return) const{
+int UnflattenLayer<FloatType,OutDimension,InputType,Store>::deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,OutDimension> &&_above_deriv, InputType* input_above_deriv_return) const{
   int batch_size = _output_tens_size[OutDimension-1];
   size_t flat_size = 1;
   for(int i=0;i<OutDimension-1;i++)
@@ -43,17 +43,17 @@ void UnflattenLayer<FloatType,OutDimension,InputType,Store>::deriv(Vector<FloatT
 	above_deriv_passdown_v(i,b) = above_deriv_in_v.data()[b + i*batch_size];
       });
   }
-  leaf.v.deriv(cost_deriv,off, std::move(above_deriv_passdown),input_above_deriv_return);
+  return leaf.v.deriv(cost_deriv,off, std::move(above_deriv_passdown),input_above_deriv_return);
 }
 template<typename FloatType, int OutDimension, typename InputType, typename Store>
-void UnflattenLayer<FloatType,OutDimension,InputType,Store>::update(int off, const Vector<FloatType> &new_params){
-  leaf.v.update(off,new_params);
+int UnflattenLayer<FloatType,OutDimension,InputType,Store>::update(int off, const Vector<FloatType> &new_params){
+  return leaf.v.update(off,new_params);
 }
 template<typename FloatType, int OutDimension, typename InputType, typename Store>   
-void UnflattenLayer<FloatType,OutDimension,InputType,Store>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
-  leaf.v.step(off,derivs,eps);
+int UnflattenLayer<FloatType,OutDimension,InputType,Store>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
+  return leaf.v.step(off,derivs,eps);
 }
 template<typename FloatType, int OutDimension, typename InputType, typename Store>  
-void UnflattenLayer<FloatType,OutDimension,InputType,Store>::getParams(Vector<FloatType> &into, int off){
-  leaf.v.getParams(into,off);
+int UnflattenLayer<FloatType,OutDimension,InputType,Store>::getParams(Vector<FloatType> &into, int off){
+  return leaf.v.getParams(into,off);
 }
