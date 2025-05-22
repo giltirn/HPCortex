@@ -2,7 +2,7 @@
 #include <Testing.hpp>
 #include <unordered_map>
 #include <sstream>
-#include <layers/TransformerDecoderBlock.hpp>
+#include <layers/TransformerEncoderDecoderBlock.hpp>
 
 Vector<double> unitVec(int dim, int d_model){
   Vector<double> out(d_model, 0.);  

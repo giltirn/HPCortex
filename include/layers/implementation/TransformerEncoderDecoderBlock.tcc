@@ -1,4 +1,4 @@
-namespace TransformerDecoderBlock{
+namespace TransformerEncoderDecoderBlock{
   constexpr int embedding_dim = 1;
 
   //These functions build the layers from the bottom up
@@ -6,7 +6,8 @@ namespace TransformerDecoderBlock{
   template<typename Below>
   auto declare_skip_block_1(Below &&below,			    
 			    int E,
-			    int nheads  //define  d_qkv = E/nheads     E must divide exactly by nheads
+			    int nheads,  //define  d_qkv = E/nheads     E must divide exactly by nheads
+			    bool use_mask //encoder: false, decoder: true
 			    ){
     typedef FLOATTYPE(Below) FloatType;
     typedef Tensor<FloatType,3> LayerInputType;
@@ -17,7 +18,7 @@ namespace TransformerDecoderBlock{
 									input_layer<FloatType, LayerInputType>(),
 									embedding_dim, E, true, true
 									),
-							  nheads, E, true
+							  nheads, E, use_mask
 							  ),
 			   std::move(below)
 			   );
@@ -51,13 +52,25 @@ namespace TransformerDecoderBlock{
 			   );
   }
 
+  template<typename Below, typename ActivationFunc>
+  auto transformer_encoder_decoder_block(Below &&below,
+					 int E, int nheads, int d_act, const ActivationFunc &activation, bool use_mask){
+    auto block1 = declare_skip_block_1(std::forward<Below>(below),E,nheads, use_mask);
+    auto connection = declare_block_connection(E,std::move(block1));
+    auto decoder = declare_skip_block_2(E, d_act, activation, std::move(connection));
+    return decoder;
+  }
+  
 };
+
 
 template<typename Below, typename ActivationFunc>
 auto transformer_decoder_block(Below &&below,
 			       int E, int nheads, int d_act, const ActivationFunc &activation){
-  auto block1 = TransformerDecoderBlock::declare_skip_block_1(std::forward<Below>(below),E,nheads);
-  auto connection = TransformerDecoderBlock::declare_block_connection(E,std::move(block1));
-  auto decoder = TransformerDecoderBlock::declare_skip_block_2(E, d_act, activation, std::move(connection));
-  return decoder;
+  return TransformerEncoderDecoderBlock::transformer_encoder_decoder_block(std::forward<Below>(below),E,nheads,d_act,activation,true);
+}
+template<typename Below, typename ActivationFunc>
+auto transformer_encoder_block(Below &&below,
+			       int E, int nheads, int d_act, const ActivationFunc &activation){
+  return TransformerEncoderDecoderBlock::transformer_encoder_decoder_block(std::forward<Below>(below),E,nheads,d_act,activation,false);
 }

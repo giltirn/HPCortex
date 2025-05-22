@@ -10,4 +10,8 @@ template<typename Below, typename ActivationFunc>
 auto transformer_decoder_block(Below &&below,
 			       int E, int nheads, int d_act, const ActivationFunc &activation);
 
-#include "implementation/TransformerDecoderBlock.tcc"
+template<typename Below, typename ActivationFunc>
+auto transformer_encoder_block(Below &&below,
+			       int E, int nheads, int d_act, const ActivationFunc &activation);
+
+#include "implementation/TransformerEncoderDecoderBlock.tcc"
