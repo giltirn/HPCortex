@@ -141,9 +141,7 @@ Matrix<double> embed(const std::vector<std::string> &context,
     assert(it != vocab_vec.end());    
     pokeRow(out, c, it->second);
   }
-    
-  //Add positional encodings
-  return embedPositionsSinusoidal(out);
+  return out;
 }
 
 std::string cat(const std::vector<std::string> &sentence){
@@ -216,7 +214,7 @@ int main(int argc, char** argv){
   }
     
   //We want to more densely represent these words
-  int d_model_out = 3;
+  int d_model_out = 4;
 
   //We need some sentences to train it on
   //Use a simple tokenizer breaking sentences up around spaces
@@ -239,23 +237,26 @@ int main(int argc, char** argv){
   for(int i=0;i<training_data.size();i++)
     training_data_tens[i] = embed(training_data[i], _1hot_vocab_vec);  
 
-  {
+  constexpr int embedding_dim = 1;
+  constexpr int context_dim = 0;    
+    
+  if(0){
     //Start with a decoder-only model for the 1-hot encoded data to see how it works
     int nheads = 4;
     int d_act = 40;
     int d_model = d_model_in;
-    auto decoder1 = transformer_decoder_block(input_layer<double,Tensor<double,3> >(),
+    auto pos_embed = embed_positions_sinusoidal_layer(input_layer<double,Tensor<double,3> >());
+    
+    auto decoder1 = transformer_decoder_block(pos_embed,
 					      d_model, nheads, d_act, GeLU<double>());
     auto decoder2 = transformer_decoder_block(decoder1,
 					      d_model, nheads, d_act, GeLU<double>());    
     int B = 3;
-    constexpr int embedding_dim = 1;
-    constexpr int context_dim = 0;
   
     auto softmax_head = softmax_layer<3>( //softmax to transform the logits to probabilities
 					 batch_tensor_dnn_layer<3>( //this linear layer transforms the embedding dim into logits for each token in the vocabulary
 								   norm_layer<3>(decoder2, embedding_dim, d_model, true,true), //layer norm over embedding dimension
-								   embedding_dim, vocab.size(), d_model_in, noActivation<double>()
+								   embedding_dim, vocab.size(), d_model, noActivation<double>()
 								    ),
 					 embedding_dim);
 
@@ -268,6 +269,56 @@ int main(int argc, char** argv){
     Loader loader(training_data, training_data_tens);
 
     int nepoch = 150;
+    DecayScheduler<double> lr(0.01, 0.005);
+    AdamOptimizer<double, DecayScheduler<double> > opt(lr);
+    std::vector<double> loss = train(model_with_loss, loader, opt, nepoch, B);
+
+    //Note that the output probabilities accurately reflect the training data
+    std::vector<std::string> sentence;
+    for(int c=0;c<C-2;c++){
+      sentence = predictNext(sentence, C, B, model_with_loss, vocab, _1hot_vocab_vec);
+      std::cout << cat(sentence) << std::endl;
+    }
+  }
+
+  {
+    //Now let's see how well we can do with an embedding
+    int nheads = 4;
+    int d_act = 40;
+    int d_model = d_model_out;
+
+    int d_hidden = 50;
+    auto embedding = batch_tensor_dnn_layer<3>( batch_tensor_dnn_layer<3>(
+									  input_layer<double,Tensor<double,3> >(),
+									  embedding_dim, d_hidden, d_model_in, GeLU<double>()
+									  ),	  
+						embedding_dim, d_model, d_hidden, GeLU<double>()
+						);
+
+    auto pos_embed = embed_positions_sinusoidal_layer(embedding);
+    
+    auto decoder1 = transformer_decoder_block(pos_embed,
+					      d_model, nheads, d_act, GeLU<double>());
+    auto decoder2 = transformer_decoder_block(decoder1,
+					      d_model, nheads, d_act, GeLU<double>());    
+    int B = 3;
+  
+    auto softmax_head = softmax_layer<3>( //softmax to transform the logits to probabilities
+					 batch_tensor_dnn_layer<3>( //this linear layer transforms the embedding dim into logits for each token in the vocabulary
+								   norm_layer<3>(decoder2, embedding_dim, d_model, true,true), //layer norm over embedding dimension
+								   embedding_dim, vocab.size(), d_model, noActivation<double>()
+								    ),
+					 embedding_dim);
+
+    //int sizes[3] = {C,d_model,B};
+    //testDeriv(softmax_head,sizes,sizes, 1e-8);
+  
+    LogLossFunc cf(_1hot_vocab_idx);
+    auto model_with_loss = cost_func_wrap<LogLossFunc>(softmax_head,cf); 
+
+    Loader loader(training_data, training_data_tens);
+
+    int nepoch = 500;
     DecayScheduler<double> lr(0.01, 0.005);
     AdamOptimizer<double, DecayScheduler<double> > opt(lr);
     std::vector<double> loss = train(model_with_loss, loader, opt, nepoch, B);
