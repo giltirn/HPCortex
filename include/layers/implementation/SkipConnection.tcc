@@ -2,8 +2,6 @@ template<typename FloatType, typename InputType, typename ChainInternal, typenam
 SkipConnection<FloatType,InputType,ChainInternal,ChainBelow>::LayerInputOutputType SkipConnection<FloatType,InputType,ChainInternal,ChainBelow>::value(const InputType &x){
   LayerInputOutputType in = leaf_below.v.value(x);
   LayerInputOutputType out = in + leaf_internal.v.value(in);
-  
-  in_buf.push(std::move(in));
   return out;
 }
 
@@ -13,10 +11,6 @@ int SkipConnection<FloatType,InputType,ChainInternal,ChainBelow>::deriv(Vector<F
   LayerInputOutputType layer_deriv;
   {
     LayerInputOutputType above_deriv(std::move(_above_deriv)); //inside the braces above ensures this object is freed before the next layer is called
-      
-    //until the pipeline is "primed", the ring buffers will pop uninitialized values. We could in principle skip doing any computation until then
-    //but for now we just initialize with zero values (TODO: revisit)
-    LayerInputOutputType in = in_buf.isFilled() ? in_buf.pop(): LayerInputOutputType(in_buf.latest());
       
     //f_i(x) = g_i(x) + x_i
 

@@ -3,6 +3,7 @@
 #include <components/MultiHeadAttentionComponent.hpp>
 
 //A layer implementing multi-head scaled dot-product self-attention. The input 3-tensor X is expected to have dimension C * E * B  in this order, where C is the size of the context, E the size of the embedding and B the batch size
+//Require W_Q[i], W_K[i] :  d_qk^(i) x E,     W_V[i] : d_v^(i) x E      W_O :  E x sum_i d_v^(i)
 template<typename _FloatType, typename _InputType, typename Store>
 class MultiHeadSelfAttentionLayer{
 public:
@@ -50,6 +51,17 @@ auto multihead_self_attention_layer(U &&u,
 				    Matrix<FLOATTYPE(U)> const* const* W_Q,
 				    Matrix<FLOATTYPE(U)> const* const* W_K,
 				    Matrix<FLOATTYPE(U)> const* const* W_V,
+				    const Matrix<FLOATTYPE(U)> &W_O,
+				    bool use_mask = false)-> LAYER_TYPE{
+  return LAYER_TYPE(std::forward<U>(u), Nheads, W_Q, W_K, W_V, W_O, use_mask);
+}
+
+template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
+auto multihead_self_attention_layer(U &&u,
+				    int Nheads,
+				    const std::vector<Matrix<FLOATTYPE(U)> > &W_Q,
+				    const std::vector<Matrix<FLOATTYPE(U)> > &W_K,
+				    const std::vector<Matrix<FLOATTYPE(U)> > &W_V,
 				    const Matrix<FLOATTYPE(U)> &W_O,
 				    bool use_mask = false)-> LAYER_TYPE{
   return LAYER_TYPE(std::forward<U>(u), Nheads, W_Q, W_K, W_V, W_O, use_mask);

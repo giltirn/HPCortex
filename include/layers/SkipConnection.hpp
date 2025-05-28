@@ -11,7 +11,6 @@ public:
 private:
   ChainBelow leaf_below;
   ChainInternal leaf_internal; //must terminate on an InputLayer (even though it's not really an input layer)
-  mutable RingBuffer<LayerInputOutputType> in_buf;
 public:
   typedef LeafTag tag;
   
@@ -37,7 +36,6 @@ public:
 
   //For pipelining
   inline void resizeInputBuffer(size_t to){
-    in_buf.resize(to);
     leaf_internal.v.resizeInputBuffer(to);
     leaf_below.v.resizeInputBuffer(to);
   }

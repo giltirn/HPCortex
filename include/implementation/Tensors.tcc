@@ -248,6 +248,17 @@ Vector<FloatType> flatten(const Tensor<FloatType,Dim> &t){
 }
 
 template<int Dim, typename FloatType>
+FloatType * flatten(FloatType* host_ptr, const Tensor<FloatType,Dim> &in){
+  size_t in_sz = in.data_len();
+  {
+    autoView(in_v,in,HostRead);
+    memcpy(host_ptr, in_v.data(), in_sz * sizeof(FloatType));
+  }
+  return host_ptr + in_sz;
+}
+
+
+template<int Dim, typename FloatType>
 void unflatten(Tensor<FloatType,Dim> &out, const Vector<FloatType> &t){
   size_t sz = t.size(0);
   size_t test_sz= out.data_len();
@@ -257,6 +268,16 @@ void unflatten(Tensor<FloatType,Dim> &out, const Vector<FloatType> &t){
     autoView(t_v,t,DeviceRead);
     acceleratorCopyDeviceToDevice(out_v.data(),t_v.data(),sz*sizeof(FloatType));
   }
+}
+
+template<int Dim, typename FloatType>
+FloatType const* unflatten(Tensor<FloatType,Dim> &out, FloatType const* host_ptr){
+  size_t sz= out.data_len();
+  {
+    autoView(out_v,out,HostWrite);
+    memcpy(out_v.data(), host_ptr, sz*sizeof(FloatType));
+  }
+  return host_ptr + sz;
 }
 
 

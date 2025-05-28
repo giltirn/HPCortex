@@ -138,10 +138,13 @@ void testMultiHeadCrossAttention(){
   Matrix<FloatType> in_W_O(d_o,dsv);
   uniformRandom(in_W_O,rng);
 
+  typedef Tensor<FloatType,3> TensorType;
+  typedef std::pair<TensorType,TensorType> TensorPair;
+  
   for(int use_mask=0;use_mask<2;use_mask++){
-    auto model = multihead_cross_attention_layer(
-						 input_layer<FloatType, Tensor<FloatType,3> >(),
-						 input_layer<FloatType, Tensor<FloatType,3> >(),
+    auto splt = pair_split_layer(input_layer<FloatType, TensorPair>());
+    
+    auto model = multihead_cross_attention_layer(*splt.first,*splt.second,
 						 Nheads, in_W_Q_p.data(), in_W_K_p.data(), in_W_V_p.data(), in_W_O, use_mask
 						 );
     typedef Tensor<FloatType,3> TensorType;

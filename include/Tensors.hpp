@@ -297,9 +297,19 @@ inline Tensor<FloatType,Dim> operator*(const Tensor<FloatType,Dim> &b, FloatType
 template<int Dim, typename FloatType>
 Vector<FloatType> flatten(const Tensor<FloatType,Dim> &t);
 
+//flatten a tensor into a *host* array pointer. Return the pointer to the element following the flattened tensor
+//note, this is not intended for performance-critical applications
+template<int Dim, typename FloatType>
+FloatType * flatten(FloatType* host_ptr, const Tensor<FloatType,Dim> &in);
+
 //unflatten a vector into a tensor. The output tensor sizes should be set correctly
 template<int Dim, typename FloatType>
 void unflatten(Tensor<FloatType,Dim> &out, const Vector<FloatType> &t);
+
+//unflatten a tensor from a *host* array pointer. Return the pointer to the element following the flattened tensor
+//note, this is not intended for performance-critical applications
+template<int Dim, typename FloatType>
+FloatType const* unflatten(Tensor<FloatType,Dim> &out, FloatType const* host_ptr);
 
 //flatten two tensors into a single contiguous array
 template<int Dim1, int Dim2, typename FloatType>

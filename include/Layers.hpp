@@ -14,3 +14,7 @@
 #include<layers/NormLayer.hpp>
 #include<layers/TransformerEncoderDecoderBlock.hpp>
 #include<layers/EmbedPositionsSinusoidalLayer.hpp>
+#include<layers/PairSplitLayer.hpp>
+#include<layers/PairJoinLayer.hpp>
+#include<layers/ReplicateLayer.hpp>
+#include<layers/SumJoinLayer.hpp>

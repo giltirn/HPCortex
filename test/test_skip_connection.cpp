@@ -152,11 +152,42 @@ void testSkipConnectionTensor(){
   testDeriv(skip, tens_size,tens_size);
 }
 
+void testSkipConnectionTensorSplitJoin(){
+  typedef double FloatType; 
+  FloatType delta = 1e-6;
+  typedef std::vector<FloatType> vecD;
+  std::mt19937 rng(1234);
+  
+  typedef Tensor<FloatType,3> TensorType;
+
+  int tens_size[3] = {3,4,5};
+  
+  Matrix<FloatType> w1_init(4,4);
+  Vector<FloatType> b1_init(4);
+  uniformRandom(w1_init,rng);
+  uniformRandom(b1_init,rng);
+
+  auto repl = replicate_layer(input_layer<FloatType,TensorType>(),2);
+  auto chn = batch_tensor_dnn_layer<3>(*repl[0], w1_init, b1_init, 1, ReLU<FloatType>());
+  auto join = sum_join_layer(chn,*repl[1]);
+  
+  auto skip_over = batch_tensor_dnn_layer<3>(input_layer<FloatType,TensorType>(), w1_init, b1_init, 1, ReLU<FloatType>());
+  
+  TensorType x(tens_size);
+  uniformRandom(x,rng);
+
+  TensorType got = join.value(x);
+  TensorType expect = x + skip_over.value(x);
+  assert(abs_near(got,expect,1e-5,true));
+
+  testDeriv(join, tens_size,tens_size);
+}
 
 
 int main(int argc, char** argv){
   initialize(argc,argv);
   testSkipConnection();
-  testSkipConnectionTensor();  
+  testSkipConnectionTensor();
+  testSkipConnectionTensorSplitJoin();  
   return 0;
 }
