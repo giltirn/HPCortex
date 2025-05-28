@@ -292,7 +292,7 @@ void testDeriv(ModelType &model, int const* in_sizes, int const* out_sizes, type
 
 //Same as the above but uses a wrapper object to linearize all inputs and outputs to vectors, allowing more complex usage patterns
 template<typename ComponentWrapper>
-void testComponentDeriv(ComponentWrapper &cpt, typename ComponentWrapper::FloatType delta = typename ComponentWrapper::FloatType(1e-4)){
+void testComponentDeriv(ComponentWrapper &cpt, typename ComponentWrapper::FloatType delta = typename ComponentWrapper::FloatType(1e-4), bool _2nd_order =false){
   typedef typename ComponentWrapper::FloatType FloatType;
   
   std::mt19937 rng(1987);
@@ -350,8 +350,18 @@ void testComponentDeriv(ComponentWrapper &cpt, typename ComponentWrapper::FloatT
     
     Vector<FloatType> vup = cpt.value(in_base);
     FloatType new_cost = testCost(c, vup);
-
     FloatType der = (new_cost - cost_base)/delta;
+    
+    if(_2nd_order){
+      pup = base_params;
+      doHost(pup, { pup_v(j) -= delta; });
+      cpt.update(0,pup);
+      vup = cpt.value(in_base);
+      FloatType new_cost_neg = testCost(c, vup);
+
+      der = (new_cost - new_cost_neg)/(2*delta);
+    }
+      
     doHost(pderiv_got, {
 	std::cout << "Cost deriv wrt param " << j << " got " << pderiv_got_v(j) << " expect " << der << std::endl;
 	assert(abs_near(der, pderiv_got_v(j), 1e-4)); 
@@ -367,9 +377,18 @@ void testComponentDeriv(ComponentWrapper &cpt, typename ComponentWrapper::FloatT
     doHost(xup, { xup_v.data()[j] += delta; });
 
     Vector<FloatType> vup = cpt.value(xup);
-    FloatType new_cost = testCost(c, vup);
-
+    FloatType new_cost = testCost(c, vup);   
     FloatType der = (new_cost - cost_base)/delta;
+
+    if(_2nd_order){
+      xup = in_base;
+      doHost(xup, { xup_v.data()[j] -= delta; });
+
+      vup = cpt.value(xup);
+      FloatType new_cost_neg = testCost(c, vup);
+      der = (new_cost - new_cost_neg)/(2*delta);
+    }     
+    
     doHost(inderiv_got, {
 	FloatType der_got = inderiv_got_v.data()[j];
 	std::cout << "Cost deriv wrt input linear idx " << j << "=" << cpt.inCoord(j) << " got " << der_got << " expect " << der << std::endl;

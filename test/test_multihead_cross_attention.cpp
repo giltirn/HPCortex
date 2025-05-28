@@ -50,12 +50,9 @@ struct MultiHeadCrossAttentionLayerWrapper{
   Vector<FloatType> value(const Vector<FloatType> &in){
     std::pair<Tensor<FloatType,3>, Tensor<FloatType,3> > X({ Tensor<FloatType,3>(sizeQK), Tensor<FloatType,3>(sizeV) });
     {
-      autoView(XQK_v, X.first, HostWrite);
-      autoView(XV_v, X.second, HostWrite);
-      autoView(in_v, in, HostRead);
-    
-      memcpy(XQK_v.data(),in_v.data()              , size_lin_QK*sizeof(FloatType));
-      memcpy(XV_v.data(), in_v.data() + size_lin_QK, size_lin_V*sizeof(FloatType));
+      autoView(in_v,in,HostRead);
+      FloatType const* p = in_v.data();
+      p = unflatten(X.first,p); unflatten(X.second,p);
     }           
     return flatten(cpt.value(X));
   }
@@ -69,12 +66,9 @@ struct MultiHeadCrossAttentionLayerWrapper{
     
     cost_deriv_inputs = Vector<FloatType>(size_lin_QK+size_lin_V);
     {
-      autoView(XQK_v, dcost_by_dIn.first, HostRead);
-      autoView(XV_v, dcost_by_dIn.second, HostRead);
       autoView(out_v, cost_deriv_inputs, HostRead);
-    
-      memcpy(out_v.data(), XQK_v.data(), size_lin_QK*sizeof(FloatType));
-      memcpy(out_v.data() + size_lin_QK, XV_v.data(), size_lin_V*sizeof(FloatType));
+      FloatType* p = out_v.data();
+      p = flatten(p,dcost_by_dIn.first); flatten(p,dcost_by_dIn.second);
     }      
   }
     
