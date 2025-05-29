@@ -75,7 +75,7 @@ namespace TransformerEncoderDecoderBlock{
 								std::move(*repl[0]),
 								embedding_dim, E, true, true
 								),
-						  nheads, E, true //always use mask
+						  nheads, E, false //don't use mask as we need to consider the whole context on the QK side
 						  );
     return sum_join_layer( std::move(xlayer),
 			   std::move(*repl[1]) );
@@ -84,7 +84,7 @@ namespace TransformerEncoderDecoderBlock{
   template<typename EncoderInput, typename DecoderInput, typename ActivationFunc>
   auto transformer_cross_decoder_block(EncoderInput &&encoder_in, DecoderInput &&decoder_in,
 				       int E, int nheads, int d_act , const ActivationFunc &activation){
-    auto block1 = declare_skip_block_1(std::forward<DecoderInput>(decoder_in),E,nheads, true); //use mask
+    auto block1 = declare_skip_block_1(std::forward<DecoderInput>(decoder_in),E,nheads, true); //use masking on the decoder side
     auto block2 = declare_cross_attention_block(std::forward<EncoderInput>(encoder_in), std::move(block1), E, nheads);
     auto connection = declare_block_connection(E,std::move(block2));
     auto decoder = declare_skip_block_2(E, d_act, activation, std::move(connection));

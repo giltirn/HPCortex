@@ -2,7 +2,7 @@
 #include <Testing.hpp>
 
 template<typename FloatType>
-Tensor<FloatType,3> naiveImpl(const Tensor<FloatType,3> &XQK, const Tensor<FloatType,3> &XV,
+Tensor<FloatType,3> naiveImpl(const Tensor<FloatType,3> &XKV, const Tensor<FloatType,3> &XQ,
 			      const std::vector< Matrix<FloatType> > &W_Q,
 			      const std::vector< Matrix<FloatType> > &W_K,
 			      const std::vector< Matrix<FloatType> > &W_V,
@@ -15,7 +15,7 @@ Tensor<FloatType,3> naiveImpl(const Tensor<FloatType,3> &XQK, const Tensor<Float
     W_V_p[i] = &W_V[i];
   }
   MultiHeadAttentionComponent<FloatType> cpt(Nheads, W_Q_p.data(), W_K_p.data(), W_V_p.data(), W_O, use_mask);
-  return cpt.value(XQK, XQK, XV);
+  return cpt.value(XQ, XKV, XKV);
 }
 
 template<typename LayerType>
@@ -23,32 +23,32 @@ struct MultiHeadCrossAttentionLayerWrapper{
   typedef typename LayerType::FloatType FloatType;
   
   LayerType &cpt;
-  int sizeQK[3];
-  int sizeV[3];
+  int sizeKV[3];
+  int sizeQ[3];
   int sizeOut[3];
   
-  size_t size_lin_QK;
-  size_t size_lin_V;
+  size_t size_lin_KV;
+  size_t size_lin_Q;
   size_t size_lin_Out;
 
-  MultiHeadCrossAttentionLayerWrapper(LayerType &cpt, int const* szOut, int const *szQK, int const *szV): cpt(cpt){
-    memcpy(sizeQK,szQK,3*sizeof(int));
-    memcpy(sizeV,szV,3*sizeof(int));
+  MultiHeadCrossAttentionLayerWrapper(LayerType &cpt, int const* szOut, int const *szKV, int const *szQ): cpt(cpt){
+    memcpy(sizeKV,szKV,3*sizeof(int));
+    memcpy(sizeQ,szQ,3*sizeof(int));
     memcpy(sizeOut,szOut,3*sizeof(int));
     
-    size_lin_QK = size_lin_V = size_lin_Out = 1;
+    size_lin_KV = size_lin_Q = size_lin_Out = 1;
     for(int i=0;i<3;i++){
-      size_lin_QK *= szQK[i];
-      size_lin_V *= szV[i];
+      size_lin_KV *= szKV[i];
+      size_lin_Q *= szQ[i];
       size_lin_Out *= szOut[i];
     }
   }
 
   size_t outputLinearSize() const{ return size_lin_Out; }
-  size_t inputLinearSize() const{ return size_lin_QK + size_lin_V; }
+  size_t inputLinearSize() const{ return size_lin_KV + size_lin_Q; }
   
   Vector<FloatType> value(const Vector<FloatType> &in){
-    std::pair<Tensor<FloatType,3>, Tensor<FloatType,3> > X({ Tensor<FloatType,3>(sizeQK), Tensor<FloatType,3>(sizeV) });
+    std::pair<Tensor<FloatType,3>, Tensor<FloatType,3> > X({ Tensor<FloatType,3>(sizeKV), Tensor<FloatType,3>(sizeQ) });
     {
       autoView(in_v,in,HostRead);
       FloatType const* p = in_v.data();
@@ -64,7 +64,7 @@ struct MultiHeadCrossAttentionLayerWrapper{
     std::pair<Tensor<FloatType,3>, Tensor<FloatType,3> > dcost_by_dIn;
     cpt.deriv(cost_deriv_params, off, std::move(above_deriv), &dcost_by_dIn);
     
-    cost_deriv_inputs = Vector<FloatType>(size_lin_QK+size_lin_V);
+    cost_deriv_inputs = Vector<FloatType>(size_lin_KV+size_lin_Q);
     {
       autoView(out_v, cost_deriv_inputs, HostRead);
       FloatType* p = out_v.data();

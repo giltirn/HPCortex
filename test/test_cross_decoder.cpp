@@ -141,7 +141,7 @@ void testCrossDecoder(){
   assert(abs_near(got,expect, FloatType(1e-8), true));
   
   CrossDecoderWrapper<typename std::decay<decltype(xdecoder)>::type> wrp(xdecoder,C,E,B);
-  testComponentDeriv(wrp, FloatType(1e-6));
+  testComponentDeriv(wrp, FloatType(1e-9), true);
 
   std::cout << "testCrossDecoder passed" << std::endl;
 }
@@ -158,7 +158,7 @@ void testCrossDecoderMultiBlock(){
 
   int C = 3;
   int E = 4;
-  int B = 5;
+  int B = 2;
   int nheads = 2;
   int d_act = 7;
 
