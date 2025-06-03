@@ -3,7 +3,10 @@ AM_CPPFLAGS = -I$(top_srcdir)/include
 AM_LDFLAGS = -Wl,-rpath=$(prefix)/lib
 LDADD = -L$(top_builddir)/src -lmlcortex
 benchmarkdir = $(prefix)/benchmark
-benchmark_PROGRAMS = benchmark_dnn benchmark_activated_deriv benchmark_thin_mul_mat_mattranspose benchmark_mul_mattranspose_thinmat 
+benchmark_PROGRAMS = benchmark_matrixBatchTensorContractRight benchmark_dnn benchmark_activated_deriv benchmark_thin_mul_mat_mattranspose benchmark_mul_mattranspose_thinmat benchmark_batchTensorContractToMatrix benchmark_matrixBatchTensorAxpy 
+benchmark_matrixBatchTensorContractRight_SOURCES = benchmark_matrixBatchTensorContractRight.cpp 
+benchmark_matrixBatchTensorContractRight_LDADD = $(LDADD)
+benchmark_matrixBatchTensorContractRight_LINK = $(CXXLD) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 benchmark_dnn_SOURCES = benchmark_dnn.cpp 
 benchmark_dnn_LDADD = $(LDADD)
 benchmark_dnn_LINK = $(CXXLD) $(AM_LDFLAGS) $(LDFLAGS) -o $@
@@ -16,4 +19,10 @@ benchmark_thin_mul_mat_mattranspose_LINK = $(CXXLD) $(AM_LDFLAGS) $(LDFLAGS) -o 
 benchmark_mul_mattranspose_thinmat_SOURCES = benchmark_mul_mattranspose_thinmat.cpp 
 benchmark_mul_mattranspose_thinmat_LDADD = $(LDADD)
 benchmark_mul_mattranspose_thinmat_LINK = $(CXXLD) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+benchmark_batchTensorContractToMatrix_SOURCES = benchmark_batchTensorContractToMatrix.cpp 
+benchmark_batchTensorContractToMatrix_LDADD = $(LDADD)
+benchmark_batchTensorContractToMatrix_LINK = $(CXXLD) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+benchmark_matrixBatchTensorAxpy_SOURCES = benchmark_matrixBatchTensorAxpy.cpp 
+benchmark_matrixBatchTensorAxpy_LDADD = $(LDADD)
+benchmark_matrixBatchTensorAxpy_LINK = $(CXXLD) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 

@@ -27,9 +27,9 @@ void thinMulMatMatTranspose_p(FloatType* out_p, const Matrix<FloatType> &a, cons
   assert(iblocksize == 2*jblocksize);
   
   accelerator_for3d_shm(jk,jblocksize*kblocksize, bk, kblocks,bj,jblocks,   1, (jblocksize + kblocksize) * iblocksize*sizeof(FloatType),  {
-      extern __shared__ FloatType shared[];
-      FloatType *abuf = shared;
-      FloatType *bbuf = shared + jblocksize * iblocksize;
+      extern __shared__ char shared[];
+      FloatType *abuf = (FloatType*)shared;
+      FloatType *bbuf = (FloatType*)shared + jblocksize * iblocksize;
       
       //jk = kk+kblocksize*jj
       int kk = jk % kblocksize;
@@ -151,9 +151,9 @@ Matrix<FloatType> mulMatTransposeThinMat(const Matrix<FloatType> &a, const Matri
 	int bk = bjk % nkblocks;
 	int bj = bjk / nkblocks;
       
-	extern __shared__ FloatType shared[];
-	FloatType* shared_a = shared;
-	FloatType* shared_b = shared + iblocksize*jblocksize;
+	extern __shared__ char shared[];
+	FloatType* shared_a = (FloatType*)shared;
+	FloatType* shared_b = (FloatType*)shared + iblocksize*jblocksize;
       
 	int ibase = iblocksize * bi;
 	int irem = sizei - ibase;
@@ -319,5 +319,333 @@ Tensor<FloatType,3> batch3tensorContract(const Tensor<FloatType,3> &A, const Ten
 }
 
   
+//A_{ij} X_{..., j, ..., b}  + Y_i
+template<typename FloatType,int Dim>
+Tensor<FloatType,Dim> matrixBatchTensorAxpy(const Matrix<FloatType> &A, const Tensor<FloatType,Dim> &X, const Vector<FloatType> &Y, const int contract_dim){
+  int out_dims[Dim];
+  memcpy(out_dims,X.sizeArray(),Dim*sizeof(int));
+  out_dims[contract_dim] = A.size(0);
+
+  assert(X.size(contract_dim) == A.size(1));
+  assert(contract_dim != Dim-1); //not the batch dimension
+
+  size_t other_size = 1;
+  for(int d=0;d<Dim-1;d++)
+    if(d!= contract_dim)
+      other_size *= X.size(d);
+
+  int batch_size = X.size(Dim-1);
+
+  int _sizej = A.size(1);
+  int _sizei = A.size(0);
+  int _contract_dim = contract_dim;
+  size_t _stride = tensorDimensionStride<Dim>(contract_dim, X.sizeArray());
   
+  Tensor<FloatType,Dim> out(out_dims); 
+  {
+    autoView(X_v, X, DeviceRead);
+    autoView(Y_v, Y, DeviceRead);
+    autoView(A_v, A, DeviceRead);
+    autoView(out_v, out, DeviceWrite);
   
+#ifdef USE_CUDA
+    int jblocksz = 64;
+    int jblocks = (_sizej + jblocksz -1)/jblocksz;
+
+    constexpr int oblocksz = 4;
+    int oblocks = (other_size + oblocksz - 1)/oblocksz;
+    
+    accelerator_for3d_shm(b, batch_size, i, _sizei, bo, oblocks,    1, (jblocksz*sizeof(FloatType) + 2*oblocksz*sizeof(size_t)  ), {
+	extern __shared__ char shared[];
+	size_t* off_X_o = (size_t*)shared;
+	size_t* off_out_o = (size_t*)(shared + oblocksz*sizeof(size_t));
+	FloatType* shared_A = (FloatType*)(shared + 2*oblocksz*sizeof(size_t));
+	
+	//Compute offsets
+	int oblocksz_actual = other_size - bo*oblocksz < oblocksz ? other_size - bo*oblocksz : oblocksz;
+	int oo=b;
+	while(oo < oblocksz_actual){
+	  int o = oo + bo*oblocksz;
+	  off_X_o[oo] = batchTensorDimensionBaseLin<Dim>(_contract_dim, 0, o, X_v.sizeArray());
+	  off_out_o[oo] = batchTensorDimensionBaseLin<Dim>(_contract_dim, 0, o, out_v.sizeArray());
+	  oo += batch_size;
+	}
+	acceleratorSynchronizeBlock();
+	
+	FloatType out_oib[oblocksz] = {0.};
+	int jbase = 0;
+	for(int bj=0;bj<jblocks;bj++){
+	  int jblocksz_actual = _sizej - jbase < jblocksz ? _sizej - jbase : jblocksz;
+
+	  //Load A_v(i,:) in parallel
+	  int jj=b;
+	  while(jj<jblocksz_actual){
+	    shared_A[jj] = A_v(i,jbase+jj);
+	    jj+= batch_size;
+	  }
+	  acceleratorSynchronizeBlock();
+
+	  for(int oo=0;oo<oblocksz_actual;oo++){	  
+	    FloatType *X_p = X_v.data() + off_X_o[oo] + b + _stride*jbase;
+	  
+	    for(int jj=0;jj<jblocksz_actual;jj++){
+	      out_oib[oo] += shared_A[jj] * (*X_p);
+	      X_p += _stride;
+	    }
+	  }
+
+	  acceleratorSynchronizeBlock();
+	  
+	  jbase += jblocksz;
+	}
+
+	for(int oo=0;oo<oblocksz_actual;oo++){	
+	  out_v.data()[off_out_o[oo] + b + _stride*i] = out_oib[oo]  + Y_v(i);
+	}
+	
+      });
+  
+
+#else
+  
+    accelerator_for3d(b, batch_size, i, _sizei, o, other_size,    1, {
+	size_t off_X = batchTensorDimensionBaseLin<Dim>(_contract_dim, b, o, X_v.sizeArray());
+	size_t off_out = batchTensorDimensionBaseLin<Dim>(_contract_dim, b, o, out_v.sizeArray());
+	FloatType *X_p = X_v.data() + off_X;
+	
+	FloatType out_oib = A_v(i,0) * (*X_p);
+	X_p += _stride;
+	
+	for(int j=1;j<_sizej;j++){
+	  out_oib += A_v(i,j) * (*X_p);
+	  X_p += _stride;
+	}	  
+	
+	out_v.data()[off_out + _stride*i] = out_oib  + Y_v(i);
+      });
+
+#endif
+    
+  }
+  return out;
+}
+  
+//out_jk =  \sum_{b,...} A_{..,j,.., b} B_{..,k,...b}
+//Both tensors must have the same dimension, and the sizes of dimensions other that preserve_dim must all be equal
+//preserve_dim:  the index of the dimension that is preserved in the output matrix (that of j, k in the above)
+//out: a *device* pointer to the output matrix' underlying array, that should be *zero initialized*. Output is stored in the usual lexicographic format, for the above   k+sizek*j
+template<typename FloatType, int Dim>
+void batchTensorContractToMatrix_p(FloatType* out_p, const Tensor<FloatType,Dim> &A, const Tensor<FloatType,Dim> &B, const int preserve_dim){
+  int batch_size = A.size(Dim-1);
+  assert(B.size(Dim-1)==batch_size);
+  size_t other_size = 1;
+  for(int d=0;d<Dim-1;d++)
+    if(d != preserve_dim){
+      other_size *= A.size(d);
+      assert(A.size(d) == B.size(d));
+    }
+  int sizej = A.size(preserve_dim);
+  int sizek = B.size(preserve_dim);
+
+  //As the stride between elements in 'preserve_dim' does not depend on the size of this dimension (only those of larger dim), and other sizes are all the same, they will share the same stride
+  size_t stride = tensorDimensionStride<Dim>(preserve_dim, A.sizeArray());
+
+  autoView(A_v,A,DeviceRead);
+  autoView(B_v,B,DeviceRead);
+
+#ifdef USE_CUDA
+  int oblocksz = 32;
+  int oblocks = (other_size + oblocksz - 1)/oblocksz;
+
+  int bblocksz = std::min(batch_size,16);
+  int bblocks = (batch_size + bblocksz - 1)/bblocksz;
+
+  int jkblocksz = 32;
+  int jkblocks = (sizej * sizek + jkblocksz - 1)/jkblocksz;
+  
+  size_t shmsize = std::max(2*oblocksz*sizeof(size_t), bblocksz*jkblocksz*sizeof(FloatType));
+
+  accelerator_for_2_3_shm(bb, bblocksz, jjkk, jkblocksz, bblock, bblocks, bjk, jkblocks, bo, oblocks, shmsize,  {
+      extern __shared__ char _shared[];
+      size_t* aoff = (size_t*)_shared;
+      size_t* boff = (size_t*)(_shared + oblocksz*sizeof(size_t) );
+  
+      int oblocksz_actual = other_size - bo*oblocksz < oblocksz ? other_size - bo*oblocksz : oblocksz;
+        
+      int jk = jjkk + jkblocksz * bjk;
+      int k = jk % sizek;
+      int j = jk / sizek;  //jk = k+sizek*j
+      int b = bb + bblocksz * bblock;
+      
+      int oo = bb + bblocksz*jjkk;
+      while(oo < oblocksz_actual){
+	int o = bo*oblocksz + oo;
+	aoff[oo] = batchTensorDimensionBaseLin<Dim>(preserve_dim, 0, o, A_v.sizeArray());
+	boff[oo] = batchTensorDimensionBaseLin<Dim>(preserve_dim, 0, o, B_v.sizeArray());
+	oo += bblocksz*jkblocksz;
+      }
+      acceleratorSynchronizeBlock();
+      FloatType delta = 0;
+      if(b < batch_size){
+	FloatType* A_pb = A_v.data() + b + stride*j;
+	FloatType* B_pb = B_v.data() + b + stride*k;	
+	
+	for(int oo=0;oo<oblocksz_actual;oo++){
+	  FloatType* A_p = A_pb + aoff[oo];
+	  FloatType* B_p = B_pb + boff[oo];
+	  delta += (*A_p) * (*B_p);
+	}
+      }
+      acceleratorSynchronizeBlock();
+
+      FloatType* sharedp = (FloatType*)(_shared + bblocksz*jjkk*sizeof(FloatType));
+      
+      sharedp[bb] = delta;
+      acceleratorSynchronizeBlock();
+
+      int rem = bblocksz;
+      while( (rem & 0x1) == 0x0){
+	int remd2 = rem >> 1;
+	if(bb<remd2)
+	  sharedp[bb] += sharedp[bb+remd2];
+	rem = remd2;
+	acceleratorSynchronizeBlock();
+      }
+      if(bb == 0){
+	delta = sharedp[0];
+	for(int bbb=1;bbb<rem;bbb++)
+	  delta += sharedp[bbb];
+	if(j<sizej && k<sizek) atomicAdd(out_p + jk,  delta);
+      }
+    });
+
+#else
+  
+  accelerator_for3d(dummy,1, jk, sizej*sizek, o, other_size, 64,{ 
+      int k = jk % sizek;
+      int j = jk / sizek;  //jk = k+sizek*j
+      //Sum over batch index, neighboring in memory
+      FloatType* A_p = A_v.data() + batchTensorDimensionBaseLin<Dim>(preserve_dim, 0, o, A_v.sizeArray()) + stride*j;
+      FloatType* B_p = B_v.data() + batchTensorDimensionBaseLin<Dim>(preserve_dim, 0, o, B_v.sizeArray()) + stride*k;
+
+      FloatType v = (*A_p++) * (*B_p++);
+      for(int b=1;b<batch_size;b++)
+	v += (*A_p++) * (*B_p++);
+      atomicAdd(out_p + jk,  v); //sum over o
+    });
+
+#endif
+}
+
+
+
+//X_{..., i, ..., b}A_{ij} 
+template<typename FloatType,int Dim>
+Tensor<FloatType,Dim> matrixBatchTensorContractRight(const Tensor<FloatType,Dim> &X, const Matrix<FloatType> &A, const int contract_dim){
+  int out_dims[Dim];
+  memcpy(out_dims,X.sizeArray(),Dim*sizeof(int));
+  out_dims[contract_dim] = A.size(1);
+
+  assert(X.size(contract_dim) == A.size(0));
+  assert(contract_dim != Dim-1); //not the batch dimension
+
+  size_t other_size = 1;
+  for(int d=0;d<Dim-1;d++)
+    if(d!= contract_dim)
+      other_size *= X.size(d);
+
+  int batch_size = X.size(Dim-1);
+  
+  int sizei = A.size(0);
+  int sizej = A.size(1);
+
+  size_t stride = tensorDimensionStride<Dim>(contract_dim, X.sizeArray());
+  
+  Tensor<FloatType,Dim> out(out_dims); 
+  {
+    autoView(X_v, X, DeviceRead);
+    autoView(A_v, A, DeviceRead);
+    autoView(out_v, out, DeviceWrite);
+
+#ifdef USE_CUDA
+    
+    int iblocksz = 64;
+    int iblocks = (sizei + iblocksz -1)/iblocksz;
+
+    constexpr int oblocksz = 4;
+    int oblocks = (other_size + oblocksz - 1)/oblocksz;
+    
+    accelerator_for3d_shm(b, batch_size, j, sizej, bo, oblocks,    1, (iblocksz*sizeof(FloatType) + 2*oblocksz*sizeof(size_t)  ), {
+	extern __shared__ char shared[];
+	size_t* off_X_o = (size_t*)shared;
+	size_t* off_out_o = (size_t*)(shared + oblocksz*sizeof(size_t));
+	FloatType* shared_A = (FloatType*)(shared + 2*oblocksz*sizeof(size_t));
+	
+	//Compute offsets
+	int oblocksz_actual = other_size - bo*oblocksz < oblocksz ? other_size - bo*oblocksz : oblocksz;
+	int oo=b;
+	while(oo < oblocksz_actual){
+	  int o = oo + bo*oblocksz;
+	  off_X_o[oo] = batchTensorDimensionBaseLin<Dim>(contract_dim, 0, o, X_v.sizeArray());
+	  off_out_o[oo] = batchTensorDimensionBaseLin<Dim>(contract_dim, 0, o, out_v.sizeArray());
+	  oo += batch_size;
+	}
+	acceleratorSynchronizeBlock();
+	
+	FloatType out_ojb[oblocksz] = {0.};
+	int ibase = 0;
+	for(int bi=0;bi<iblocks;bi++){
+	  int iblocksz_actual = sizei - ibase < iblocksz ? sizei - ibase : iblocksz;
+
+	  //Load A_v(:,j) in parallel
+	  int ii=b;
+	  while(ii<iblocksz_actual){
+	    shared_A[ii] = A_v(ibase+ii,j);
+	    ii+= batch_size;
+	  }
+	  acceleratorSynchronizeBlock();
+
+	  for(int oo=0;oo<oblocksz_actual;oo++){	  
+	    FloatType *X_p = X_v.data() + off_X_o[oo] + b + stride*ibase;
+	  
+	    for(int ii=0;ii<iblocksz_actual;ii++){
+	      out_ojb[oo] += shared_A[ii] * (*X_p);
+	      X_p += stride;
+	    }
+	  }
+
+	  acceleratorSynchronizeBlock();
+	  
+	  ibase += iblocksz;
+	}
+
+	for(int oo=0;oo<oblocksz_actual;oo++){	
+	  out_v.data()[off_out_o[oo] + b + stride*j] = out_ojb[oo];
+	}
+	
+      });  
+
+#else
+    
+    accelerator_for3d(b, batch_size, j, sizej, o, other_size, 1, { 
+	size_t out_poff = batchTensorDimensionBaseLin<Dim>(contract_dim, b, o, out_v.sizeArray());
+	size_t X_poff =  batchTensorDimensionBaseLin<Dim>(contract_dim, b, o, X_v.sizeArray());
+
+	FloatType* X_p =  X_v.data() + X_poff;
+	FloatType v = (*X_p)*A_v(0,j);
+	X_p += stride;
+	
+	for(int i=1;i<sizei;i++){
+	  v +=(*X_p)*A_v(i,j);
+	  X_p += stride;
+	}
+	out_v.data()[out_poff + j*stride] = v;
+      });
+
+#endif
+
+
+    
+  }
+  return out;
+}

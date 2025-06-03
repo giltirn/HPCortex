@@ -126,7 +126,6 @@ void testSkipConnection(){
 
 void testSkipConnectionTensor(){
   typedef double FloatType; 
-  FloatType delta = 1e-6;
   typedef std::vector<FloatType> vecD;
   std::mt19937 rng(1234);
   
@@ -154,7 +153,6 @@ void testSkipConnectionTensor(){
 
 void testSkipConnectionTensorSplitJoin(){
   typedef double FloatType; 
-  FloatType delta = 1e-6;
   typedef std::vector<FloatType> vecD;
   std::mt19937 rng(1234);
   

@@ -76,6 +76,77 @@ void LambdaApply(uint64_t num1, uint64_t num2, uint64_t num3, uint64_t block2, l
     }									\
   }
 
+template<typename lambda>  __global__
+void LambdaApply1_3(uint64_t num1, uint64_t num2, uint64_t num3, uint64_t num4, uint64_t block2, lambda Lambda)
+{
+  uint64_t x = threadIdx.x; //all of num1 within the block
+  uint64_t y = threadIdx.y + block2*blockIdx.x; //note ordering of cu_blocks indices below
+  uint64_t z = blockIdx.y;
+  uint64_t t = blockIdx.z;
+  
+  if ( (x < num1) && (y<num2) && (z<num3) && (t<num4) ) {
+    Lambda(x,y,z,t);
+  }
+}
+
+//1 iterable within block, 3 over blocks
+#define accelerator_for_1_3_NB_shm( iter1, num1, iter2, num2, iter3, num3, iter4, num4, block2, shm_size, ... ) \
+  {									\
+    if ( num1*num2*num3*num4 ) {							\
+      typedef uint64_t Iterator;					\
+      auto lambda = [=] __device__					\
+	(Iterator iter1,Iterator iter2,Iterator iter3, Iterator iter4) mutable {	\
+		      __VA_ARGS__;					\
+		    };							\
+      dim3 cu_threads(num1,block2,1);			\
+      dim3 cu_blocks ((num2+block2-1)/block2,num3,num4);				\
+      LambdaApply1_3<<<cu_blocks,cu_threads,shm_size,computeStream>>>(num1,num2,num3,num4,block2,lambda); \
+    }									\
+  }
+
+#define accelerator_for_1_3_shm( iter1, num1, iter2, num2, iter3, num3, iter4, num4, block2, shm_size, ... ) \
+  accelerator_for_1_3_NB_shm(iter1,num1,iter2,num2,iter3,num3,iter4,num4,block2,shm_size,{__VA_ARGS__}) \
+  accelerator_barrier(dummy)
+
+
+
+template<typename lambda>  __global__
+void LambdaApply2_3(uint64_t num1, uint64_t num2, uint64_t num3, uint64_t num4, uint64_t num5, lambda Lambda)
+{
+  uint64_t x = threadIdx.x;
+  uint64_t y = threadIdx.y;  
+  uint64_t z = blockIdx.x;
+  uint64_t t = blockIdx.y;
+  uint64_t u = blockIdx.z;
+  
+  if ( (x < num1) && (y<num2) && (z<num3) && (t<num4) && (u<num5) ){
+    Lambda(x,y,z,t,u);
+  }
+}
+
+//2 iterable within block, 3 over blocks
+#define accelerator_for_2_3_NB_shm( iter1, num1, iter2, num2, iter3, num3, iter4, num4, iter5, num5, shm_size, ... ) \
+  {									\
+    if ( num1*num2*num3*num4*num5 ) {							\
+      typedef uint64_t Iterator;					\
+      auto lambda = [=] __device__					\
+	(Iterator iter1,Iterator iter2,Iterator iter3, Iterator iter4, Iterator iter5) mutable { \
+		      __VA_ARGS__;					\
+		    };							\
+      dim3 cu_threads(num1,num2,1);			\
+      dim3 cu_blocks (num3,num4,num5);					\
+      LambdaApply2_3<<<cu_blocks,cu_threads,shm_size,computeStream>>>(num1,num2,num3,num4,num5,lambda); \
+    }									\
+  }
+
+#define accelerator_for_2_3_shm( iter1, num1, iter2, num2, iter3, num3, iter4, num4, iter5, num5, shm_size, ... ) \
+  accelerator_for_2_3_NB_shm(iter1,num1,iter2,num2,iter3,num3,iter4,num4,iter5,num5,shm_size,{__VA_ARGS__}) \
+  accelerator_barrier(dummy)
+
+
+
+
+
 #define accelerator_barrier(dummy)					\
   {									\
     cudaStreamSynchronize(computeStream);				\

@@ -22,37 +22,9 @@ Tensor<FloatType,TensDim> BatchTensorDNNcomponent<FloatType,TensDim,ActivationFu
     setup = true;
   }
   for(int d=0;d<TensDim;d++) assert(in.size(d) == in_dims[d]);
-   
-  Tensor<FloatType,TensDim> out(out_dims); 
-  {
-    autoView(in_v, in, DeviceRead);
-    autoView(weights_v, weights, DeviceRead);
-    autoView(bias_v, bias, DeviceRead);
-    autoView(out_v, out, DeviceWrite);
-    
-    int _sizej = weights.size(1);
-    int _sizei = weights.size(0);
-    int _contract_dim = contract_dim;
-    size_t _stride = stride;
 
-    //W_{ij} X_{..., j, ..., b}  
-    accelerator_for3d(b, batch_size, i, _sizei, o, other_size,    1, {
-	size_t off_in = batchTensorDimensionBaseLin<TensDim>(_contract_dim, b, o, in_v.sizeArray());
-	size_t off_out = batchTensorDimensionBaseLin<TensDim>(_contract_dim, b, o, out_v.sizeArray());
-	FloatType *in_p = in_v.data() + off_in;
-	
-	FloatType out_oib = weights_v(i,0) * (*in_p);
-	in_p += _stride;
-	
-	for(int j=1;j<_sizej;j++){
-	  out_oib += weights_v(i,j) * (*in_p);
-	  in_p += _stride;
-	}	  
-	
-	out_v.data()[off_out + _stride*i] = out_oib  + bias_v(i);
-      });
-  }
-   
+  Tensor<FloatType,TensDim> out = matrixBatchTensorAxpy(weights, in, bias, contract_dim);
+
   in_buf.push(Tensor<FloatType,TensDim>(in)); //TODO: Can avoid this copy in some case by allowing r-value references for inputs. Perhaps have 2 versions of "value", taking l-value and r-value refs, respectively?
   
   Tensor<FloatType,TensDim> activation_deriv;
@@ -104,28 +76,7 @@ void BatchTensorDNNcomponent<FloatType,TensDim,ActivationFunc>::deriv(Vector<Flo
   //Compute layer deriv
   //dcost / dx_oj = \sum_i (dcost/df_oi df_oi/dg_oi) w_ij =\sum_i activated_deriv_oi w_ij 
   labelRegionBegin("compute_layer_deriv");
-  {
-    layer_deriv = Tensor<FloatType,TensDim>(in_dims);
-    autoView(layer_deriv_v, layer_deriv, DeviceWrite);
-    autoView(weights_v, weights, DeviceRead);
-    autoView(activated_above_deriv_v, activated_above_deriv, DeviceRead);
-
-    int sizei = weights.size(0);
-    accelerator_for3d(b, batch_size, j, weights.size(1), o, other_size, 1, {
-	size_t out_poff = batchTensorDimensionBaseLin<TensDim>(_contract_dim, b, o, layer_deriv_v.sizeArray());
-	size_t in_poff =  batchTensorDimensionBaseLin<TensDim>(_contract_dim, b, o, activated_above_deriv_v.sizeArray());
-
-	FloatType* activated_above_deriv_p =  activated_above_deriv_v.data() + in_poff; //activated derivatives_{o,0}
-	FloatType v = (*activated_above_deriv_p)*weights_v(0,j);
-	activated_above_deriv_p += _stride;
-	
-	for(int i=1;i<sizei;i++){
-	  v +=(*activated_above_deriv_p)*weights_v(i,j);
-	  activated_above_deriv_p += _stride;
-	}
-	layer_deriv_v.data()[out_poff + j*_stride] = v;
-      });
-  }
+  layer_deriv = matrixBatchTensorContractRight(activated_above_deriv, weights, contract_dim);
   labelRegionEnd();
   
   //Now we finish up the derivs wrt our parameters      
@@ -140,29 +91,18 @@ void BatchTensorDNNcomponent<FloatType,TensDim,ActivationFunc>::deriv(Vector<Flo
     int p=off;
     
     labelRegionBegin("cost_deriv_weights");
-    size_t bs = batch_size;
-    autoView(activated_above_deriv_v, activated_above_deriv, DeviceRead);
-    autoView(cost_deriv_v,cost_deriv,DeviceReadWrite);
-    autoView(in_v,in,DeviceRead);
-
-    int sizek = weights.size(1);
-    accelerator_for3d(dummy,1, jk, weights.size(0)*weights.size(1), o, other_size, 64,{ 
-	int k = jk % sizek;
-	int j = jk / sizek;  //jk = k+sizek*j
-	//Sum over batch index, neighboring in memory
-	FloatType* activated_above_deriv_p = activated_above_deriv_v.data() + batchTensorDimensionBaseLin<TensDim>(_contract_dim, 0, o, activated_above_deriv_v.sizeArray()) + _stride*j;
-	FloatType* in_p = in_v.data() + batchTensorDimensionBaseLin<TensDim>(_contract_dim, 0, o, in_v.sizeArray()) + _stride*k;
-
-	FloatType v = (*activated_above_deriv_p++) * (*in_p++);
-	for(int b=1;b<bs;b++)
-	  v += (*activated_above_deriv_p++) * (*in_p++);
-	atomicAdd(cost_deriv_v.data() + p + jk,  v); //sum over o
-      });	         
-	
+    {
+      autoView(cost_deriv_v,cost_deriv,DeviceReadWrite);
+      batchTensorContractToMatrix_p(cost_deriv_v.data() + p, activated_above_deriv, in, contract_dim);
+    }
+  
     p += weights.size(0)*weights.size(1);
     labelRegionEnd();
 
     if(use_bias){
+      size_t bs = batch_size;
+      autoView(activated_above_deriv_v, activated_above_deriv, DeviceRead);
+      autoView(cost_deriv_v,cost_deriv,DeviceReadWrite);
       labelRegionBegin("cost_deriv_bias");
 
       accelerator_for3d(dummy1,1, j, weights.size(0), o, other_size, 64,{

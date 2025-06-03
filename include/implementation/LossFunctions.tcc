@@ -14,17 +14,19 @@ FloatType MSEcostFunc<Tensor<FloatType,Dim> >::loss(const Tensor<FloatType,Dim> 
   acceleratorMemSet(out_d,0,sizeof(FloatType));
   
   accelerator_for2d_shm(b,batch_size,i,other_sz, 1,(batch_size*sizeof(FloatType)),{
-      extern __shared__ FloatType shared[];
+      extern __shared__ char shared[];
+      FloatType* shared_p = (FloatType*)shared;
+      
       size_t off = b + batch_size*i;
       FloatType yp_val = *(ypred_v.data() + off);
       FloatType y_val = *(y_v.data() + off);
       
-      shared[b] = pow(yp_val - y_val,2);
+      shared_p[b] = pow(yp_val - y_val,2);
       acceleratorSynchronizeBlock();
       if(!b){
-       	FloatType sum = shared[0];
+       	FloatType sum = shared_p[0];
 	for(int i=1;i<batch_size;i++)
-       	  sum += shared[i];	
+       	  sum += shared_p[i];	
        	atomicAdd(out_d, sum);
       }
     });
