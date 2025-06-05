@@ -3,6 +3,26 @@
 
 #ifdef USE_CUDA
 
+template<int Dim>
+accelerator_inline size_t batchTensorDimensionBaseLinRef(int iter_dim, int batch_idx, size_t other_dim_lin, int const *size){
+  size_t out = batch_idx;
+  size_t coeff = size[Dim-1];
+  size_t rem = other_dim_lin;
+#pragma unroll
+  for(int d=Dim-2;d>=0;d--){
+    int coord_d;
+    if(d==iter_dim){
+      coord_d = 0;
+    }else{
+      coord_d = rem % size[d];
+      rem /= size[d];
+    }
+    out += coord_d * coeff;
+    coeff *= size[d];
+  }
+  return out;
+}
+
 template<typename FloatType, int Dim>
 void batchTensorContractToMatrix_p_Base(FloatType* out_p, const Tensor<FloatType,Dim> &A, const Tensor<FloatType,Dim> &B, const int preserve_dim){
   int batch_size = A.size(Dim-1);
@@ -26,8 +46,8 @@ void batchTensorContractToMatrix_p_Base(FloatType* out_p, const Tensor<FloatType
       int k = jk % sizek;
       int j = jk / sizek;  //jk = k+sizek*j
       //Sum over batch index, neighboring in memory
-      FloatType* A_p = A_v.data() + batchTensorDimensionBaseLin<Dim>(preserve_dim, 0, o, A_v.sizeArray()) + stride*j;
-      FloatType* B_p = B_v.data() + batchTensorDimensionBaseLin<Dim>(preserve_dim, 0, o, B_v.sizeArray()) + stride*k;
+      FloatType* A_p = A_v.data() + batchTensorDimensionBaseLinRef<Dim>(preserve_dim, 0, o, A_v.sizeArray()) + stride*j;
+      FloatType* B_p = B_v.data() + batchTensorDimensionBaseLinRef<Dim>(preserve_dim, 0, o, B_v.sizeArray()) + stride*k;
 
       FloatType v = (*A_p++) * (*B_p++);
       for(int b=1;b<batch_size;b++)
@@ -219,7 +239,7 @@ void batchTensorContractToMatrix_p_v4(FloatType* out_p, const Tensor<FloatType,D
       }
       acceleratorSynchronizeBlock();
       FloatType delta = 0;
-      if(b < batch_size){
+      if(b < batch_size && j < sizej && k < sizek){
 	FloatType* A_pb = A_v.data() + b + stride*j;
 	FloatType* B_pb = B_v.data() + b + stride*k;	
 	
@@ -231,7 +251,7 @@ void batchTensorContractToMatrix_p_v4(FloatType* out_p, const Tensor<FloatType,D
       }
       acceleratorSynchronizeBlock();
 
-      FloatType* sharedp = (FloatType*)(_shared + bblocksz*jjkk*sizeof(FloatType));
+      FloatType* sharedp = (FloatType*)(_shared + bblocksz*jjkk*sizeof(FloatType)); ;
       
       sharedp[bb] = delta;
       acceleratorSynchronizeBlock();
@@ -271,8 +291,8 @@ int main(int argc, char** argv){
 
   std::vector<int> matrix_dims = { 2, 5, 8, 16, 64, 256, 512 };
   std::vector<int> batch_sizes = {1, 5, 8, 16, 32, 64};
-  std::vector<int> other_dim_sizes = { 2, 5, 8, 16, 64, 256, 512 };
- 
+  std::vector<int> other_dim_sizes = { 2, 5, 8, 16, 64, 256, 512, 1024 };
+  
   for(int preserve_dim=0; preserve_dim<2; preserve_dim++){
     for(auto other_dim_size : other_dim_sizes){
       for(auto matrix_dim : matrix_dims){
@@ -284,6 +304,7 @@ int main(int argc, char** argv){
 	  tsize[preserve_dim] = matrix_dim;
 	  tsize[1-preserve_dim] = other_dim_size;
 
+#if 1
 	  //Check in double
 	  {
 	    Tensor<double,3> A(tsize);
@@ -304,6 +325,7 @@ int main(int argc, char** argv){
 	    }
 	    assert(abs_near(out,outtest,1e-5,true));
 	  }
+#endif
   
 	  Tensor<float,3> A(tsize);
 	  uniformRandom(A,rng);

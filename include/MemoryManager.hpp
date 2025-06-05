@@ -131,8 +131,8 @@ protected:
 
 public:
 
-  MemoryManager(): device_allocated(0), device_pool_max_size(1024*1024*1024), host_allocated(0),
-		   host_pool_max_size(1024*1024*1024), local_disk_allocated(0),  verbose(false), disk_root("."),
+  MemoryManager(): device_allocated(0), device_pool_max_size(20*1024*1024*size_t(1024)), host_allocated(0),
+		   host_pool_max_size(20*1024*1024*size_t(1024)), local_disk_allocated(0),  verbose(false), disk_root("."),
 		   delete_local_diskdata_on_restore(false), 
 		   device_allocated_HWM(0), host_allocated_HWM(0), local_disk_allocated_HWM(0), io_logger(nullptr)  {}
 

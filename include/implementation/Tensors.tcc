@@ -396,6 +396,19 @@ accelerator_inline size_t batchTensorDimensionBaseLin(int iter_dim, int batch_id
   return out;
 }
 
+template<>
+accelerator_inline size_t batchTensorDimensionBaseLin<3>(int iter_dim, int batch_idx, size_t other_dim_lin, int const *size){
+  //b + batch_size * ( k + sizek * j )
+  //size = [ sizej, sizek, batch_size ]
+  if(iter_dim == 0){ //other_dim_lin = k, return offset for j=0
+    return batch_idx + size[2] * other_dim_lin;
+  }else{ //iter_dim == 1,  other_dim_lin = j, return offset for k=0
+    return batch_idx + size[2]*size[1] * other_dim_lin;
+  }
+}
+
+
+
 template<int Dim, typename FloatType>
 Tensor<FloatType,Dim> batchTensorConcatenate(Tensor<FloatType,Dim> const* const* in, int Ntens, int concat_dim){
   assert(concat_dim < Dim-1 && concat_dim >= 0); 

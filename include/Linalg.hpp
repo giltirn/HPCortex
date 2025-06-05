@@ -486,7 +486,7 @@ void batchTensorContractToMatrix_p(FloatType* out_p, const Tensor<FloatType,Dim>
       }
       acceleratorSynchronizeBlock();
       FloatType delta = 0;
-      if(b < batch_size){
+      if(b < batch_size && j < sizej && k < sizek){
 	FloatType* A_pb = A_v.data() + b + stride*j;
 	FloatType* B_pb = B_v.data() + b + stride*k;	
 	

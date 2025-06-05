@@ -27,7 +27,8 @@ void acceleratorReport();
 #endif
 
 #define accelerator        __host__ __device__
-#define accelerator_inline __host__ __device__ inline
+#define accelerator_inline __host__ __device__ __forceinline__
+//inline
 
 extern int acceleratorAbortOnGpuError;
 extern cudaStream_t copyStream; //stream for async copies
