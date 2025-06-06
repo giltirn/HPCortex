@@ -397,6 +397,11 @@ accelerator_inline size_t batchTensorDimensionBaseLin(int iter_dim, int batch_id
 }
 
 template<>
+accelerator_inline size_t batchTensorDimensionBaseLin<2>(int iter_dim, int batch_idx, size_t other_dim_lin, int const *size){
+  //b + batch_size * u,  return offset for i=0
+  return batch_idx;
+}
+template<>
 accelerator_inline size_t batchTensorDimensionBaseLin<3>(int iter_dim, int batch_idx, size_t other_dim_lin, int const *size){
   //b + batch_size * ( k + sizek * j )
   //size = [ sizej, sizek, batch_size ]
@@ -406,7 +411,6 @@ accelerator_inline size_t batchTensorDimensionBaseLin<3>(int iter_dim, int batch
     return batch_idx + size[2]*size[1] * other_dim_lin;
   }
 }
-
 
 
 template<int Dim, typename FloatType>

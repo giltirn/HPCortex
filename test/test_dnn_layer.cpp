@@ -177,9 +177,97 @@ void testBatchTensorDNNcomponentAndLayer(){
 }
 
 
+template<typename ActivationFunc>
+Matrix<FloatType> expectContract2D(const Matrix<FloatType> &weights, const Vector<FloatType> &bias, const Matrix<FloatType> &in, bool use_bias, ActivationFunc &activation){
+  int out_sizes[2]; 
+  memcpy(out_sizes,in.sizeArray(),2*sizeof(int));
+  out_sizes[0] = bias.size(0);
+  Matrix<FloatType> out(out_sizes,0.);
+  
+  autoView(weights_v,weights,HostRead);
+  autoView(bias_v,bias,HostRead);
+  autoView(in_v,in,HostRead);
+  autoView(out_v,out,HostReadWrite);
+
+  for(int i=0;i<out_sizes[0];i++){
+    for(int b=0;b<in.size(1);b++){
+      for(int ii=0;ii<in.size(0);ii++)
+	out_v(i,b) += weights_v(i,ii) * in_v(ii,b);
+      out_v(i,b) += use_bias ? bias_v(i): 0.;
+    }
+  }
+  
+  activation(out);
+  
+  return out;
+}
+
+
+void testBatchTensorDNNcomponentAndLayer2D(){
+  std::mt19937 rng(1234);
+    
+  int tens_sizes[2] = {4,5};
+  int out_size = 6;
+
+  Vector<FloatType> bias(out_size);
+  uniformRandom(bias,rng);
+
+  typedef ReLU<FloatType> ActivationFunc;
+  ActivationFunc activation;
+
+  Matrix<FloatType> x(tens_sizes);
+  uniformRandom(x,rng);
+
+  int contract_dim = 0;
+  
+  Matrix<FloatType> weights(out_size,tens_sizes[contract_dim]);
+  uniformRandom(weights,rng);
+
+  for(int use_bias = 0; use_bias < 1; use_bias++){
+    std::cout << (use_bias ? "WITH" : "WITHOUT") << " bias" << std::endl;
+    
+    std::unique_ptr< BatchTensorDNNcomponent<FloatType,2, ActivationFunc>  > cpt;
+    if(use_bias)
+      cpt.reset(new BatchTensorDNNcomponent<FloatType,2, ActivationFunc>(weights,bias,contract_dim,activation));
+    else
+      cpt.reset(new BatchTensorDNNcomponent<FloatType,2, ActivationFunc >(weights,contract_dim,activation));
+
+    int nparam_expect =  out_size*tens_sizes[0] + (use_bias ? out_size : 0);
+    std::cout << "Nparam " << cpt->nparams() << " expect " << nparam_expect << std::endl;
+    assert(cpt->nparams() == nparam_expect);
+      
+    Matrix<FloatType> got = cpt->value(x);
+    Matrix<FloatType> expect = expectContract2D(weights,bias,x,use_bias,activation);
+    assert(abs_near(got,expect, 1e-6, true));
+
+    BatchTensorDNNcomponentWrapper<FloatType,2, ActivationFunc> wrp(*cpt, x.sizeArray(),expect.sizeArray());
+    std::cout << "Test component deriv" << std::endl;
+    testComponentDeriv(wrp);
+
+    std::cout << "Test layer deriv" << std::endl;
+    if(use_bias){
+      auto m = batch_tensor_dnn_layer<2>(input_layer<FloatType>(), weights, bias, contract_dim, activation);
+      Matrix<FloatType> got2 = m.value(x);
+      assert(abs_near(got2,expect, 1e-6, true));
+      testDeriv(m, x.sizeArray(), expect.sizeArray(), 1e-8);
+    }else{
+      auto m = batch_tensor_dnn_layer<2>(input_layer<FloatType>(), weights, contract_dim, activation);
+      Matrix<FloatType> got2 = m.value(x);
+      assert(abs_near(got2,expect, 1e-6, true));
+      testDeriv(m, x.sizeArray(), expect.sizeArray(), 1e-8);
+    }
+  }      
+
+  std::cout << "testBatchTensorDNNcomponentAndLayer2D passed" << std::endl;
+}
+
+
+
+
 int main(int argc, char** argv){
   initialize(argc,argv);
   testBatchTensorDNNcomponentAndLayer();
+  testBatchTensorDNNcomponentAndLayer2D();
   return 0;
 }
 

@@ -536,10 +536,15 @@ void batchTensorContractToMatrix_p(FloatType* out_p, const Tensor<FloatType,Dim>
 
 #endif
 }
+//Specialized implementation for matrices for performance
+//out_jk =  \sum_b A_{j,b} B_{k,b}
+template<typename FloatType>
+inline void batchTensorContractToMatrix_p(FloatType* out_p, const Matrix<FloatType> &A, const Matrix<FloatType> &B, const int preserve_dim){
+  assert(preserve_dim == 0);
+  thinMulMatMatTranspose_p(out_p, A, B);
+}
 
-
-
-//X_{..., i, ..., b}A_{ij} 
+//out_{jb} = \sum_i X_{...,i,...,b}A_{ij} 
 template<typename FloatType,int Dim>
 Tensor<FloatType,Dim> matrixBatchTensorContractRight(const Tensor<FloatType,Dim> &X, const Matrix<FloatType> &A, const int contract_dim){
   int out_dims[Dim];
@@ -649,3 +654,12 @@ Tensor<FloatType,Dim> matrixBatchTensorContractRight(const Tensor<FloatType,Dim>
   }
   return out;
 }
+
+//out_{jb} = \sum_i X_{i,b}A_{ij} = \sum_i X_{i,b}A_{ij}
+template<typename FloatType>
+inline Tensor<FloatType,2> matrixBatchTensorContractRight(const Tensor<FloatType,2> &X, const Matrix<FloatType> &A, const int contract_dim){
+  //\sum_i X_{i,b}A_{ij} = \sum_i A_{ij} X_{i,b}
+  assert(contract_dim == 0);
+  return mulMatTransposeThinMat(A,X);
+}
+  
