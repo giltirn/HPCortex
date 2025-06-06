@@ -60,13 +60,13 @@ public:
 
 };
 
-template<typename U, typename ActivationFunc, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto dnn_layer(U &&u, const Matrix<FLOATTYPE(U)> &weights,const Vector<FLOATTYPE(U)> &bias, const ActivationFunc &activation)->DNNlayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u),ActivationFunc>{
-  return DNNlayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u),ActivationFunc>(std::forward<U>(u), weights, bias, activation);
-}
-template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto dnn_layer(U &&u, const Matrix<FLOATTYPE(U)> &weights,const Vector<FLOATTYPE(U)> &bias)->DNNlayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u),noActivation<FLOATTYPE(U)> >{
-  return DNNlayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u),noActivation<FLOATTYPE(U)> >(std::forward<U>(u), weights, bias, noActivation<FLOATTYPE(U)>());
-}
+// template<typename U, typename ActivationFunc, typename std::enable_if<ISLEAF(U), int>::type = 0>
+// auto dnn_layer(U &&u, const Matrix<FLOATTYPE(U)> &weights,const Vector<FLOATTYPE(U)> &bias, const ActivationFunc &activation)->DNNlayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u),ActivationFunc>{
+//   return DNNlayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u),ActivationFunc>(std::forward<U>(u), weights, bias, activation);
+// }
+// template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
+// auto dnn_layer(U &&u, const Matrix<FLOATTYPE(U)> &weights,const Vector<FLOATTYPE(U)> &bias)->DNNlayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u),noActivation<FLOATTYPE(U)> >{
+//   return DNNlayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u),noActivation<FLOATTYPE(U)> >(std::forward<U>(u), weights, bias, noActivation<FLOATTYPE(U)>());
+// }
 
 #include "implementation/DNNlayer.tcc"

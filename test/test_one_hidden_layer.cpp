@@ -82,7 +82,7 @@ void testOneHiddenLayer(){
   std::cout << "Test on some data" << std::endl;
   FloatType avg_loss= 0.;
   for(int d=0;d<data.size();d++){ 
-    auto got = model.predict(data[d].x);
+    auto got = model.predict(data[d].x, batch_size);
     std::cout << data[d].x << " got " << got << " expect " << data[d].y << std::endl;
     autoView(got_v,got,HostRead);
     autoView(data_v,data[d].y,HostRead);

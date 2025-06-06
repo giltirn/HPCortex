@@ -179,7 +179,8 @@ struct BatchTensorConcatenateComponentWrapper{
 
 void testBatchTensorConcatenateComponent(){
   typedef double FloatType;
- 
+  //4-tensor
+  
   { //contract dim 2
     std::vector< std::array<int,4> > in_sz({
 	  {2,3,4,5},
@@ -212,6 +213,32 @@ void testBatchTensorConcatenateComponent(){
     BatchTensorConcatenateComponentWrapper<FloatType,4> wrp(cpt, in_sz, 0);
     testComponentDeriv(wrp);
   }
+
+
+  //3-tensor
+  
+  { //contract dim 1
+    std::vector< std::array<int,3> > in_sz({
+	{2,4,5},
+	{2,3,5},
+	{2,6,5} });
+        
+    BatchTensorConcatenateComponent<FloatType,3> cpt(1,  3);
+    BatchTensorConcatenateComponentWrapper<FloatType,3> wrp(cpt, in_sz, 1);
+    testComponentDeriv(wrp);
+  }
+
+  { //contract dim 0
+    std::vector< std::array<int,3> > in_sz({
+	{4,2,5},
+	{3,2,5},
+	{6,2,5} });
+        
+    BatchTensorConcatenateComponent<FloatType,3> cpt(0,  3);
+    BatchTensorConcatenateComponentWrapper<FloatType,3> wrp(cpt, in_sz, 0);
+    testComponentDeriv(wrp);
+  }
+  
   std::cout << "testBatchTensorConcatenateComponent passed" << std::endl;
 }
 

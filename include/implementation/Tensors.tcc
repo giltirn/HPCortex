@@ -401,13 +401,14 @@ accelerator_inline size_t batchTensorDimensionBaseLin<2>(int iter_dim, int batch
   //b + batch_size * u,  return offset for i=0
   return batch_idx;
 }
+
 template<>
 accelerator_inline size_t batchTensorDimensionBaseLin<3>(int iter_dim, int batch_idx, size_t other_dim_lin, int const *size){
-  //b + batch_size * ( k + sizek * j )
+  //[j,k,b] -> b + batch_size * ( k + sizek * j )
   //size = [ sizej, sizek, batch_size ]
   if(iter_dim == 0){ //other_dim_lin = k, return offset for j=0
-    return batch_idx + size[2] * other_dim_lin;
-  }else{ //iter_dim == 1,  other_dim_lin = j, return offset for k=0
+    return  batch_idx + size[2] * other_dim_lin;
+  }else{ //iter_dim == 1,  other_dim_lin = j, return offset for k=0 :  b + batch_size * sizek * j
     return batch_idx + size[2]*size[1] * other_dim_lin;
   }
 }
@@ -417,21 +418,25 @@ template<int Dim, typename FloatType>
 Tensor<FloatType,Dim> batchTensorConcatenate(Tensor<FloatType,Dim> const* const* in, int Ntens, int concat_dim){
   assert(concat_dim < Dim-1 && concat_dim >= 0); 
   int out_sz[Dim] = {0};
-  size_t other_dim_len = 1;
+
   for(int i=0;i<Ntens;i++){
     for(int d=0;d<Dim;d++){
-      int isz = in[i]->size(d);
       if(d==concat_dim)    
-	out_sz[d] += isz;
+	out_sz[d] += in[i]->size(d); //sum dimensions along concat_dim
       else{
-	if(i==0){
-	  out_sz[d] = isz;
-	  other_dim_len *= isz;
-	}else
-	  assert(isz == out_sz[d]);
+	if(i==0)
+	  out_sz[d] = in[i]->size(d); //other dimensions stay the same and must be equal for all tensors
+	else
+	  assert(in[i]->size(d) == out_sz[d]);
       }
     }
   }
+
+  size_t other_dim_lin = 1; //product of dimensions != concat_dim && != Dim-1
+  for(int d=0;d<Dim-1;d++)
+    if(d!=concat_dim)
+      other_dim_lin *= in[0]->size(d);
+  
   int batch_size = out_sz[Dim-1];
   size_t out_stride = tensorDimensionStride<Dim>(concat_dim, out_sz);
   
@@ -443,7 +448,7 @@ Tensor<FloatType,Dim> batchTensorConcatenate(Tensor<FloatType,Dim> const* const*
     autoView(out_v,out, i==0 ? DeviceWrite : DeviceReadWrite);
     autoView(in_v, (*in[i]), DeviceRead);
     
-    accelerator_for2d(b,batch_size, o, other_dim_len,  1, {
+    accelerator_for2d(b,batch_size, o, other_dim_lin,  1, {
 	FloatType* iptr = in_v.data() + batchTensorDimensionBaseLin<Dim>(concat_dim, b, o, in_v.sizeArray());
 	FloatType* optr = out_v.data() + batchTensorDimensionBaseLin<Dim>(concat_dim, b, o, out_v.sizeArray()) + ooff;
 	for(int k=0;k<in_v.size(concat_dim);k++){

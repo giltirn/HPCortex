@@ -42,8 +42,8 @@ public:
   }
 
   template<typename O=PredictionType, typename std::enable_if< std::is_same<O,Matrix<FloatType> >::value && std::is_same<O,ComparisonType>::value && std::is_same<InputType,Matrix<FloatType> >::value, int>::type = 0>
-  Vector<FloatType> predict(const Vector<FloatType> &x){
-    Matrix<FloatType> b(x.size(0),1);
+  Vector<FloatType> predict(const Vector<FloatType> &x, int batch_size){
+    Matrix<FloatType> b(x.size(0),batch_size);
     pokeColumn(b,0,x);
     return peekColumn(predict(b),0);    
   }

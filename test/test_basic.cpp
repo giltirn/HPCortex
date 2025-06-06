@@ -197,37 +197,43 @@ accelerator_inline size_t batchTensorDimensionBaseLinOrig(int iter_dim, int batc
     }
   return tensorOffset<Dim>(coord, size);
 }
-template<int Dim>
-accelerator_inline size_t batchTensorDimensionBaseLinTest(int iter_dim, int batch_idx, size_t other_dim_lin, int const *size){
-  size_t out = batch_idx;
-  size_t coeff = size[Dim-1];
-  size_t rem = other_dim_lin;
-#pragma unroll
-  for(int d=Dim-2;d>=0;d--){
-    int coord_d;
-    if(d==iter_dim){
-      coord_d = 0;
-    }else{
-      coord_d = rem % size[d];
-      rem /= size[d];
-    }
-    out += coord_d * coeff;
-    coeff *= size[d];
-  }
-  return out;
-}
 
 void testTensorOffset(){
-  int size[4] = {2,3,4,5};
-  for(int iter_dim=0;iter_dim<3;iter_dim++){
-    size_t other_dim_sz = 1;
-    for(int d=0;d<4;d++)
-      if(d!=iter_dim)
-	other_dim_sz *= size[d];
-    for(size_t o=0; o<other_dim_sz; o++)
-      for(int b=0;b< size[3]; b++)
-	assert(batchTensorDimensionBaseLinTest<4>(iter_dim,b,o,size) == batchTensorDimensionBaseLinOrig<4>(iter_dim,b,o,size) );
+
+  {
+    int size[4] = {2,3,4,5};
+    for(int iter_dim=0;iter_dim<3;iter_dim++){
+      size_t other_dim_sz = 1;
+      for(int d=0;d<3;d++)
+	if(d!=iter_dim)
+	  other_dim_sz *= size[d];
+      for(size_t o=0; o<other_dim_sz; o++)
+	for(int b=0;b< size[3]; b++)
+	  assert(batchTensorDimensionBaseLin<4>(iter_dim,b,o,size) == batchTensorDimensionBaseLinOrig<4>(iter_dim,b,o,size) );
+    }
   }
+  
+  {
+    int size[3] = {2,4,5};
+    for(int iter_dim=0;iter_dim<2;iter_dim++){
+      size_t other_dim_sz = iter_dim == 0 ? size[1] : size[0];
+
+      for(size_t o=0; o<other_dim_sz; o++)
+	for(int b=0;b< size[2]; b++)
+	  assert(batchTensorDimensionBaseLin<3>(iter_dim,b,o,size) == batchTensorDimensionBaseLinOrig<3>(iter_dim,b,o,size) );
+    }
+  }
+
+  {
+    int size[2] = {3,5};
+    int iter_dim = 0;
+    int other_dim_sz = 1;
+
+    for(size_t o=0; o<other_dim_sz; o++)
+      for(int b=0;b< size[1]; b++)
+	assert(batchTensorDimensionBaseLin<2>(iter_dim,b,o,size) == batchTensorDimensionBaseLinOrig<2>(iter_dim,b,o,size) );    
+  }
+  
 }
 
 
