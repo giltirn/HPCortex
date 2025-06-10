@@ -559,7 +559,117 @@ void testBatchTensorDimensionSliceComponent(){
 }
 
 
+template<typename FloatType>
+Tensor<FloatType,4> MatrixTensorContractComponentExpect(const Matrix<FloatType> &weights, const Tensor<FloatType,4> &in){
+  int out_sizes[4];
+  memcpy(out_sizes,in.sizeArray(),4*sizeof(int));
+  int fan_out = weights.size(0);
+  out_sizes[2] = fan_out;
+  Tensor<FloatType,4> out(out_sizes,0.);
+  
+  autoView(weights_v,weights,HostRead);
+  autoView(in_v,in,HostRead);
+  autoView(out_v,out,HostReadWrite);
 
+  for(int i=0;i<in.size(0);i++)
+    for(int j=0;j<in.size(1);j++)
+      for(int l=0;l<in.size(3);l++)
+	for(int k=0;k<fan_out;k++){
+	  
+	  for(int kk=0;kk<in.size(2);kk++)
+	    out_v(i,j,k,l) += weights_v(k,kk) * in_v(i,j,kk,l);
+	}
+  
+  return out;
+}
+
+
+template<typename _FloatType, int Dim>
+struct MatrixTensorContractComponentWrapper{
+  typedef _FloatType FloatType;
+  
+  MatrixTensorContractComponent<FloatType,Dim> &cpt;
+  int in_size[Dim];
+  size_t in_size_lin;
+  int out_size[Dim];
+  size_t out_size_lin;
+  
+
+  MatrixTensorContractComponentWrapper(MatrixTensorContractComponent<FloatType,Dim> &cpt, int const *in_sz, int const *out_sz): cpt(cpt){
+    memcpy(in_size,in_sz,Dim*sizeof(int));
+    memcpy(out_size,out_sz,Dim*sizeof(int));
+    in_size_lin = out_size_lin = 1;
+    for(int d=0;d<Dim;d++){
+      in_size_lin *= in_sz[d];
+      out_size_lin *= out_sz[d];
+    }
+  }
+
+  size_t outputLinearSize() const{ return out_size_lin; }
+  size_t inputLinearSize() const{ return in_size_lin; }
+  
+  Vector<FloatType> value(const Vector<FloatType> &in){
+    Tensor<FloatType,Dim> A(in_size);
+    unflatten(A,in);
+    Tensor<FloatType,Dim> C = cpt.value(A);
+    return flatten(C);
+  }
+  void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
+    Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);
+    Tensor<FloatType,Dim> above_deriv(out_size);
+    unflatten(above_deriv,above_deriv_lin);
+    Tensor<FloatType,Dim> dcost_by_dIn;
+    cpt.deriv(cost_deriv_params, off , std::move(above_deriv), dcost_by_dIn);
+    cost_deriv_inputs = flatten(dcost_by_dIn);
+  }
+    
+  void update(int off, const Vector<FloatType> &new_params){  cpt.update(off,new_params); }
+  void step(int off, const Vector<FloatType> &derivs, FloatType eps){ cpt.step(off,derivs,eps); }
+  inline int nparams() const{ return cpt.nparams(); }
+  void getParams(Vector<FloatType> &into, int off){ cpt.getParams(into,off); }
+
+  std::string inCoord(size_t i) const{
+    std::ostringstream ss;
+    int coord[Dim];
+    tensorOffsetUnmap<Dim>(coord, in_size, i);
+    ss << "(";
+    for(int d=0;d<Dim;d++)
+      ss << coord[d] << (d==Dim-1? ")" : ", ");
+    return ss.str();
+  }       
+};
+
+void testMatrixTensorContractComponent(){
+  typedef double FloatType;
+  std::mt19937 rng(1234);
+    
+  int tens_sizes[4] = {2,3,4,5};
+  int out_size = 6;
+
+  Tensor<FloatType,4> x(tens_sizes);
+  uniformRandom(x,rng);
+
+  int contract_dim = 2; //fixed
+  
+  Matrix<FloatType> weights(out_size,tens_sizes[contract_dim]);
+  uniformRandom(weights,rng);
+
+  MatrixTensorContractComponent<FloatType,4> cpt(weights);
+    
+  int nparam_expect =  out_size*tens_sizes[contract_dim];
+  std::cout << "Nparam " << cpt.nparams() << " expect " << nparam_expect << std::endl;
+  assert(cpt.nparams() == nparam_expect);
+      
+  Tensor<FloatType,4> got = cpt.value(x);
+  Tensor<FloatType,4> expect = MatrixTensorContractComponentExpect(weights,x);
+  assert(abs_near(got,expect, 1e-6, true));
+
+  MatrixTensorContractComponentWrapper<FloatType,4> wrp(cpt, x.sizeArray(),expect.sizeArray());
+  std::cout << "Test component deriv" << std::endl;
+  testComponentDeriv(wrp);
+
+  std::cout << "testMatrixTensorContractComponent passed" << std::endl;
+}
 
 
 
@@ -569,7 +679,7 @@ int main(int argc, char** argv){
   testBatchTensorConcatenateComponent();
   testScaleComponent();
   testBatchTensorDimensionSliceComponent();
-  
+  testMatrixTensorContractComponent();
   return 0;
 }
 

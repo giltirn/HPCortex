@@ -42,8 +42,12 @@ Tensor<FloatType,Dim> matrixBatchTensorAxpy(const Matrix<FloatType> &A, const Te
 template<typename FloatType, int Dim>
 void batchTensorContractToMatrix_p(FloatType* out_p, const Tensor<FloatType,Dim> &A, const Tensor<FloatType,Dim> &B, const int preserve_dim);
 
-//out_{jb} = \sum_i X_{...,i,...,b}A_{ij} 
+//out_{...,j,...b} = \sum_i X_{...,i,...,b}A_{ij} 
 template<typename FloatType,int Dim>
 Tensor<FloatType,Dim> matrixBatchTensorContractRight(const Tensor<FloatType,Dim> &X, const Matrix<FloatType> &A, const int contract_dim);
+
+//out_{...i,...,b} = \sum_j A_{ij} X_{..., j, ..., b}
+template<typename FloatType,int Dim>
+Tensor<FloatType,Dim> matrixBatchTensorContractLeft(const Matrix<FloatType> &A, const Tensor<FloatType,Dim> &X, const int contract_dim);
 
 #include "implementation/Linalg.tcc"

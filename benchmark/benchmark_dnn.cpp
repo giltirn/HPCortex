@@ -74,7 +74,7 @@ void benchmarkTensorDNN(){
   Tensor<float,3> above(tsize);
   Vector<float> deriv(m.nparams());
 
-  benchmark(mu, sigma, 3, 1,
+  benchmark(mu, sigma, 300, 1,
 	    [&]{
 	      m.deriv(deriv,0,std::move(above));
 	    },

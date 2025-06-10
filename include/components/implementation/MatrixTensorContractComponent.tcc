@@ -6,38 +6,17 @@ Tensor<FloatType,TensDim> MatrixTensorContractComponent<FloatType,TensDim>::valu
   
     memcpy(out_dims,in.sizeArray(),TensDim*sizeof(int));
     out_dims[TensDim-2] = size0;
-
-    other_size = 1;
-    for(int d=0;d<TensDim-2;d++) other_size *= out_dims[d];
     
     setup = true;
-  }
-  
+  } 
 
   if(in.size(TensDim-2) != size1){
     std::stringstream ss; ss << "Expected input features " << in.size(TensDim-2) << " to match number of columns of weight matrix " << size1;
     throw std::runtime_error(ss.str());
   }
 
+  Tensor<FloatType,TensDim> out = matrixBatchTensorContractLeft(weights, in, TensDim-2);
   
-  Tensor<FloatType,TensDim> out(out_dims); 
-  {
-    autoView(in_v, in, DeviceRead);
-    autoView(weights_v, weights, DeviceRead);
-    autoView(out_v, out, DeviceWrite);
-    
-    int _sizej = size1;
-    int _sizei = size0;
-    
-    //W_{ij} X_{..., j, b}  
-    accelerator_for3d(b, batch_size, i, _sizei, o, other_size,    1, {      
-	FloatType out_oib = weights_v(i,0) * in_v.compact3(o,0,b);
-	for(int j=1;j<_sizej;j++)
-	  out_oib += weights_v(i,j) * in_v.compact3(o,j,b);
-	out_v.compact3(o,i,b) = out_oib;
-      });
-  }
-   
   in_buf.push(Tensor<FloatType,TensDim>(in)); //TODO: Can avoid this copy in some case by allowing r-value references for inputs. Perhaps have 2 versions of "value", taking l-value and r-value refs, respectively?
   return out;    
 }
@@ -62,43 +41,15 @@ void MatrixTensorContractComponent<FloatType,TensDim>::deriv(Vector<FloatType> &
   assert(in.size(TensDim-2) == size1);
   assert(in.size(TensDim-1) == batch_size);
 
-  size_t _other_size = other_size;
-  int _batch_size = batch_size;
-  int _sizei = size0;
-  int _sizej = size1;
-
   //compute layer deriv
   //dcost / dx_oj = \sum_i dcost/df_oi *  w_ij
-  layer_deriv = Tensor<FloatType,TensDim>(in_dims);
-  {
-    autoView(layer_deriv_v,layer_deriv,DeviceWrite);
-    autoView(weights_v,weights,DeviceRead);
-    autoView(above_deriv_v,above_deriv,DeviceRead);
-
-    accelerator_for3d(b, batch_size, j, _sizej, o, other_size,    1, {
-	//dcost / dx_oj = \sum_i dcost/df_oi *  w_ij
-	FloatType out_ojb = above_deriv_v.compact3(o,0,b) * weights_v(0,j);
-	for(int i=1;i<_sizei;i++)
-	  out_ojb += above_deriv_v.compact3(o,i,b) * weights_v(i,j);
-	layer_deriv_v.compact3(o,j,b) = out_ojb;	
-      });
-  }
+  layer_deriv = matrixBatchTensorContractRight(above_deriv, weights, TensDim-2);
 
   //compute cost_deriv
   //dcost / dw_ij = \sum_o dcost/df_oi  x_oj
   {
     autoView(cost_deriv_v,cost_deriv,DeviceReadWrite);
-    autoView(in_v,in,DeviceRead);
-    autoView(above_deriv_v,above_deriv,DeviceRead);
-
-    accelerator_for2d(j,_sizej, i, _sizei,  1, {
-	int p = off + j + _sizej*i;
-	FloatType cd = 0.;
-	for(int o=0;o<_other_size;o++)
-	  for(int b=0;b<_batch_size;b++)
-	    cd += above_deriv_v.compact3(o,i,b) * in_v.compact3(o,j,b);
-	cost_deriv_v(p) = cd;
-      });
+    batchTensorContractToMatrix_p(cost_deriv_v.data() + off, above_deriv, in, TensDim-2);
   }
 }
 

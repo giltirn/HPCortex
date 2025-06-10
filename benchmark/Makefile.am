@@ -3,13 +3,16 @@ AM_CPPFLAGS = -I$(top_srcdir)/include
 AM_LDFLAGS = -Wl,-rpath=$(prefix)/lib
 LDADD = -L$(top_builddir)/src -lmlcortex
 benchmarkdir = $(prefix)/benchmark
-benchmark_PROGRAMS = benchmark_matrixBatchTensorContractRight benchmark_dnn benchmark_activated_deriv benchmark_thin_mul_mat_mattranspose benchmark_mul_mattranspose_thinmat benchmark_batchTensorContractToMatrix benchmark_matrixBatchTensorAxpy 
+benchmark_PROGRAMS = benchmark_matrixBatchTensorContractRight benchmark_dnn benchmark_matrixTensorContractComponent benchmark_activated_deriv benchmark_thin_mul_mat_mattranspose benchmark_mul_mattranspose_thinmat benchmark_batchTensorContractToMatrix benchmark_matrixBatchTensorAxpy benchmark_multihead_self_attention 
 benchmark_matrixBatchTensorContractRight_SOURCES = benchmark_matrixBatchTensorContractRight.cpp 
 benchmark_matrixBatchTensorContractRight_LDADD = $(LDADD)
 benchmark_matrixBatchTensorContractRight_LINK = $(CXXLD) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 benchmark_dnn_SOURCES = benchmark_dnn.cpp 
 benchmark_dnn_LDADD = $(LDADD)
 benchmark_dnn_LINK = $(CXXLD) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+benchmark_matrixTensorContractComponent_SOURCES = benchmark_matrixTensorContractComponent.cpp 
+benchmark_matrixTensorContractComponent_LDADD = $(LDADD)
+benchmark_matrixTensorContractComponent_LINK = $(CXXLD) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 benchmark_activated_deriv_SOURCES = benchmark_activated_deriv.cpp 
 benchmark_activated_deriv_LDADD = $(LDADD)
 benchmark_activated_deriv_LINK = $(CXXLD) $(AM_LDFLAGS) $(LDFLAGS) -o $@
@@ -25,4 +28,7 @@ benchmark_batchTensorContractToMatrix_LINK = $(CXXLD) $(AM_LDFLAGS) $(LDFLAGS) -
 benchmark_matrixBatchTensorAxpy_SOURCES = benchmark_matrixBatchTensorAxpy.cpp 
 benchmark_matrixBatchTensorAxpy_LDADD = $(LDADD)
 benchmark_matrixBatchTensorAxpy_LINK = $(CXXLD) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+benchmark_multihead_self_attention_SOURCES = benchmark_multihead_self_attention.cpp 
+benchmark_multihead_self_attention_LDADD = $(LDADD)
+benchmark_multihead_self_attention_LINK = $(CXXLD) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 

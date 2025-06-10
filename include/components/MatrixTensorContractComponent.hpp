@@ -18,9 +18,8 @@ private:
   
   int in_dims[TensDim];
   int out_dims[TensDim];
-  size_t other_size; //volume of dimensions < TensDim-2
   bool setup;
-  
+
   //Storage from last call to "value"
   //Buffer size > 1 depending on rank if doing pipelining
   mutable RingBuffer<Tensor<FloatType,TensDim> > in_buf;
