@@ -363,7 +363,7 @@ Tensor<FloatType,Dim> matrixBatchTensorAxpy(const Matrix<FloatType> &A, const Te
 	while(oo < oblocksz_actual){
 	  int o = oo + bo*oblocksz;
 	  off_X_o[oo] = batchTensorDimensionBaseLin<Dim>(_contract_dim, 0, o, X_v.sizeArray());
-	  off_out_o[oo] = batchTensorDimensionBaseLin<Dim>(_contract_dim, 0, o, out_v.sizeArray());
+	  off_out_o[oo] = batchTensorDimensionBaseLin<Dim>(_contract_dim, 0, o, out_v.sizeArray()) + _stride*i;
 	  oo += batch_size;
 	}
 	acceleratorSynchronizeBlock();
@@ -396,7 +396,7 @@ Tensor<FloatType,Dim> matrixBatchTensorAxpy(const Matrix<FloatType> &A, const Te
 	}
 
 	for(int oo=0;oo<oblocksz_actual;oo++){	
-	  out_v.data()[off_out_o[oo] + b + _stride*i] = out_oib[oo]  + Y_v(i);
+	  out_v.data()[off_out_o[oo] + b] = out_oib[oo]  + Y_v(i);
 	}
 	
       });

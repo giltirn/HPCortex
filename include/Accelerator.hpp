@@ -110,6 +110,24 @@ void LambdaApply1_3(uint64_t num1, uint64_t num2, uint64_t num3, uint64_t num4, 
   accelerator_barrier(dummy)
 
 
+#define accelerator_for_1_3_NB( iter1, num1, iter2, num2, iter3, num3, iter4, num4, block2, ... ) \
+  {									\
+    if ( num1*num2*num3*num4 ) {							\
+      typedef uint64_t Iterator;					\
+      auto lambda = [=] __device__					\
+	(Iterator iter1,Iterator iter2,Iterator iter3, Iterator iter4) mutable {	\
+		      __VA_ARGS__;					\
+		    };							\
+      dim3 cu_threads(num1,block2,1);			\
+      dim3 cu_blocks ((num2+block2-1)/block2,num3,num4);				\
+      LambdaApply1_3<<<cu_blocks,cu_threads,0,computeStream>>>(num1,num2,num3,num4,block2,lambda); \
+    }									\
+  }
+
+#define accelerator_for_1_3( iter1, num1, iter2, num2, iter3, num3, iter4, num4, block2, ... ) \
+  accelerator_for_1_3_NB(iter1,num1,iter2,num2,iter3,num3,iter4,num4,block2,{__VA_ARGS__}) \
+  accelerator_barrier(dummy)
+
 
 template<typename lambda>  __global__
 void LambdaApply2_3(uint64_t num1, uint64_t num2, uint64_t num3, uint64_t num4, uint64_t num5, lambda Lambda)
