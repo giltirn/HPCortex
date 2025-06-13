@@ -156,7 +156,7 @@ void ScaleComponent<FloatType,TensDim>::step(int off, const Vector<FloatType> &d
 }
   
 template<typename FloatType, int TensDim>
-void ScaleComponent<FloatType,TensDim>::getParams(Vector<FloatType> &into, int off){
+void ScaleComponent<FloatType,TensDim>::getParams(Vector<FloatType> &into, int off) const{
   if(!use_affine && !use_bias) return;
   bool _use_affine = use_affine;
   bool _use_bias = use_bias;

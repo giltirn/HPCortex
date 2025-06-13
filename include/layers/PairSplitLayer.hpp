@@ -130,7 +130,7 @@ public:
 
   inline size_t FLOPS(int value_or_deriv) const{ return 0; } //and FLOPS
   
-  inline int getParams(Vector<FloatType> &into, int off){
+  inline int getParams(Vector<FloatType> &into, int off) const{
     return leader->getParams(into,off);
   }
 
@@ -177,7 +177,7 @@ public:
 
   inline size_t FLOPS(int value_or_deriv) const{ return leader->leaf.v.FLOPS(value_or_deriv); }
   
-  inline int getParams(Vector<FloatType> &into, int off){
+  inline int getParams(Vector<FloatType> &into, int off) const{
     return leader->getParams(into,off);
   }
 

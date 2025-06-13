@@ -34,7 +34,7 @@ public:
   size_t FLOPS(int value_or_deriv) const{ return cpt.FLOPS(value_or_deriv) + leaf.v.FLOPS(value_or_deriv); }
   
   //off measured from *end*, return new off
-  int getParams(Vector<FloatType> &into, int off);
+  int getParams(Vector<FloatType> &into, int off) const;
 
   //For pipelining
   inline void resizeInputBuffer(size_t to){

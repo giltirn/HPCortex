@@ -80,7 +80,7 @@ void MatrixTensorContractComponent<FloatType,TensDim>::step(int off, const Vecto
 
 
 template<typename FloatType, int TensDim>
-void MatrixTensorContractComponent<FloatType,TensDim>::getParams(Vector<FloatType> &into, int off){
+void MatrixTensorContractComponent<FloatType,TensDim>::getParams(Vector<FloatType> &into, int off) const{
   autoView(into_v,into,DeviceReadWrite);
   autoView(weights_v,weights,DeviceRead);
   size_t sz1 = size1;

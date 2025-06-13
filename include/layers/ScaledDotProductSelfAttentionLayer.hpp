@@ -59,7 +59,7 @@ public:
   inline int nparams() const{ return attentionQKV.nparams() + leaf.v.nparams(); }
 
   //off measured from *end*, return new off
-  int getParams(Vector<FloatType> &into, int off);
+  int getParams(Vector<FloatType> &into, int off) const;
 
   size_t FLOPS(int value_or_deriv) const{ return attentionQKV.FLOPS(value_or_deriv) + (value_or_deriv == 1 ? B*C*E*2 : 0) + leaf.v.FLOPS(value_or_deriv); }
   

@@ -54,6 +54,6 @@ int UnflattenLayer<FloatType,OutDimension,InputType,Store>::step(int off, const 
   return leaf.v.step(off,derivs,eps);
 }
 template<typename FloatType, int OutDimension, typename InputType, typename Store>  
-int UnflattenLayer<FloatType,OutDimension,InputType,Store>::getParams(Vector<FloatType> &into, int off){
+int UnflattenLayer<FloatType,OutDimension,InputType,Store>::getParams(Vector<FloatType> &into, int off) const{
   return leaf.v.getParams(into,off);
 }

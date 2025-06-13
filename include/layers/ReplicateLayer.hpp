@@ -116,7 +116,7 @@ public:
 
   inline size_t FLOPS(int value_or_deriv) const{ return instance == N-1 ? leader->leaf.v.FLOPS(value_or_deriv) : 0; }
   
-  inline int getParams(Vector<FloatType> &into, int off){
+  inline int getParams(Vector<FloatType> &into, int off) const{
     return leader->getParams(into,off);
   }
 

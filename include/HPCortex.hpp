@@ -14,3 +14,4 @@
 #include <MemoryManager.hpp>
 #include <Components.hpp>
 #include <Embeddings.hpp>
+#include <Serialization.hpp>

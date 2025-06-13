@@ -26,7 +26,7 @@ int MatrixTensorContractLayer<FloatType,TensDim,InputType,Store>::step(int off, 
 
 //off measured from *end*, return new off
 template<typename FloatType, int TensDim, typename InputType, typename Store>
-int MatrixTensorContractLayer<FloatType,TensDim,InputType,Store>::getParams(Vector<FloatType> &into, int off){
+int MatrixTensorContractLayer<FloatType,TensDim,InputType,Store>::getParams(Vector<FloatType> &into, int off) const{
   cpt.getParams(into,off);
   return leaf.v.getParams(into,off+cpt.nparams());
 }

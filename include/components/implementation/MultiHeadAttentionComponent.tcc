@@ -133,7 +133,7 @@ void MultiHeadAttentionComponent<FloatType>::step(int off, const Vector<FloatTyp
   }
 }
 template<typename FloatType>
-void MultiHeadAttentionComponent<FloatType>::getParams(Vector<FloatType> &into, int off){
+void MultiHeadAttentionComponent<FloatType>::getParams(Vector<FloatType> &into, int off) const{
   int p=off;
   multW_O.getParams(into,p);
   p += multW_O.nparams();

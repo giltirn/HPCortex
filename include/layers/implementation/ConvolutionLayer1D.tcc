@@ -240,7 +240,7 @@ int ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::st
 
 
 template<typename FloatType, typename InputType, typename Store, typename ActivationFunc, typename PaddingFunc>
-int ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::getParams(Vector<FloatType> &into, int off){
+int ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::getParams(Vector<FloatType> &into, int off) const{
   int p = off;
   {
     autoView(into_v, into, DeviceReadWrite);

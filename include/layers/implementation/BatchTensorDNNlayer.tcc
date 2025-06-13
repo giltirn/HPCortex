@@ -23,7 +23,7 @@ int BatchTensorDNNlayer<FloatType,TensDim,InputType,Store,ActivationFunc>::step(
 }
 
 template<typename FloatType, int TensDim, typename InputType, typename Store, typename ActivationFunc>
-int BatchTensorDNNlayer<FloatType,TensDim,InputType,Store,ActivationFunc>::getParams(Vector<FloatType> &into, int off){
+int BatchTensorDNNlayer<FloatType,TensDim,InputType,Store,ActivationFunc>::getParams(Vector<FloatType> &into, int off) const{
   cpt.getParams(into,off);
   return leaf.v.getParams(into,off+cpt.nparams());
 }

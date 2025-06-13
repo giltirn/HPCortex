@@ -34,7 +34,7 @@ public:
 
   inline size_t FLOPS(int value_or_deriv) const{ return 0; }
   
-  inline int getParams(Vector<FloatType> &into, int off){ return off; }
+  inline int getParams(Vector<FloatType> &into, int off) const{ return off; }
 
   //For pipelining
   inline void resizeInputBuffer(size_t to){}

@@ -49,7 +49,7 @@ int ScaledDotProductSelfAttentionLayer<FloatType,InputType,Store>::step(int off,
 
 //off measured from *end*, return new off
 template<typename FloatType, typename InputType, typename Store>
-int ScaledDotProductSelfAttentionLayer<FloatType,InputType,Store>::getParams(Vector<FloatType> &into, int off){
+int ScaledDotProductSelfAttentionLayer<FloatType,InputType,Store>::getParams(Vector<FloatType> &into, int off) const{
   attentionQKV.getParams(into,off);
   return leaf.v.getParams(into,off + attentionQKV.nparams());
 }

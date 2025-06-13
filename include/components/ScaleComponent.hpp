@@ -57,7 +57,7 @@ public:
   void step(int off, const Vector<FloatType> &derivs, FloatType eps);
 
   //off measured from *end*, return new off
-  void getParams(Vector<FloatType> &into, int off);
+  void getParams(Vector<FloatType> &into, int off) const;
   
   size_t FLOPS(int value_or_deriv) const{ return value_or_deriv == 0 ? value_FLOPS.value() : deriv_FLOPS.value(); }
 

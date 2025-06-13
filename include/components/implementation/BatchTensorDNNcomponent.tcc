@@ -174,7 +174,7 @@ void BatchTensorDNNcomponent<FloatType,TensDim,ActivationFunc>::step(int off, co
 
 
 template<typename FloatType, int TensDim, typename ActivationFunc>
-void BatchTensorDNNcomponent<FloatType,TensDim,ActivationFunc>::getParams(Vector<FloatType> &into, int off){
+void BatchTensorDNNcomponent<FloatType,TensDim,ActivationFunc>::getParams(Vector<FloatType> &into, int off) const{
   autoView(into_v,into,DeviceReadWrite);
   int p = off;
   {

@@ -43,7 +43,7 @@ public:
   
   size_t FLOPS(int value_or_deriv) const{ return (value_or_deriv == 0 ? value_FLOPS.value() : 0) + leaf.v.FLOPS(value_or_deriv); }
 
-  inline int getParams(Vector<FloatType> &into, int off){
+  inline int getParams(Vector<FloatType> &into, int off) const{
     return leaf.v.getParams(into,off);
   }
   inline void resizeInputBuffer(size_t to){

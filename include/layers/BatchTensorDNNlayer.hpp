@@ -39,7 +39,7 @@ public:
   inline int nparams() const{ return cpt.nparams() + leaf.v.nparams(); }
 
   //off measured from *end*, return new off
-  int getParams(Vector<FloatType> &into, int off);
+  int getParams(Vector<FloatType> &into, int off) const;
 
   //For pipelining
   inline void resizeInputBuffer(size_t to){

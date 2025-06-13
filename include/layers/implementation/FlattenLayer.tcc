@@ -50,6 +50,6 @@ int FlattenLayer<FloatType,InputType,Store>::step(int off, const Vector<FloatTyp
   return leaf.v.step(off,derivs,eps);
 }
 template<typename FloatType, typename InputType, typename Store>  
-int FlattenLayer<FloatType,InputType,Store>::getParams(Vector<FloatType> &into, int off){
+int FlattenLayer<FloatType,InputType,Store>::getParams(Vector<FloatType> &into, int off) const{
   return leaf.v.getParams(into,off);
 }

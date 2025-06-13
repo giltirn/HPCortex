@@ -58,7 +58,7 @@ void ScaledDotProductAttentionHeadComponent<FloatType>::step(int off, const Vect
 
 //off measured from *end*, return new off
 template<typename FloatType>
-void ScaledDotProductAttentionHeadComponent<FloatType>::getParams(Vector<FloatType> &into, int off){
+void ScaledDotProductAttentionHeadComponent<FloatType>::getParams(Vector<FloatType> &into, int off) const{
   int p = off;
   multWQ.getParams(into,p);
   p += multWQ.nparams();

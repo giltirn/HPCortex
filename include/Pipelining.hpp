@@ -137,9 +137,9 @@ public:
   void step(const Vector<FloatType> &derivs, FloatType eps){
     block.step(derivs,eps);
   }
-  int nparams(){ return nparam; }
+  int nparams() const{ return nparam; }
 
-  Vector<FloatType> getParams(){
+  Vector<FloatType> getParams() const{
     Vector<FloatType> out(nparams());
     block.getParams(out);
     return out;
@@ -300,7 +300,7 @@ public:
   }
   int nparams(){ return nparam; }
 
-  Vector<FloatType> getParams(){
+  Vector<FloatType> getParams() const{
     Vector<FloatType> out(nparams());
     block.getParams(out);
     return out;
@@ -704,7 +704,7 @@ public:
     block.v.step(stage_off, derivs, eps);
   }    
   //Get the parameters for the complete model. Each rank will get the same result
-  inline void getParams(Vector<FloatType> &into){
+  inline void getParams(Vector<FloatType> &into) const{
     into = Vector<FloatType>(nparam, 0.);
     block.v.getParams(into, stage_off);
     commsReduce(into, communicators().pipelineCommunicator());

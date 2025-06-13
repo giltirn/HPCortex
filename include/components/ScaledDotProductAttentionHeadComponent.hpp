@@ -57,7 +57,7 @@ public:
   inline int nparams() const{ return multWQ.nparams() + multWK.nparams() + multWV.nparams(); }
 
   //off measured from *end*, return new off
-  void getParams(Vector<FloatType> &into, int off);
+  void getParams(Vector<FloatType> &into, int off) const;
 
   size_t FLOPS(int value_or_deriv) const{ return multWQ.FLOPS(value_or_deriv) + multWK.FLOPS(value_or_deriv) + multWV.FLOPS(value_or_deriv) + attention.FLOPS(value_or_deriv);  }
   

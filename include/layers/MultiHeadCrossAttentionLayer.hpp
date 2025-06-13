@@ -80,7 +80,7 @@ public:
 
   size_t FLOPS(int value_or_deriv) const{ return attention.FLOPS(value_or_deriv) + leaf_KV.v.FLOPS(value_or_deriv) + leaf_Q.v.FLOPS(value_or_deriv); }
   
-  int getParams(Vector<FloatType> &into, int off){
+  int getParams(Vector<FloatType> &into, int off) const{
     int p=off;
     attention.getParams(into,p);
     p+=attention.nparams();

@@ -44,7 +44,7 @@ public:
   size_t FLOPS(int value_or_deriv) const;
   
   //off measured from *end*, return new off
-  void getParams(Vector<FloatType> &into, int off);
+  void getParams(Vector<FloatType> &into, int off) const;
 
   //For pipelining
   void resizeInputBuffer(size_t to);

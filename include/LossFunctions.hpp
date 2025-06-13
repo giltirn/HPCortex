@@ -54,11 +54,11 @@ public:
   void step(const Vector<FloatType> &derivs, FloatType eps){
     leaf.v.step(0,derivs,eps);
   }
-  int nparams(){ return nparam; }
+  int nparams() const{ return nparam; }
 
   size_t FLOPS(int value_or_deriv) const{ return leaf.v.FLOPS(value_or_deriv); }
 
-  Vector<FloatType> getParams(){
+  Vector<FloatType> getParams() const{
     Vector<FloatType> out(nparams());
     leaf.v.getParams(out,0);
     return out;

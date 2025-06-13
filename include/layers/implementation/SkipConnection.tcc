@@ -49,7 +49,7 @@ int SkipConnection<FloatType,InputType,ChainInternal,ChainBelow>::step(int off, 
 
 //off measured from *end*, return new off
 template<typename FloatType, typename InputType, typename ChainInternal, typename ChainBelow>
-int SkipConnection<FloatType,InputType,ChainInternal,ChainBelow>::getParams(Vector<FloatType> &into, int off){
+int SkipConnection<FloatType,InputType,ChainInternal,ChainBelow>::getParams(Vector<FloatType> &into, int off) const{
   int p = off;
   p = leaf_internal.v.getParams(into, p);
   return leaf_below.v.getParams(into,p);

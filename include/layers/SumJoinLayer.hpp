@@ -51,7 +51,7 @@ public:
 
   inline size_t FLOPS(int value_or_deriv) const{ return leaf1.v.FLOPS(value_or_deriv) + leaf2.v.FLOPS(value_or_deriv); }
     
-  inline int getParams(Vector<FloatType> &into, int off){
+  inline int getParams(Vector<FloatType> &into, int off) const{
     off = leaf1.v.getParams(into,off);
     return leaf2.v.getParams(into,off);
   }

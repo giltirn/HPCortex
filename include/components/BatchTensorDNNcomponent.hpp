@@ -62,7 +62,7 @@ public:
   inline int nparams() const{ return weights.size(0)*weights.size(1) + (use_bias ? bias.size(0) : 0);  }
 
   //off measured from *end*, return new off
-  void getParams(Vector<FloatType> &into, int off);
+  void getParams(Vector<FloatType> &into, int off) const;
 
   //For pipelining
   inline void resizeInputBuffer(size_t to){
