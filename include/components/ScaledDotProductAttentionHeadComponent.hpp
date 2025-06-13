@@ -59,6 +59,8 @@ public:
   //off measured from *end*, return new off
   void getParams(Vector<FloatType> &into, int off);
 
+  size_t FLOPS(int value_or_deriv) const{ return multWQ.FLOPS(value_or_deriv) + multWK.FLOPS(value_or_deriv) + multWV.FLOPS(value_or_deriv) + attention.FLOPS(value_or_deriv);  }
+  
   
   //For pipelining
   inline void resizeInputBuffer(size_t to){

@@ -149,3 +149,13 @@ void MultiHeadAttentionComponent<FloatType>::resizeInputBuffer(size_t to){
   for(int h=0;h<heads.size();h++)
     heads[h]->resizeInputBuffer(to);
 }
+
+template<typename FloatType>
+size_t MultiHeadAttentionComponent<FloatType>::FLOPS(int value_or_deriv) const{
+  size_t ret = 0;
+  for(int h=0;h<heads.size();h++)
+    ret += heads[h]->FLOPS(value_or_deriv);
+  ret += concatY.FLOPS(value_or_deriv);
+  ret += multW_O.FLOPS(value_or_deriv);
+  return ret;
+}

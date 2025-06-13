@@ -32,9 +32,10 @@ public:
   Tensor<FloatType,TensDim-1> value(const Tensor<FloatType,TensDim> &in);
   
   void deriv(Tensor<FloatType,TensDim-1> &&dcost_by_dOut, Tensor<FloatType,TensDim> &dcost_by_dIn) const;
+
+  size_t FLOPS(int value_or_deriv) const{ return 0; }
   
   inline int nparams() const{ return 0; }
-
 };
 
 #include "implementation/BatchTensorDimensionSliceComponent.tcc"

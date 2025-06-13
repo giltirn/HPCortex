@@ -43,6 +43,8 @@ public:
 
   inline int nparams() const{ return leaf1.v.nparams() + leaf2.v.nparams(); }
 
+  inline size_t FLOPS(int value_or_deriv) const{ return leaf1.v.FLOPS(value_or_deriv) + leaf2.v.FLOPS(value_or_deriv); }
+  
   inline int getParams(Vector<FloatType> &into, int off){
     off = leaf1.v.getParams(into,off);
     return leaf2.v.getParams(into,off);

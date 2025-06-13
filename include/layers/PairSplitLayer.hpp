@@ -128,6 +128,8 @@ public:
 
   inline int nparams() const{ return 0; } //other instance handles nparams for leaf
 
+  inline size_t FLOPS(int value_or_deriv) const{ return 0; } //and FLOPS
+  
   inline int getParams(Vector<FloatType> &into, int off){
     return leader->getParams(into,off);
   }
@@ -173,6 +175,8 @@ public:
 
   inline int nparams() const{ return leader->leaf.v.nparams(); }
 
+  inline size_t FLOPS(int value_or_deriv) const{ return leader->leaf.v.FLOPS(value_or_deriv); }
+  
   inline int getParams(Vector<FloatType> &into, int off){
     return leader->getParams(into,off);
   }

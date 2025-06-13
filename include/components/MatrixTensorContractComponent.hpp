@@ -18,6 +18,8 @@ private:
   
   int in_dims[TensDim];
   int out_dims[TensDim];
+  mutable FLOPScounter value_FLOPS;
+  mutable FLOPScounter deriv_FLOPS;
   bool setup;
 
   //Storage from last call to "value"
@@ -45,7 +47,9 @@ public:
 
   //accumulated #params for layers here and below
   inline int nparams() const{ return size0*size1; }
-
+  
+  size_t FLOPS(int value_or_deriv) const{ return value_or_deriv == 0 ? value_FLOPS.value() : deriv_FLOPS.value(); }
+  
   //off measured from *end*, return new off
   void getParams(Vector<FloatType> &into, int off);
 

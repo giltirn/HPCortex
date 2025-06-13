@@ -15,7 +15,8 @@ Tensor<FloatType,TensDim> MatrixTensorContractComponent<FloatType,TensDim>::valu
     throw std::runtime_error(ss.str());
   }
 
-  Tensor<FloatType,TensDim> out = matrixBatchTensorContractLeft(weights, in, TensDim-2);
+  Tensor<FloatType,TensDim> out = matrixBatchTensorContractLeft(weights, in, TensDim-2, &value_FLOPS);
+  value_FLOPS.lock();
   
   in_buf.push(Tensor<FloatType,TensDim>(in)); //TODO: Can avoid this copy in some case by allowing r-value references for inputs. Perhaps have 2 versions of "value", taking l-value and r-value refs, respectively?
   return out;    
@@ -43,14 +44,15 @@ void MatrixTensorContractComponent<FloatType,TensDim>::deriv(Vector<FloatType> &
 
   //compute layer deriv
   //dcost / dx_oj = \sum_i dcost/df_oi *  w_ij
-  layer_deriv = matrixBatchTensorContractRight(above_deriv, weights, TensDim-2);
+  layer_deriv = matrixBatchTensorContractRight(above_deriv, weights, TensDim-2, &deriv_FLOPS);
 
   //compute cost_deriv
   //dcost / dw_ij = \sum_o dcost/df_oi  x_oj
   {
     autoView(cost_deriv_v,cost_deriv,DeviceReadWrite);
-    batchTensorContractToMatrix_p(cost_deriv_v.data() + off, above_deriv, in, TensDim-2);
+    batchTensorContractToMatrix_p(cost_deriv_v.data() + off, above_deriv, in, TensDim-2, &deriv_FLOPS);
   }
+  deriv_FLOPS.lock();
 }
 
 template<typename FloatType, int TensDim>

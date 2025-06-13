@@ -3,12 +3,22 @@ Tensor<FloatType,3> BatchedMatrixRowSoftMaxComponent<FloatType>::value(const Ten
   int batch_size = in.size(2);
   int rows = in.size(0);
   int cols = in.size(1);
-  if(use_mask) assert(in.size(0) == cols);
+  if(use_mask) assert(rows == cols);
 
   FloatType beta_ = beta;
 
   Tensor<FloatType,3> out(in.sizeArray(),0.);
   bool use_mask_ = use_mask;
+
+  if(!value_FLOPS.locked()){ //note, this count ignores the recomputation of the norm when it hits a new max value
+    size_t cnt = 0;
+    for(int r=0;r<rows;r++){
+      int nlogp = use_mask ? r+1 : cols;
+      cnt += 8*nlogp;
+    }
+    value_FLOPS.add(cnt*batch_size);
+    value_FLOPS.lock();
+  }   
   
   {
     autoView(in_v,in,DeviceRead);
@@ -62,6 +72,16 @@ void BatchedMatrixRowSoftMaxComponent<FloatType>::deriv(Tensor<FloatType,3> &&_d
   FloatType beta_ = beta;
   bool use_mask_ = use_mask;
 
+  if(!deriv_FLOPS.locked()){
+    size_t cnt = 0;
+    for(int r=0;r<rows;r++){
+      int nlogp = use_mask ? r+1 : cols;
+      cnt += nlogp * (2*nlogp + 2);
+    }
+    deriv_FLOPS.add(cnt * batch_size);
+    deriv_FLOPS.lock();
+  }   
+  
   autoView(out_v,out,DeviceRead);
   autoView(dcost_by_dOut_v, dcost_by_dOut, DeviceRead);
   autoView(dcost_by_dIn_v, dcost_by_dIn, DeviceWrite);

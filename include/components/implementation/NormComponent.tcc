@@ -21,6 +21,11 @@ Tensor<FloatType,TensDim> NormComponent<FloatType,TensDim>::value(const Tensor<F
   Matrix<FloatType> std_store(other_dim_vol, batch_size);
   
   int _norm_dim = norm_dim;
+
+  if(!value_FLOPS.locked()){
+    value_FLOPS.add(other_dim_vol*batch_size*( norm_dim_size*(3+2) + 6 ) );
+    value_FLOPS.lock();
+  }
   
   {
     autoView(in_v,in,DeviceRead);
@@ -90,6 +95,11 @@ void NormComponent<FloatType,TensDim>::deriv(Tensor<FloatType,TensDim> &&_dcost_
     //                  = 1 /sqrt(  var_o + eps )delta_{jj'}      - 1 / N sqrt(  var_o + eps )     - nrm_oj' nrm_oj / N  sqrt( var_o + eps ) 
 
     //dCost/dIn_oj = \sum_o [ dCost/dOut_oj /sqrt(  var_o + eps )  -\sum_j' dCost/dOut_oj' / N sqrt(  var_o + eps )         - \sum_j' dCost/dOut_oj' nrm_oj' ( In_oj - mu_o ) / N(  var_o + eps )
+
+    if(!deriv_FLOPS.locked()){
+      deriv_FLOPS.add(other_dim_vol*batch_size*norm_dim_size*(norm_dim_size*6 + 1));
+      deriv_FLOPS.lock();
+    }
     
     autoView(out_v,out,DeviceRead);
     autoView(stds_v,stds,DeviceRead);

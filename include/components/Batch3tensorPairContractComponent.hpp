@@ -16,6 +16,9 @@ private:
   FloatType nrm;
   int contract_dim_A;
   int contract_dim_B;
+  mutable FLOPScounter value_FLOPS;
+  mutable FLOPScounter deriv_FLOPS;
+  
   mutable RingBuffer<Tensor<FloatType,3> > A_buf;
   mutable RingBuffer<Tensor<FloatType,3> > B_buf;
 public:
@@ -25,10 +28,12 @@ public:
   Batch3tensorPairContractComponent(Batch3tensorPairContractComponent &&r) = default;
   
   //Forward pass
-  Tensor<FloatType,3> value(const Tensor<FloatType,3> &A, const Tensor<FloatType,3> &B){
+  Tensor<FloatType,3> value(const Tensor<FloatType,3> &A, const Tensor<FloatType,3> &B){   
     A_buf.push(Tensor<FloatType,3>(A));
     B_buf.push(Tensor<FloatType,3>(B));
-    return batch3tensorContract(A,B,contract_dim_A,contract_dim_B,nrm);
+    auto out = batch3tensorContract(A,B,contract_dim_A,contract_dim_B,nrm,&value_FLOPS);
+    value_FLOPS.lock();
+    return out;
   }  
   void deriv(Tensor<FloatType,3> &&_dcost_by_dC, Tensor<FloatType,3> &dcost_by_dA, Tensor<FloatType,3> &dcost_by_dB) const{
     Tensor<FloatType,3> dcost_by_dC = std::move(_dcost_by_dC);
@@ -72,12 +77,15 @@ public:
     bool transpose_dA = !contract_dim_A;
     bool transpose_dB = !contract_dim_B; 
     
-    dcost_by_dA = transpose_dA     ?     batch3tensorContract(B, dcost_by_dC, 1-contract_dim_B, 1, nrm)   :   batch3tensorContract(dcost_by_dC, B, 1, 1-contract_dim_B, nrm);
-    dcost_by_dB = transpose_dB     ?     batch3tensorContract(A, dcost_by_dC, 1-contract_dim_A, 0, nrm)   :   batch3tensorContract(dcost_by_dC, A, 0, 1-contract_dim_A, nrm);
+    dcost_by_dA = transpose_dA     ?     batch3tensorContract(B, dcost_by_dC, 1-contract_dim_B, 1, nrm, &deriv_FLOPS)   :   batch3tensorContract(dcost_by_dC, B, 1, 1-contract_dim_B, nrm, &deriv_FLOPS);
+    dcost_by_dB = transpose_dB     ?     batch3tensorContract(A, dcost_by_dC, 1-contract_dim_A, 0, nrm, &deriv_FLOPS)   :   batch3tensorContract(dcost_by_dC, A, 0, 1-contract_dim_A, nrm, &deriv_FLOPS);
+    deriv_FLOPS.lock();
   }
     
   inline int nparams() const{ return 0; }
 
+  size_t FLOPS(int value_or_deriv) const{ return value_or_deriv == 0 ? value_FLOPS.value() : deriv_FLOPS.value(); }
+  
   //For pipeliningin
   inline void resizeInputBuffer(size_t to){
     A_buf.resize(to);

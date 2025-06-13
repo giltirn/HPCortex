@@ -19,6 +19,11 @@ Tensor<FloatType,TensDim> ScaleComponent<FloatType,TensDim>::value(const Tensor<
   
   Tensor<FloatType,TensDim> out(in.sizeArray());
   int _scale_dim = scale_dim;
+
+  if(!value_FLOPS.locked()){
+    value_FLOPS.add(other_dim_vol*scale_dim_size*batch_size*2);
+    value_FLOPS.lock();
+  }
   
   {
     autoView(in_v,in,DeviceRead);
@@ -58,6 +63,7 @@ void ScaleComponent<FloatType,TensDim>::deriv(Vector<FloatType> &cost_deriv, int
     //Out_oj = gamma_j * In_oj + beta_j
     //dOut_oj/dIn_oj = gamma_j
     //dCost/dIn_oj = dCost/dOut_oj gamma_j
+    if(!deriv_FLOPS.locked()) deriv_FLOPS.add(other_dim_vol*scale_dim_size*batch_size);
     
     autoView(dcost_by_dIn_v, dcost_by_dIn, DeviceWrite);
     autoView(dcost_by_dOut_v, dcost_by_dOut, DeviceRead);
@@ -77,6 +83,14 @@ void ScaleComponent<FloatType,TensDim>::deriv(Vector<FloatType> &cost_deriv, int
     
     //dOut_oj/dbeta_j = 1
     //dCost/dbeta_j = \sum_o dCost/dOut_oj
+
+    if(!deriv_FLOPS.locked()) deriv_FLOPS.add(
+					      other_dim_vol*scale_dim_size*(
+									    (use_affine ? batch_size*2 + 1 : 0)
+									    +
+									    (use_bias ? batch_size + 1 : 0)
+									    )
+					      );
     
     autoView(cost_deriv_v, cost_deriv, DeviceReadWrite);
     autoView(dcost_by_dOut_v, dcost_by_dOut, DeviceRead);
@@ -87,7 +101,7 @@ void ScaleComponent<FloatType,TensDim>::deriv(Vector<FloatType> &cost_deriv, int
 
     int p_gamma = off;
     int p_beta = use_affine ? off + scale_dim_size : off;
-    
+   
     accelerator_for2d(j, scale_dim_size, o, other_dim_vol, 1, {
 	size_t off_0oj = batchTensorDimensionBaseLin<TensDim>(_scale_dim, 0,o, dcost_by_dOut_v.sizeArray()) + j*_stride;
 	FloatType* dcost_by_dOut_p = dcost_by_dOut_v.data() + off_0oj;
@@ -102,7 +116,7 @@ void ScaleComponent<FloatType,TensDim>::deriv(Vector<FloatType> &cost_deriv, int
 	if(_use_bias) atomicAdd(&cost_deriv_v(p_beta + j), der_beta);
       });
   }
-
+  deriv_FLOPS.lock();
 }
 
 template<typename FloatType, int TensDim>

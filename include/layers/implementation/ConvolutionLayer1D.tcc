@@ -27,6 +27,11 @@ Tensor<FloatType,3> ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,
   Tensor<FloatType, 3> out(out_size, 0.);
 
   //std::cout << "Conv1d output size " << out.sizeArrayString() << std::endl;
+
+  if(!value_FLOPS.locked()){
+    value_FLOPS.add(depth*channels*out_data_len*batch_size*( kernel_size*2 + 1 ) );
+    value_FLOPS.lock();
+  }
   
   {
     autoView(out_v,out,DeviceReadWrite);
@@ -104,7 +109,9 @@ int ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::de
     assert(activation_deriv.size(1) == out_data_len);
     assert(activation_deriv.size(2) == batch_size);      
 
-    //precompute the "activated derivatives" 
+    //precompute the "activated derivatives"
+    if(!deriv_FLOPS.locked()) deriv_FLOPS.add(depth*out_data_len*batch_size);
+    
     Tensor<FloatType,3> activated_deriv(act_der_sz);
     labelRegionBegin("precompute_activated_derivs");
     {
@@ -125,6 +132,17 @@ int ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::de
     //Compute layer deriv
     //g_do(x) = \sum_c [ \sum_k filter_{dck} x_{c,s*o+k} ]
     //dcost / dx_ci = \sum_do activated_deriv_do [ \sum_k filter_{dck} delta_{s*o+k,i} ]  = \sum_dk activated_deriv_{d,(i-k)/s} filter_{dck} ]
+    if(!deriv_FLOPS.locked()){
+      size_t cnt = 0;
+      for(int i=0;i<padded_data_len;i++){
+	int kmax = i < kernel_size_-1 ? i : kernel_size_-1;	
+	for(int k=0;k<=kmax;k++)
+	  if( (i-k) % stride_ == 0  && (i-k)/stride_ < out_data_len)
+	    cnt += 2*depth*batch_size*channels;
+      }
+      deriv_FLOPS.add(cnt);
+    }
+    
     labelRegionBegin("compute_layer_deriv");
     {
       autoView(layer_deriv_v, layer_deriv, DeviceWrite);
@@ -148,7 +166,9 @@ int ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::de
     //g_do(x) = \sum_c [ \sum_k filter_{dck} x_{c,s*o+k} ]
     //
     //dcost / dfilter_{d'c'k'} = \sum_do (dcost/df_do df_do / dg_do) dg_do/filter_{d'c'k'}
-    //                      = \sum_o activated_deriv_d'o x_{c',s*o+k'} 
+    //                      = \sum_o activated_deriv_d'o x_{c',s*o+k'}
+    if(!deriv_FLOPS.locked()) deriv_FLOPS.add(out_data_len*batch_size*depth*channels*kernel_size*2);
+      
     {
       labelRegionBegin("cost_deriv");
       autoView(cost_deriv_v,cost_deriv,DeviceReadWrite);
@@ -175,7 +195,7 @@ int ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::de
     
   }//close views and free temporaries before calling layer below
   profileStop();
-  
+  deriv_FLOPS.lock();
   return leaf.v.deriv(cost_deriv, p, std::move(layer_deriv), input_above_deriv_return);
 }
 

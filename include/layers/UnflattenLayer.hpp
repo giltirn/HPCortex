@@ -34,6 +34,8 @@ public:
   //accumulated #params for layers here and below
   inline int nparams() const{ return leaf.v.nparams(); }
 
+  size_t FLOPS(int value_or_deriv) const{ return leaf.v.FLOPS(value_or_deriv); }
+  
   //off measured from *end*, return new off
   int getParams(Vector<FloatType> &into, int off);
 

@@ -26,6 +26,9 @@ private:
   bool init;
   int padded_data_len;
   int batch_size;
+
+  mutable FLOPScounter value_FLOPS;
+  mutable FLOPScounter deriv_FLOPS;
   
   //Storage from last call to "value"
   //Buffer size > 1 depending on rank if doing pipelining
@@ -62,6 +65,8 @@ public:
     return depth*channels*kernel_size + leaf.v.nparams();
   }
 
+  size_t FLOPS(int value_or_deriv) const{ return (value_or_deriv == 0 ? value_FLOPS.value() : deriv_FLOPS.value()) + leaf.v.FLOPS(value_or_deriv); }
+  
   //off measured from *end*, return new off
   int getParams(Vector<FloatType> &into, int off);
 

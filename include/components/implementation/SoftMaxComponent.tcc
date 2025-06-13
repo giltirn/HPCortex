@@ -16,6 +16,11 @@ Tensor<FloatType,TensDim> SoftMaxComponent<FloatType,TensDim>::value(const Tenso
 
   size_t stride = tensorDimensionStride<TensDim>(softmax_dim,in.sizeArray());
 
+  if(!value_FLOPS.locked()){ //note, this count ignores the recomputation of the norm when it hits a new max value
+    value_FLOPS.add(other_dim_vol*batch_size* 8*nlogp);    
+    value_FLOPS.lock();
+  }
+  
   {
     autoView(in_v,in,DeviceRead);
     autoView(out_v,out,DeviceWrite);
@@ -80,6 +85,11 @@ void SoftMaxComponent<FloatType,TensDim>::deriv(Tensor<FloatType,TensDim> &&_dco
 
   size_t stride = tensorDimensionStride<TensDim>(softmax_dim,out.sizeArray());
 
+  if(!deriv_FLOPS.locked()){ 
+    deriv_FLOPS.add(other_dim_vol*nlogp*batch_size* (2*nlogp + 2) );    
+    deriv_FLOPS.lock();
+  }
+  
   autoView(out_v,out,DeviceRead);
   autoView(dcost_by_dOut_v, dcost_by_dOut, DeviceRead);
   autoView(dcost_by_dIn_v, dcost_by_dIn, DeviceWrite);

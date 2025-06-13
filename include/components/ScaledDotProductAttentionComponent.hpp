@@ -47,6 +47,8 @@ public:
 
   void deriv(Tensor<FloatType,3> &&dCost_by_dOut, Tensor<FloatType,3> &dCost_by_dQ, Tensor<FloatType,3> &dCost_by_dK, Tensor<FloatType,3> &dCost_by_dV) const;
 
+  size_t FLOPS(int value_or_deriv) const{ return mulQKtoGetS.FLOPS(value_or_deriv) + softmaxS_to_SS.FLOPS(value_or_deriv) + mulSSVtoGetOut.FLOPS(value_or_deriv); }
+  
   //For pipelining
   inline void resizeInputBuffer(size_t to){
     mulQKtoGetS.resizeInputBuffer(to);

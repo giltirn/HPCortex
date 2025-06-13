@@ -18,6 +18,9 @@ private:
   int in_size[TensDim];
   size_t other_dim_vol;
   size_t stride;
+  mutable FLOPScounter value_FLOPS;
+  mutable FLOPScounter deriv_FLOPS;
+  
   bool setup;
 
   mutable RingBuffer<Tensor<FloatType,TensDim> > out_buf;
@@ -36,6 +39,8 @@ public:
   
   inline int nparams() const{ return 0; }
 
+  size_t FLOPS(int value_or_deriv) const{ return value_or_deriv == 0 ? value_FLOPS.value() : deriv_FLOPS.value(); }
+  
   inline void resizeInputBuffer(size_t to){
     out_buf.resize(to);
     std_buf.resize(to);

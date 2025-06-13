@@ -6,6 +6,7 @@
 #include <RingBuffer.hpp>
 #include <Linalg.hpp>
 
+//Concatenate Ntens tensors along a dimension concat_dim < Dim-1  (last dim is the batch index)
 template<typename _FloatType, int TensDim>
 class BatchTensorConcatenateComponent{
 public:
@@ -38,6 +39,8 @@ public:
       *dcost_by_dIn[t] = Tensor<FloatType,TensDim>(tens_dims[t].data());
     batchTensorSplit(dcost_by_dIn, Ntens, dcost_by_dOut, concat_dim);
   }
-    
+  
+  size_t FLOPS(int value_or_deriv) const{ return 0; }
+  
   inline int nparams() const{ return 0; }
 };

@@ -22,6 +22,8 @@ private:
   int out_dims[TensDim];
   size_t other_size; //volume of dimensions other than batch_dim and contract_dim
   size_t stride;
+  mutable FLOPScounter value_FLOPS;
+  mutable FLOPScounter deriv_FLOPS;
   bool setup;
 
   ActivationFunc activation_func;
@@ -54,6 +56,8 @@ public:
   
   void step(int off, const Vector<FloatType> &derivs, FloatType eps);
 
+  size_t FLOPS(int value_or_deriv) const{ return value_or_deriv == 0 ? value_FLOPS.value() : deriv_FLOPS.value(); }
+  
   //accumulated #params for layers here and below
   inline int nparams() const{ return weights.size(0)*weights.size(1) + (use_bias ? bias.size(0) : 0);  }
 

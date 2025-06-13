@@ -78,6 +78,8 @@ public:
   //accumulated #params for layers here and below
   inline int nparams() const{ return attention.nparams() + leaf_KV.v.nparams() +  leaf_Q.v.nparams() ; }
 
+  size_t FLOPS(int value_or_deriv) const{ return attention.FLOPS(value_or_deriv) + leaf_KV.v.FLOPS(value_or_deriv) + leaf_Q.v.FLOPS(value_or_deriv); }
+  
   int getParams(Vector<FloatType> &into, int off){
     int p=off;
     attention.getParams(into,p);

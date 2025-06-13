@@ -32,6 +32,8 @@ public:
   
   inline int nparams() const{ return 0; }
 
+  inline size_t FLOPS(int value_or_deriv) const{ return 0; }
+  
   inline int getParams(Vector<FloatType> &into, int off){ return off; }
 
   //For pipelining

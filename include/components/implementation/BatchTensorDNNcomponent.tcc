@@ -18,13 +18,14 @@ Tensor<FloatType,TensDim> BatchTensorDNNcomponent<FloatType,TensDim,ActivationFu
 	other_size *= in_dims[d];
 
     stride = tensorDimensionStride<TensDim>(contract_dim, in_dims);
-      
+    
     setup = true;
   }
   for(int d=0;d<TensDim;d++) assert(in.size(d) == in_dims[d]);
 
-  Tensor<FloatType,TensDim> out = matrixBatchTensorAxpy(weights, in, bias, contract_dim);
-
+  Tensor<FloatType,TensDim> out = matrixBatchTensorAxpy(weights, in, bias, contract_dim, &value_FLOPS);
+  value_FLOPS.lock();
+  
   in_buf.push(Tensor<FloatType,TensDim>(in)); //TODO: Can avoid this copy in some case by allowing r-value references for inputs. Perhaps have 2 versions of "value", taking l-value and r-value refs, respectively?
   
   Tensor<FloatType,TensDim> activation_deriv;
@@ -63,6 +64,8 @@ void BatchTensorDNNcomponent<FloatType,TensDim,ActivationFunc>::deriv(Vector<Flo
   labelRegionBegin("precompute_activated_derivs");
   Tensor<FloatType,TensDim> activated_above_deriv(out_dims);
   {
+    if(!deriv_FLOPS.locked()) deriv_FLOPS.add(other_size * out_dims[contract_dim]*batch_size); 
+    
     autoView(activated_above_deriv_v, activated_above_deriv, DeviceWrite);
     autoView(above_deriv_v, above_deriv, DeviceRead);
     autoView(activation_deriv_v, activation_deriv, DeviceRead);    
@@ -76,7 +79,7 @@ void BatchTensorDNNcomponent<FloatType,TensDim,ActivationFunc>::deriv(Vector<Flo
   //Compute layer deriv
   //dcost / dx_oj = \sum_i (dcost/df_oi df_oi/dg_oi) w_ij =\sum_i activated_deriv_oi w_ij 
   labelRegionBegin("compute_layer_deriv");
-  layer_deriv = matrixBatchTensorContractRight(activated_above_deriv, weights, contract_dim);
+  layer_deriv = matrixBatchTensorContractRight(activated_above_deriv, weights, contract_dim, &deriv_FLOPS);
   labelRegionEnd();
   
   //Now we finish up the derivs wrt our parameters      
@@ -86,20 +89,23 @@ void BatchTensorDNNcomponent<FloatType,TensDim,ActivationFunc>::deriv(Vector<Flo
   //dg_oi / d w_jk = delta_ij x_ok
   //dg_oi / d b_j = delta_ij
   
-  //dcost / dw_jk = \sum_o (dcost/df_oj df_oj/dg_oj) x_ok  =  \sum_o activated_deriv_oj x_ok 
+  //dcost / dw_jk = \sum_o (dcost/df_oj df_oj/dg_oj) x_ok  =  \sum_o activated_deriv_oj x_ok
+  //dcost / d b_j = \sum_o (dcost/df_oj df_oj/dg_oj) = \sum_o activated_deriv_oj
   {
     int p=off;
     
     labelRegionBegin("cost_deriv_weights");
     {
       autoView(cost_deriv_v,cost_deriv,DeviceReadWrite);
-      batchTensorContractToMatrix_p(cost_deriv_v.data() + p, activated_above_deriv, in, contract_dim);
+      batchTensorContractToMatrix_p(cost_deriv_v.data() + p, activated_above_deriv, in, contract_dim, &deriv_FLOPS);
     }
   
     p += weights.size(0)*weights.size(1);
     labelRegionEnd();
 
     if(use_bias){
+      if(!deriv_FLOPS.locked()) deriv_FLOPS.add(weights.size(0) * other_size * batch_size);
+      
       size_t bs = batch_size;
       autoView(activated_above_deriv_v, activated_above_deriv, DeviceRead);
       autoView(cost_deriv_v,cost_deriv,DeviceReadWrite);
@@ -119,6 +125,7 @@ void BatchTensorDNNcomponent<FloatType,TensDim,ActivationFunc>::deriv(Vector<Flo
     }
     
   }
+  deriv_FLOPS.lock();
   profileStop();
 }
 

@@ -9,6 +9,7 @@ public:
   virtual LayerOutputType value(const InputType &x) = 0;
   virtual int deriv(Vector<FloatType> &cost_deriv, int off, LayerOutputType &&above_deriv, InputType* input_above_deriv_return = nullptr) const = 0;
   virtual int nparams() const = 0;
+  virtual size_t FLOPS(int value_or_deriv) const = 0;
   virtual void resizeInputBuffer(size_t to) = 0;
   virtual int getParams(Vector<FloatType> &into, int off) = 0;
   virtual int step(int off, const Vector<FloatType> &derivs, FloatType eps) = 0;
@@ -35,6 +36,8 @@ public:
   }
   int nparams() const override{ return layer.v.nparams(); }
 
+  size_t FLOPS(int value_or_deriv) const{ return layer.v.FLOPS(value_or_deriv); }
+  
   int getParams(Vector<FloatType> &into, int off) override{ return layer.v.getParams(into,off); }
 
   int step(int off, const Vector<FloatType> &derivs, FloatType eps) override{ return layer.v.step(off,derivs,eps); }
@@ -66,6 +69,8 @@ public:
   }
   inline int nparams() const{ return layer->nparams(); }
 
+  inline size_t FLOPS(int value_or_deriv) const{ return layer->FLOPS(value_or_deriv); }
+  
   inline int getParams(Vector<FloatType> &into, int off){ return layer->getParams(into,off); }
 
   inline int step(int off, const Vector<FloatType> &derivs, FloatType eps){ return layer->step(off,derivs,eps); }

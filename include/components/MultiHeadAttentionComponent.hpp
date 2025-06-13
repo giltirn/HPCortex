@@ -41,6 +41,8 @@ public:
   //accumulated #params for layers here and below
   inline int nparams() const{ return Nparams_layer; }
 
+  size_t FLOPS(int value_or_deriv) const;
+  
   //off measured from *end*, return new off
   void getParams(Vector<FloatType> &into, int off);
 

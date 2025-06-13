@@ -61,6 +61,8 @@ public:
   //off measured from *end*, return new off
   int getParams(Vector<FloatType> &into, int off);
 
+  size_t FLOPS(int value_or_deriv) const{ return attentionQKV.FLOPS(value_or_deriv) + (value_or_deriv == 1 ? B*C*E*2 : 0) + leaf.v.FLOPS(value_or_deriv); }
+  
   //For pipelining
   inline void resizeInputBuffer(size_t to){
     attentionQKV.resizeInputBuffer(to);

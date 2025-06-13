@@ -16,6 +16,8 @@ public:
 private:
   FloatType beta;
   mutable RingBuffer<Tensor<FloatType,3> > out_buf;
+  mutable FLOPScounter value_FLOPS;
+  mutable FLOPScounter deriv_FLOPS;
   bool use_mask;
 public:
   
@@ -25,7 +27,9 @@ public:
   
   Tensor<FloatType,3> value(const Tensor<FloatType,3> &in) const;
   void deriv(Tensor<FloatType,3> &&dcost_by_dOut, Tensor<FloatType,3> &dcost_by_dIn) const;
-    
+
+  size_t FLOPS(int value_or_deriv) const{ return value_or_deriv == 0 ? value_FLOPS.value() : deriv_FLOPS.value(); }
+  
   inline int nparams() const{ return 0; }
 
   inline void resizeInputBuffer(size_t to){

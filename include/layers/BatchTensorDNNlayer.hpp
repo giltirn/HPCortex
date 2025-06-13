@@ -33,6 +33,8 @@ public:
   
   int step(int off, const Vector<FloatType> &derivs, FloatType eps);
 
+  size_t FLOPS(int value_or_deriv) const{ return cpt.FLOPS(value_or_deriv) + leaf.v.FLOPS(value_or_deriv); }
+  
   //accumulated #params for layers here and below
   inline int nparams() const{ return cpt.nparams() + leaf.v.nparams(); }
 

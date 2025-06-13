@@ -114,6 +114,8 @@ public:
 
   inline int nparams() const{ return instance == N-1 ? leader->leaf.v.nparams() : 0; }
 
+  inline size_t FLOPS(int value_or_deriv) const{ return instance == N-1 ? leader->leaf.v.FLOPS(value_or_deriv) : 0; }
+  
   inline int getParams(Vector<FloatType> &into, int off){
     return leader->getParams(into,off);
   }

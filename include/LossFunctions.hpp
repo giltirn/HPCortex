@@ -56,6 +56,8 @@ public:
   }
   int nparams(){ return nparam; }
 
+  size_t FLOPS(int value_or_deriv) const{ return leaf.v.FLOPS(value_or_deriv); }
+
   Vector<FloatType> getParams(){
     Vector<FloatType> out(nparams());
     leaf.v.getParams(out,0);

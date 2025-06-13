@@ -23,6 +23,8 @@ private:
   int in_size[TensDim];
   size_t other_dim_vol;
   size_t stride;
+  mutable FLOPScounter value_FLOPS;
+  mutable FLOPScounter deriv_FLOPS;
   bool setup;
 
   Vector<FloatType> gamma;
@@ -57,6 +59,8 @@ public:
   //off measured from *end*, return new off
   void getParams(Vector<FloatType> &into, int off);
   
+  size_t FLOPS(int value_or_deriv) const{ return value_or_deriv == 0 ? value_FLOPS.value() : deriv_FLOPS.value(); }
+
   inline int nparams() const{ return nparams_val; }
 
   inline void resizeInputBuffer(size_t to){

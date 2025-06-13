@@ -40,50 +40,69 @@ void benchmarkMatrixDNN(){
 void benchmarkTensorDNN(){
   std::mt19937 rng(1234);
 
-  int contract_dim = 0;
-  int matrix_dim = 512;
-  int batch_size = 64;
-  int other_dim_size= 64;
+  std::vector<int> matrix_dims = { 2, 5, 8, 16, 64, 256, 512, 1024 };
+  std::vector<int> batch_sizes = {1, 5, 8, 16, 32, 64};
+  std::vector<int> other_dim_sizes = { 2, 5, 8, 64, 128, 256 };
+
+  // int contract_dim = 0;
+  // int matrix_dim = 512;
+  // int batch_size = 64;
+  // int other_dim_size= 64;
   
-  Matrix<float> a(matrix_dim, matrix_dim);
-  uniformRandom(a,rng);
-
-  Vector<float> y(matrix_dim);
-  uniformRandom(y,rng);
+  for(int contract_dim = 0; contract_dim<2; contract_dim++){
+    for(int other_dim_size : other_dim_sizes){
+      for(int matrix_dim : matrix_dims){
+	for(int batch_size : batch_sizes){
+	  std::cout << "contract_dim:" << contract_dim << " other_dim_size:" << other_dim_size << " matrix_dim:" << matrix_dim << " batch_size:" << batch_size << std::endl;
 	  
-  int tsize[3];
-  tsize[2] = batch_size;
-  tsize[contract_dim] = matrix_dim;
-  tsize[1-contract_dim] = other_dim_size;
+	  Matrix<float> a(matrix_dim, matrix_dim);
+	  uniformRandom(a,rng);
+
+	  Vector<float> y(matrix_dim);
+	  uniformRandom(y,rng);
 	  
-  Tensor<float,3> x(tsize);
-  uniformRandom(x, rng);
+	  int tsize[3];
+	  tsize[2] = batch_size;
+	  tsize[contract_dim] = matrix_dim;
+	  tsize[1-contract_dim] = other_dim_size;
+	  
+	  Tensor<float,3> x(tsize);
+	  uniformRandom(x, rng);
 
-  auto m = batch_tensor_dnn_layer<3>(input_layer<float, Tensor<float,3> >(), a, y, contract_dim, ReLU<float>());
+	  auto m = batch_tensor_dnn_layer<3>(input_layer<float, Tensor<float,3> >(), a, y, contract_dim, ReLU<float>());
 
-  Tensor<float,3> got;
+	  Tensor<float,3> got;
   
-  double mu, sigma;
+	  double mu, sigma;
 
-  benchmark(mu, sigma, 300, 1, [&]{
-    got = m.value(x);
-  }, []{});
+	  benchmark(mu, sigma, 300, 1, [&]{
+	    got = m.value(x);
+	  }, []{});
+	  double Mflops_mu = double(m.FLOPS(0))/1e6/mu;
+	  double Mflops_sigma = double(m.FLOPS(0))/1e6/mu/mu * sigma;
+	  
+	  std::cout << "value: " << mu/1e-6 << "+-" << sigma/1e-6 << "us, " << Mflops_mu << "+-" << Mflops_sigma << " Mflops" << std::endl;
 
-  std::cout << "value: " << mu/1e-6 << "us " << sigma/1e-6 << "us" << std::endl;
+	  Tensor<float,3> above(tsize);
+	  Vector<float> deriv(m.nparams());
 
-  Tensor<float,3> above(tsize);
-  Vector<float> deriv(m.nparams());
+	  benchmark(mu, sigma, 300, 1,
+		    [&]{
+		      m.deriv(deriv,0,std::move(above));
+		    },
+		    [&]{
+		      above = Tensor<float,3>(tsize);
+		      m.value(x);
+		    }  );
 
-  benchmark(mu, sigma, 300, 1,
-	    [&]{
-	      m.deriv(deriv,0,std::move(above));
-	    },
-	    [&]{
-	      above = Tensor<float,3>(tsize);
-	      m.value(x);
-	    }  );
-
-  std::cout << "deriv: " << mu/1e-6 << "us " << sigma/1e-6 << "us" << std::endl;
+	  Mflops_mu = double(m.FLOPS(1))/1e6/mu;
+	  Mflops_sigma = double(m.FLOPS(1))/1e6/mu/mu * sigma;
+	  
+	  std::cout << "deriv: " << mu/1e-6 << "+-" << sigma/1e-6 << "us, "  << Mflops_mu << "+-" << Mflops_sigma << " Mflops" << std::endl;
+	}
+      }
+    }
+  }
 }
   
 void benchmarkCompareMatrixTensorDNN(){
@@ -177,7 +196,7 @@ void benchmarkCompareMatrixTensorDNN(){
 
 int main(int argc, char** argv){
   initialize(argc,argv);
-  //benchmarkTensorDNN();
-  benchmarkCompareMatrixTensorDNN();
+  benchmarkTensorDNN();
+  //benchmarkCompareMatrixTensorDNN();
   return 0;
 }

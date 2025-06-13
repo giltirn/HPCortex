@@ -10,6 +10,7 @@ public:
   typedef _InputType InputType;
 private:
   Store leaf;
+  mutable FLOPScounter value_FLOPS;
 public:
   typedef LeafTag tag;
   
@@ -20,7 +21,11 @@ public:
   EmbedPositionsSinusoidalLayer(EmbedPositionsSinusoidalLayer &&r) = default;
   
   //Forward pass
-  Tensor<FloatType,3> value(const InputType &x){ return embedPositionsSinusoidal(leaf.v.value(x)); }
+  Tensor<FloatType,3> value(const InputType &x){
+    auto out = embedPositionsSinusoidal(leaf.v.value(x), &value_FLOPS);
+    value_FLOPS.lock();
+    return out;
+  }
 
   inline int deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,3> &&_above_deriv, InputType* input_above_deriv_return = nullptr) const{
     //This is a constant additive embedding so it doesn't touch the derivatives
@@ -35,6 +40,8 @@ public:
 
   //accumulated #params for layers here and below
   inline int nparams() const{ return leaf.v.nparams(); }
+  
+  size_t FLOPS(int value_or_deriv) const{ return (value_or_deriv == 0 ? value_FLOPS.value() : 0) + leaf.v.FLOPS(value_or_deriv); }
 
   inline int getParams(Vector<FloatType> &into, int off){
     return leaf.v.getParams(into,off);

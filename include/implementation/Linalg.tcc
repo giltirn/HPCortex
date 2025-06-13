@@ -1,11 +1,14 @@
 // C_jk = \sum_i  A_ji B_ki     for ni small-ish (batch size)  pointer version; pointer must be device writable
 template<typename FloatType>
-void thinMulMatMatTranspose_p(FloatType* out_p, const Matrix<FloatType> &a, const Matrix<FloatType> &b){
+void thinMulMatMatTranspose_p(FloatType* out_p, const Matrix<FloatType> &a, const Matrix<FloatType> &b, FLOPScounter *flops){
   int szj = a.size(0);
   int szi = a.size(1);
   int szk = b.size(0);
   assert(b.size(1) == szi);
 
+  if(flops != nullptr && !flops->locked())
+    flops->add(szj*szk*szi*2);
+  
   autoView(a_v,a,DeviceRead);
   autoView(b_v,b,DeviceRead);
 
@@ -93,22 +96,25 @@ void thinMulMatMatTranspose_p(FloatType* out_p, const Matrix<FloatType> &a, cons
 
 //C_jk = \sum_i  A_ji B_ki     for ni small-ish (batch size)
 template<typename FloatType>
-Matrix<FloatType> thinMulMatMatTranspose(const Matrix<FloatType> &a, const Matrix<FloatType> &b){
+Matrix<FloatType> thinMulMatMatTranspose(const Matrix<FloatType> &a, const Matrix<FloatType> &b, FLOPScounter* flops){
   Matrix<FloatType> out(a.size(0),b.size(0));
   autoView(out_v,out,DeviceWrite);
-  thinMulMatMatTranspose_p(out_v.data(),a,b);
+  thinMulMatMatTranspose_p(out_v.data(),a,b,flops);
   return out;  
 }
 
 
 //C_ik = \sum_j A_ji B_jk for nk small-ish (batch size)
 template<typename FloatType>
-Matrix<FloatType> mulMatTransposeThinMat(const Matrix<FloatType> &a, const Matrix<FloatType> &b){
+Matrix<FloatType> mulMatTransposeThinMat(const Matrix<FloatType> &a, const Matrix<FloatType> &b, FLOPScounter *flops){
   int sizei = a.size(1);
   int sizej = a.size(0);
   int sizek = b.size(1);
   assert(b.size(0) == sizej);
-
+  
+  if(flops != nullptr && !flops->locked())
+    flops->add(sizei*sizek*sizej*2);
+      
 #ifdef USE_CUDA
   
   if(sizej < 300){
@@ -211,10 +217,13 @@ Matrix<FloatType> mulMatTransposeThinMat(const Matrix<FloatType> &a, const Matri
 
 //out(i, b) = above_deriv(i,b) * activation_deriv(i,b)
 template<typename FloatType>
-Matrix<FloatType> computeThinMatOuterProd(const Matrix<FloatType> &above_deriv, const Matrix<FloatType> &activation_deriv){
+Matrix<FloatType> computeThinMatOuterProd(const Matrix<FloatType> &above_deriv, const Matrix<FloatType> &activation_deriv, FLOPScounter *flops){
   int size0 = above_deriv.size(0);
   int batch_size =  above_deriv.size(1);
   assert(activation_deriv.size(0) == size0 && activation_deriv.size(1) == batch_size);
+
+  if(flops != nullptr && !flops->locked())
+    flops->add(size0*batch_size);
   
   Matrix<FloatType> activated_above_deriv(size0,batch_size);
   autoView(above_deriv_v,above_deriv,DeviceRead);
@@ -236,12 +245,15 @@ Matrix<FloatType> computeThinMatOuterProd(const Matrix<FloatType> &above_deriv, 
 
 //matrix a * b + c with b having a modest number of columns
 template<typename FloatType>
-Matrix<FloatType> axpyMatThinMat(const Matrix<FloatType> &a, const Matrix<FloatType> &b, const Vector<FloatType> &c){
+Matrix<FloatType> axpyMatThinMat(const Matrix<FloatType> &a, const Matrix<FloatType> &b, const Vector<FloatType> &c, FLOPScounter *flops){
   int size0 = a.size(0);
   assert(c.size(0) == size0);
   int size1 = a.size(1);
   assert(b.size(0) == size1);
   int size2 = b.size(1);
+
+  if(flops != nullptr && !flops->locked())
+    flops->add(size0*size2*size1*2);
     
   Matrix<FloatType> out(size0,size2);
   {
@@ -266,7 +278,7 @@ Matrix<FloatType> axpyMatThinMat(const Matrix<FloatType> &a, const Matrix<FloatT
 //eg  C_{ijb} = \sum_k A_{kib} B_{jkb} * nrm
 
 template<typename FloatType>
-Tensor<FloatType,3> batch3tensorContract(const Tensor<FloatType,3> &A, const Tensor<FloatType,3> &B, int contract_dimA, int contract_dimB, FloatType nrm){
+Tensor<FloatType,3> batch3tensorContract(const Tensor<FloatType,3> &A, const Tensor<FloatType,3> &B, int contract_dimA, int contract_dimB, FloatType nrm, FLOPScounter *flops){
   assert(A.size(2) == B.size(2));
   size_t batch_size = A.size(2);
 
@@ -291,7 +303,10 @@ Tensor<FloatType,3> batch3tensorContract(const Tensor<FloatType,3> &A, const Ten
   
   size_t kstrideB = Bstride[contract_dimB];
   size_t bstride = Bstride[1-contract_dimB];
-
+  
+  if(flops != nullptr && !flops->locked())
+    flops->add(sizes_out[0]*sizes_out[1]*batch_size * sizek*2);
+    
   {
     autoView(out_v,out,DeviceWrite);
     autoView(A_v,A,DeviceRead);
@@ -317,7 +332,7 @@ Tensor<FloatType,3> batch3tensorContract(const Tensor<FloatType,3> &A, const Ten
   
 //A_{ij} X_{..., j, ..., b}  + Y_i
 template<typename FloatType,int Dim>
-Tensor<FloatType,Dim> matrixBatchTensorAxpy(const Matrix<FloatType> &A, const Tensor<FloatType,Dim> &X, const Vector<FloatType> &Y, const int contract_dim){
+Tensor<FloatType,Dim> matrixBatchTensorAxpy(const Matrix<FloatType> &A, const Tensor<FloatType,Dim> &X, const Vector<FloatType> &Y, const int contract_dim, FLOPScounter *flops){
   int out_dims[Dim];
   memcpy(out_dims,X.sizeArray(),Dim*sizeof(int));
   out_dims[contract_dim] = A.size(0);
@@ -336,7 +351,10 @@ Tensor<FloatType,Dim> matrixBatchTensorAxpy(const Matrix<FloatType> &A, const Te
   int _sizei = A.size(0);
   int _contract_dim = contract_dim;
   size_t _stride = tensorDimensionStride<Dim>(contract_dim, X.sizeArray());
-  
+
+  if(flops != nullptr && !flops->locked())
+    flops->add(other_size*_sizei*batch_size*(2 + 2*(_sizej-1)));
+
   Tensor<FloatType,Dim> out(out_dims); 
   {
     autoView(X_v, X, DeviceRead);
@@ -403,7 +421,7 @@ Tensor<FloatType,Dim> matrixBatchTensorAxpy(const Matrix<FloatType> &A, const Te
   
 
 #else
-  
+ 
     accelerator_for3d(b, batch_size, i, _sizei, o, other_size,    1, {
 	size_t off_X = batchTensorDimensionBaseLin<Dim>(_contract_dim, b, o, X_v.sizeArray());
 	size_t off_out = batchTensorDimensionBaseLin<Dim>(_contract_dim, b, o, out_v.sizeArray());
@@ -431,7 +449,7 @@ Tensor<FloatType,Dim> matrixBatchTensorAxpy(const Matrix<FloatType> &A, const Te
 //preserve_dim:  the index of the dimension that is preserved in the output matrix (that of j, k in the above)
 //out: a *device* pointer to the output matrix' underlying array, that should be *zero initialized*. Output is stored in the usual lexicographic format, for the above   k+sizek*j
 template<typename FloatType, int Dim>
-void batchTensorContractToMatrix_p(FloatType* out_p, const Tensor<FloatType,Dim> &A, const Tensor<FloatType,Dim> &B, const int preserve_dim){
+void batchTensorContractToMatrix_p(FloatType* out_p, const Tensor<FloatType,Dim> &A, const Tensor<FloatType,Dim> &B, const int preserve_dim, FLOPScounter *flops){
   int batch_size = A.size(Dim-1);
   assert(B.size(Dim-1)==batch_size);
   size_t other_size = 1;
@@ -443,6 +461,9 @@ void batchTensorContractToMatrix_p(FloatType* out_p, const Tensor<FloatType,Dim>
   int sizej = A.size(preserve_dim);
   int sizek = B.size(preserve_dim);
 
+  if(flops != nullptr && !flops->locked())
+    flops->add(sizej*sizek* other_size*batch_size*2);
+  
   //As the stride between elements in 'preserve_dim' does not depend on the size of this dimension (only those of larger dim), and other sizes are all the same, they will share the same stride
   size_t stride = tensorDimensionStride<Dim>(preserve_dim, A.sizeArray());
 
@@ -535,14 +556,14 @@ void batchTensorContractToMatrix_p(FloatType* out_p, const Tensor<FloatType,Dim>
 //Specialized implementation for matrices for performance
 //out_jk =  \sum_b A_{j,b} B_{k,b}
 template<typename FloatType>
-inline void batchTensorContractToMatrix_p(FloatType* out_p, const Matrix<FloatType> &A, const Matrix<FloatType> &B, const int preserve_dim){
+inline void batchTensorContractToMatrix_p(FloatType* out_p, const Matrix<FloatType> &A, const Matrix<FloatType> &B, const int preserve_dim, FLOPScounter *flops){
   assert(preserve_dim == 0);
-  thinMulMatMatTranspose_p(out_p, A, B);
+  thinMulMatMatTranspose_p(out_p, A, B, flops);
 }
 
 //out_{jb} = \sum_i X_{...,i,...,b}A_{ij} 
 template<typename FloatType,int Dim>
-Tensor<FloatType,Dim> matrixBatchTensorContractRight(const Tensor<FloatType,Dim> &X, const Matrix<FloatType> &A, const int contract_dim){
+Tensor<FloatType,Dim> matrixBatchTensorContractRight(const Tensor<FloatType,Dim> &X, const Matrix<FloatType> &A, const int contract_dim, FLOPScounter *flops){
   int out_dims[Dim];
   memcpy(out_dims,X.sizeArray(),Dim*sizeof(int));
   out_dims[contract_dim] = A.size(1);
@@ -561,6 +582,9 @@ Tensor<FloatType,Dim> matrixBatchTensorContractRight(const Tensor<FloatType,Dim>
   int sizej = A.size(1);
 
   size_t stride = tensorDimensionStride<Dim>(contract_dim, X.sizeArray());
+
+  if(flops != nullptr && !flops->locked())
+    flops->add(other_size*batch_size*sizej*(2+2*(sizei-1) ));
   
   Tensor<FloatType,Dim> out(out_dims); 
   {
@@ -653,17 +677,17 @@ Tensor<FloatType,Dim> matrixBatchTensorContractRight(const Tensor<FloatType,Dim>
 
 //out_{jb} = \sum_i X_{i,b}A_{ij} = \sum_i X_{i,b}A_{ij}
 template<typename FloatType>
-inline Tensor<FloatType,2> matrixBatchTensorContractRight(const Tensor<FloatType,2> &X, const Matrix<FloatType> &A, const int contract_dim){
+inline Tensor<FloatType,2> matrixBatchTensorContractRight(const Tensor<FloatType,2> &X, const Matrix<FloatType> &A, const int contract_dim, FLOPScounter *flops){
   //\sum_i X_{i,b}A_{ij} = \sum_i A_{ij} X_{i,b}
   assert(contract_dim == 0);
-  return mulMatTransposeThinMat(A,X);
+  return mulMatTransposeThinMat(A,X,flops);
 }
 
 
 
 //A_{ij} X_{..., j, ..., b}
 template<typename FloatType,int Dim>
-Tensor<FloatType,Dim> matrixBatchTensorContractLeft(const Matrix<FloatType> &A, const Tensor<FloatType,Dim> &X, const int contract_dim){
+Tensor<FloatType,Dim> matrixBatchTensorContractLeft(const Matrix<FloatType> &A, const Tensor<FloatType,Dim> &X, const int contract_dim, FLOPScounter *flops){
   int out_dims[Dim];
   memcpy(out_dims,X.sizeArray(),Dim*sizeof(int));
   out_dims[contract_dim] = A.size(0);
@@ -682,6 +706,9 @@ Tensor<FloatType,Dim> matrixBatchTensorContractLeft(const Matrix<FloatType> &A, 
   int _sizei = A.size(0);
   int _contract_dim = contract_dim;
   size_t _stride = tensorDimensionStride<Dim>(contract_dim, X.sizeArray());
+
+  if(flops != nullptr && !flops->locked())
+    flops->add(batch_size*_sizei*other_size*_sizej*2);
   
   Tensor<FloatType,Dim> out(out_dims); 
   {
@@ -748,7 +775,7 @@ Tensor<FloatType,Dim> matrixBatchTensorContractLeft(const Matrix<FloatType> &A, 
   
 
 #else
-  
+
     accelerator_for3d(b, batch_size, i, _sizei, o, other_size,    1, {
 	size_t off_X = batchTensorDimensionBaseLin<Dim>(_contract_dim, b, o, X_v.sizeArray());
 	size_t off_out = batchTensorDimensionBaseLin<Dim>(_contract_dim, b, o, out_v.sizeArray());
