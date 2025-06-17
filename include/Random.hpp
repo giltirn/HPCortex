@@ -41,3 +41,30 @@ template<typename FloatType>
 inline void glorotUniformRandom(Matrix<FloatType> &m, FloatType gain = FloatType(1.0)){
   return glorotUniformRandom(m,globalRNG(),gain);
 }
+
+//Draw a random integer in range {0..nweights-1} based on an array of probability weights located at pointer *(weights + stride*i)  for i \in {0..nweights-1}
+template<typename FloatType, typename RNG>
+size_t drawWeightedRandomIndex(FloatType const* weights, int nweights, size_t stride, RNG &rng){
+  std::uniform_real_distribution<double> dist(0,1);
+  double p = dist(rng);
+
+  std::vector< std::pair<FloatType,size_t> > wsorted(nweights);
+  for(size_t i=0;i<nweights;i++){
+    wsorted[i] = std::pair<FloatType,size_t>(*weights,i);
+    weights += stride;
+  }
+  std::sort(wsorted.begin(),wsorted.end(), [](const std::pair<FloatType,size_t> &a, const std::pair<FloatType,size_t> &b){ return a.first < b.first; });
+    
+  double wsum = 0.;  
+  for(size_t i=0;i<nweights;i++){
+    wsum += wsorted[i].first;
+    if(p < wsum)
+      return wsorted[i].second;
+  }
+  assert(0);
+  return 0;
+}
+template<typename FloatType>
+size_t drawWeightedRandomIndex(FloatType const* weights, int nweights, size_t stride){
+  return drawWeightedRandomIndex(weights, nweights, stride, globalRNG());
+}

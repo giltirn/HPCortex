@@ -75,8 +75,19 @@ std::vector<std::string> predictNext(const std::vector<std::string> &sentence, i
     }
     std::cout << std::endl;
   }
+  //std::vector<std::string> out(sentence);
+  //out.push_back(vocab[pmax_idx]);
+
+  //Weighted random sampling of next token based on probability  
+  autoView(pred_v,pred,HostRead);
+  size_t stride = pred.size(2);
+    
+  size_t next_idx = drawWeightedRandomIndex(&pred_v(tok,0,0), pred.size(1), stride);
+  assert(next_idx < vocab.size());
+  std::cout << "Next idx " << next_idx << " and token " << vocab[next_idx] << std::endl;  
   std::vector<std::string> out(sentence);
-  out.push_back(vocab[pmax_idx]);
+  out.push_back(vocab[next_idx]);
+  
   return out;
 }
   
@@ -89,6 +100,7 @@ int main(int argc, char** argv){
   std::string model_file;
   std::string infer = "";
   int training_data_set = 0;
+  double infer_beta = 1.0; //this is the weight beta in the softmax; smaller values adhere closer to the model probabilities in sampling
   
   int i=1;
   while(i < argc){
@@ -108,6 +120,15 @@ int main(int argc, char** argv){
       std::stringstream ss; ss << argv[i+1]; ss >> training_data_set;
       assert(training_data_set == 0 || training_data_set == 1);
       i+=2;
+    }else if(sarg == "-seed"){
+      std::stringstream ss; ss << argv[i+1]; size_t seed; ss >> seed;
+      reseedGlobalRNG(seed);
+      i+=2;
+    }else if(sarg == "-temperature"){
+      double temp;
+      std::stringstream ss; ss << argv[i+1]; ss >> temp;
+      infer_beta = 1./temp; 
+      i+=2;      
     }else{
       std::cout << "Unknown argument:\"" << sarg << "\""<< std::endl;
       assert(0);
@@ -232,6 +253,8 @@ int main(int argc, char** argv){
 								    ),
 					 embedding_dim);
 
+    std::cout << "Model parameters: " << softmax_head.nparams() << std::endl;
+    
     LogLossFunc cf(_1hot_vocab_idx);
     auto model_with_loss = cost_func_wrap<LogLossFunc>(softmax_head,cf);   
     
@@ -254,12 +277,14 @@ int main(int argc, char** argv){
       BinaryReader rd(model_file);
       rd.read(softmax_head);
     }
-    
-    //Note that the output probabilities accurately reflect the training data
+   
+    //Do some inference
     std::vector<std::string> sentence;
     if(infer != "") sentence = tokenize(infer);
+
+    softmax_head.setBeta(infer_beta);
     
-    for(int c=sentence.size();c<C-2;c++){
+    while(sentence.size() < C-1){    
       sentence = predictNext(sentence, C, B, model_with_loss, vocab, _1hot_vocab_vec);
       std::cout << cat(sentence) << std::endl;
     }

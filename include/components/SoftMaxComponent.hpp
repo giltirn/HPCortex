@@ -35,6 +35,9 @@ public:
   inline void resizeInputBuffer(size_t to){
     out_buf.resize(to);
   }
+
+  //Set the inverse-temperature, beta
+  inline void setBeta(FloatType _beta){ beta = _beta; }
 };
 
 #include "implementation/SoftMaxComponent.tcc"

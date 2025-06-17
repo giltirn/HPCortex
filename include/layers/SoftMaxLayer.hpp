@@ -37,6 +37,9 @@ public:
     cpt.resizeInputBuffer(to);
     leaf.v.resizeInputBuffer(to);
   }
+
+  //Set the inverse-temperature, beta
+  inline void setBeta(FloatType beta){ cpt.setBeta(beta); }
 };
 
 #define LAYER_TYPE SoftMaxLayer<FLOATTYPE(U),TensDim,INPUTTYPE(U),DDST(u)>
