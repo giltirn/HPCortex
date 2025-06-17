@@ -84,6 +84,37 @@ std::vector<std::string> predictNext(const std::vector<std::string> &sentence, i
 int main(int argc, char** argv){
   initialize(argc, argv);
 
+  bool save_model = false;
+  bool load_model = false;
+  std::string model_file;
+  std::string infer = "";
+  int training_data_set = 0;
+  
+  int i=1;
+  while(i < argc){
+    std::string sarg(argv[i]);
+    if(sarg == "-save_model"){
+      save_model = true;
+      model_file = argv[i+1];
+      i+=2;
+    }else if(sarg == "-load_model"){
+      load_model = true;
+      model_file = argv[i+1];
+      i+=2;
+    }else if(sarg == "-infer"){
+      infer = argv[i+1];
+      i+=2;
+    }else if(sarg == "-training_data_set"){
+      std::stringstream ss; ss << argv[i+1]; ss >> training_data_set;
+      assert(training_data_set == 0 || training_data_set == 1);
+      i+=2;
+    }else{
+      std::cout << "Unknown argument:\"" << sarg << "\""<< std::endl;
+      assert(0);
+    }
+  }
+  assert(save_model != load_model);
+  
   //Here we are going to generate an embedding for a simple vocabulary
   std::vector<std::string> vocab = { "the", "cat", "ate", "mouse", "kibble", "sat", "on", "mat", "<PAD>", "<BOS>", "<EOS>", "<UNK>" };
   
@@ -103,11 +134,17 @@ int main(int argc, char** argv){
 
   //We need some sentences to train it on
   //Use a simple tokenizer breaking sentences up around spaces
+  std::vector<std::string> training_data_str;
+  if(training_data_set == 0){
+    training_data_str = std::vector<std::string>({ "the cat sat on the mat", "the cat ate the mouse", "the cat ate kibble" });
+  }else{
+    training_data_str = std::vector<std::string>({ "the cat sat", "the cat ate", "the cat sat on the mat", "the cat ate the mouse", "the cat ate the kibble", "the mouse sat on the mat", "the mouse ate the kibble", "the cat ate the mouse on the mat", "the cat sat on the mouse", "the cat sat on the mouse on the mat", "the cat ate the kibble on the mat", "the cat sat on the kibble", "the mouse sat on the mat", "the mouse ate the kibble on the mat", "the cat on the mat ate the mouse", "the cat on the mat ate the kibble" });
+  }
+
   std::vector<  std::vector<std::string>   > training_data;
-  training_data.push_back( tokenize("the cat sat on the mat") );
-  training_data.push_back( tokenize("the cat ate the mouse") );
-  training_data.push_back( tokenize("the cat ate kibble") );
-  
+  for(auto const &s: training_data_str)
+    training_data.push_back( tokenize(s) );
+    
   //We need to pad everything to the same context size
   size_t C = 0;
   for(auto &s : training_data)
@@ -195,22 +232,34 @@ int main(int argc, char** argv){
 								    ),
 					 embedding_dim);
 
+    LogLossFunc cf(_1hot_vocab_idx);
+    auto model_with_loss = cost_func_wrap<LogLossFunc>(softmax_head,cf);   
+    
     //int sizes[3] = {C,d_model,B};
     //testDeriv(softmax_head,sizes,sizes, 1e-8);
-  
-    LogLossFunc cf(_1hot_vocab_idx);
-    auto model_with_loss = cost_func_wrap<LogLossFunc>(softmax_head,cf); 
 
-    Loader loader(training_data, training_data_tens);
+    if(!load_model){   
+      Loader loader(training_data, training_data_tens);
 
-    int nepoch = 500;
-    DecayScheduler<double> lr(0.01, 0.005);
-    AdamOptimizer<double, DecayScheduler<double> > opt(lr);
-    std::vector<double> loss = train(model_with_loss, loader, opt, nepoch, B);
+      int nepoch = 500;
+      DecayScheduler<double> lr(0.01, 0.005);
+      AdamOptimizer<double, DecayScheduler<double> > opt(lr);
+      std::vector<double> loss = train(model_with_loss, loader, opt, nepoch, B);
 
+      if(save_model){
+	BinaryWriter wr(model_file);
+	wr.write(softmax_head);
+      }
+    }else{
+      BinaryReader rd(model_file);
+      rd.read(softmax_head);
+    }
+    
     //Note that the output probabilities accurately reflect the training data
     std::vector<std::string> sentence;
-    for(int c=0;c<C-2;c++){
+    if(infer != "") sentence = tokenize(infer);
+    
+    for(int c=sentence.size();c<C-2;c++){
       sentence = predictNext(sentence, C, B, model_with_loss, vocab, _1hot_vocab_vec);
       std::cout << cat(sentence) << std::endl;
     }

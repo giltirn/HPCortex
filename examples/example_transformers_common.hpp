@@ -45,7 +45,10 @@ Matrix<double> embed(const std::vector<std::string> &context,
   Matrix<double> out(C,d_model);
   for(int c=0;c<C;c++){
     auto it = vocab_vec.find(context[c]);
-    assert(it != vocab_vec.end());    
+    if(it == vocab_vec.end()){
+      std::cout << "Token: \"" << context[c] << "\" not in vocabulary" << std::endl;
+      assert(0);
+    }
     pokeRow(out, c, it->second);
   }
   return out;
