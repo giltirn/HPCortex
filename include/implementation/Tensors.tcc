@@ -1,3 +1,28 @@
+template<size_t Dim>
+accelerator_inline size_t tensorSize(int const* dims){
+  size_t out=1;
+#pragma unroll
+  for(int d=0;d<Dim;d++) out *= dims[d];
+  return out;
+}
+template<size_t Dim>
+accelerator_inline size_t tensorOffset(int const* coord, int const* dims){
+  size_t out = *coord++; ++dims;
+#pragma unroll
+  for(int i=1;i<Dim;i++) out = out * (*dims++) + (*coord++);
+  return out;
+}
+
+template<size_t Dim>
+accelerator_inline void tensorOffsetUnmap(int * coord, int const* dims, size_t offset){
+  size_t rem = offset;
+#pragma unroll
+  for(int i=Dim-1;i>=0;i--){
+    coord[i] = rem % dims[i];
+    rem /= dims[i];
+  }
+}
+
 template<typename FloatType, int Dim>
 Tensor<FloatType,Dim> Tensor<FloatType,Dim>::sliceLastDimension(int idx_start, int idx_end) const{
   int osize[Dim]; memcpy(osize, this->sizeArray(), Dim*sizeof(int));
