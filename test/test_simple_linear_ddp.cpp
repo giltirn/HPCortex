@@ -29,7 +29,7 @@ void testSimpleLinearDDP(){
 
     ddp_eff_batch_size = communicators().ddpNrank();
     
-    auto model = mse_cost( dnn_layer(input_layer<FloatType>(), winit, binit) );
+    auto model = mse_cost( dnn_layer(winit, binit,input_layer<FloatType>()) );
     DecayScheduler<FloatType> lr(0.01, 0.1);
     GradientDescentOptimizer<FloatType, DecayScheduler<FloatType> > opt(lr);
     
@@ -42,7 +42,7 @@ void testSimpleLinearDDP(){
     communicators().disableParallelism();
     communicators().reportSetup();
     
-    auto model = mse_cost( dnn_layer(input_layer<FloatType>(), winit, binit) );
+    auto model = mse_cost( dnn_layer(winit, binit,input_layer<FloatType>()) );
     DecayScheduler<FloatType> lr(0.01, 0.1);
     GradientDescentOptimizer<FloatType, DecayScheduler<FloatType> > opt(lr);
     

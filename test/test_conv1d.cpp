@@ -247,7 +247,7 @@ void testConv1D(){
   
       ReLU<FloatType> act;
     
-      auto layer = conv1d_layer(input_layer<FloatType,Tens>(), init_filter, act, pad, stride);
+      auto layer = conv1d_layer(init_filter, act, pad, stride, input_layer<FloatType,Tens>());
 
       int input_dims[3] = { in_chan, in_data_len, batch_size };
       Tens x(input_dims);
@@ -275,7 +275,7 @@ void testConv1D(){
 	  });
       }
       { //update
-	auto layer_tmp = conv1d_layer(input_layer<FloatType,Tens>(), init_filter, act, pad, stride);    
+	auto layer_tmp = conv1d_layer(init_filter, act, pad, stride, input_layer<FloatType,Tens>());    
 	Tens new_filter(filter_dims);
 	uniformRandom(new_filter, rng);
 
@@ -299,7 +299,7 @@ void testConv1D(){
 	  });
       }
       { //step
-	auto layer_tmp = conv1d_layer(input_layer<FloatType,Tens>(), init_filter, act, pad, stride);
+	auto layer_tmp = conv1d_layer(init_filter, act, pad, stride, input_layer<FloatType,Tens>());
 	Vector<FloatType> deriv(layer_tmp.nparams());
 	uniformRandom(deriv,rng);
     
@@ -333,7 +333,7 @@ void testConv1D(){
 	  for(int k=0;k<kernel_size;k++){
 	    Tens pdelta = init_filter;
 	    doHost(pdelta, { pdelta_v(d,c,k) += delta; });
-	    auto layer_tmp = conv1d_layer(input_layer<FloatType,Tens>(), pdelta, act, pad, stride);	
+	    auto layer_tmp = conv1d_layer(pdelta, act, pad, stride, input_layer<FloatType,Tens>());	
 	    Tens vdelta = layer_tmp.value(x);
 
 	    int p = k+kernel_size*(c+in_chan*d);

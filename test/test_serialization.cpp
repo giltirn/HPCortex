@@ -42,13 +42,13 @@ int main(int argc, char** argv){
   Vector<float> b(5);
   uniformRandom(w,rng);
   uniformRandom(b,rng);  
-  auto m = batch_tensor_dnn_layer<3>(input_layer<float,Tensor<float,3> >(), w,b,0, ReLU<float>());
+  auto m = batch_tensor_dnn_layer<3>(w,b,0, ReLU<float>(), input_layer<float,Tensor<float,3> >());
   auto mw = mse_cost(m);
   
   uniformRandom(w,rng);
   uniformRandom(b,rng);  
-  auto mr = batch_tensor_dnn_layer<3>(input_layer<float,Tensor<float,3> >(), w,b,0, ReLU<float>());
-  auto mrw = mse_cost( batch_tensor_dnn_layer<3>(input_layer<float,Tensor<float,3> >(), w,b,0, ReLU<float>()) );
+  auto mr = batch_tensor_dnn_layer<3>(w,b,0, ReLU<float>(), input_layer<float,Tensor<float,3> >());
+  auto mrw = mse_cost( batch_tensor_dnn_layer<3>(w,b,0, ReLU<float>(), input_layer<float,Tensor<float,3> >()) );
   
   for(Endianness end : ends){
     {

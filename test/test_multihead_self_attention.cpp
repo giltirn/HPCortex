@@ -78,7 +78,7 @@ void testMultiHeadSelfAttention(){
   uniformRandom(in_W_O,rng);
 
   for(int use_mask=0;use_mask<2;use_mask++){
-    auto model = multihead_self_attention_layer(input_layer<FloatType, Tensor<FloatType,3> >(), Nheads, in_W_Q_p.data(), in_W_K_p.data(), in_W_V_p.data(), in_W_O, use_mask);
+    auto model = multihead_self_attention_layer(Nheads, in_W_Q_p.data(), in_W_K_p.data(), in_W_V_p.data(), in_W_O, use_mask, input_layer<FloatType, Tensor<FloatType,3> >());
 
     Tensor<FloatType,3> X(C,E,B);
     uniformRandom(X,rng);

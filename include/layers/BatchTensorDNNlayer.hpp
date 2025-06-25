@@ -51,17 +51,17 @@ public:
 
 #define LAYER_TYPE BatchTensorDNNlayer<FLOATTYPE(U),TensDim,INPUTTYPE(U),DDST(u),ActivationFunc>
 template<int TensDim, typename U, typename ActivationFunc, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto batch_tensor_dnn_layer(U &&u, const Matrix<FLOATTYPE(U)> &weights, const Vector<FLOATTYPE(U)> &bias, int contract_dim, const ActivationFunc &activation)-> LAYER_TYPE{
+auto batch_tensor_dnn_layer(const Matrix<FLOATTYPE(U)> &weights, const Vector<FLOATTYPE(U)> &bias, int contract_dim, const ActivationFunc &activation, U &&u)-> LAYER_TYPE{
   return LAYER_TYPE(std::forward<U>(u), weights, bias, contract_dim, activation);
 }
 template<int TensDim, typename U, typename ActivationFunc, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto batch_tensor_dnn_layer(U &&u, const Matrix<FLOATTYPE(U)> &weights, int contract_dim, const ActivationFunc &activation)-> LAYER_TYPE{
+auto batch_tensor_dnn_layer(const Matrix<FLOATTYPE(U)> &weights, int contract_dim, const ActivationFunc &activation, U &&u)-> LAYER_TYPE{
   return LAYER_TYPE(std::forward<U>(u), weights, contract_dim, activation);
 }
 
 //default initialization of weights of size fan_out x fan_in using glorotUniformRandom   and bias of size fan_out to zeros.
 template<int TensDim, typename U, typename ActivationFunc, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto batch_tensor_dnn_layer(U &&u, int contract_dim, int fan_out, int fan_in, const ActivationFunc &activation)-> LAYER_TYPE{
+auto batch_tensor_dnn_layer(int contract_dim, int fan_out, int fan_in, const ActivationFunc &activation, U &&u)-> LAYER_TYPE{
   Matrix<FLOATTYPE(U)> weights(fan_out, fan_in);
   glorotUniformRandom(weights);
   Vector<FLOATTYPE(U)> bias(fan_out, 0.);  
@@ -70,7 +70,7 @@ auto batch_tensor_dnn_layer(U &&u, int contract_dim, int fan_out, int fan_in, co
 
 //default initialization of weights of size fan_out x fan_in using glorotUniformRandom   and *no bias*
 template<int TensDim, typename U, typename ActivationFunc, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto batch_tensor_unbiased_dnn_layer(U &&u, int contract_dim, int fan_out, int fan_in, const ActivationFunc &activation)-> LAYER_TYPE{
+auto batch_tensor_unbiased_dnn_layer(int contract_dim, int fan_out, int fan_in, const ActivationFunc &activation, U &&u)-> LAYER_TYPE{
   Matrix<FLOATTYPE(U)> weights(fan_out, fan_in);
   glorotUniformRandom(weights);
   return LAYER_TYPE(std::forward<U>(u), weights, contract_dim, activation);
@@ -81,22 +81,29 @@ auto batch_tensor_unbiased_dnn_layer(U &&u, int contract_dim, int fan_out, int f
 
 #define LAYER_TYPE BatchTensorDNNlayer<FLOATTYPE(U),2,INPUTTYPE(U),DDST(u),ActivationFunc>
 template<typename U, typename ActivationFunc, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto dnn_layer(U &&u, const Matrix<FLOATTYPE(U)> &weights,const Vector<FLOATTYPE(U)> &bias, const ActivationFunc &activation){
+auto dnn_layer(const Matrix<FLOATTYPE(U)> &weights,const Vector<FLOATTYPE(U)> &bias, const ActivationFunc &activation, U &&u){
   return LAYER_TYPE(std::forward<U>(u), weights, bias, 0, activation);
 }
 template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto dnn_layer(U &&u, const Matrix<FLOATTYPE(U)> &weights,const Vector<FLOATTYPE(U)> &bias){
-  return dnn_layer(std::forward<U>(u),weights,bias,noActivation<FLOATTYPE(U)>());
+auto dnn_layer(const Matrix<FLOATTYPE(U)> &weights,const Vector<FLOATTYPE(U)> &bias, U &&u){
+  return dnn_layer(weights,bias,noActivation<FLOATTYPE(U)>(),std::forward<U>(u));
 }
 
 //default initialization of weights of size fan_out x fan_in using glorotUniformRandom   and bias of size fan_out to zeros.
 template<typename U, typename ActivationFunc, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto dnn_layer(U &&u, int fan_out, int fan_in, const ActivationFunc &activation){
+auto dnn_layer(int fan_out, int fan_in, const ActivationFunc &activation, U &&u){
   Matrix<FLOATTYPE(U)> weights(fan_out, fan_in);
   glorotUniformRandom(weights);
   Vector<FLOATTYPE(U)> bias(fan_out, 0.);   
   return LAYER_TYPE(std::forward<U>(u), weights, bias, 0, activation);
 }
+
+template<typename U, typename ActivationFunc, typename std::enable_if<ISLEAF(U), int>::type = 0>
+auto dnn_layer(int fan_out, int fan_in, U &&u){
+  return dnn_layer(fan_out,fan_in, noActivation<FLOATTYPE(U)>(), std::forward<U>(u));
+}
+
+
 #undef LAYER_TYPE
 
 #include "implementation/BatchTensorDNNlayer.tcc"

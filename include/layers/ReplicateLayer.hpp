@@ -127,7 +127,8 @@ public:
 };
 
 template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto replicate_layer(U &&u, int N){
+auto replicate_layer(int N,
+		     U &&u){
   typedef ReplicateLayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u)> Branch;
   typedef ReplicateLayerLeader<FLOATTYPE(U),INPUTTYPE(U),DDST(u)> Leader;
 

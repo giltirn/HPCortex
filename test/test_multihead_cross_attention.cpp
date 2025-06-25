@@ -138,8 +138,8 @@ void testMultiHeadCrossAttention(){
   for(int use_mask=0;use_mask<2;use_mask++){
     auto splt = pair_split_layer(input_layer<FloatType, TensorPair>());
     
-    auto model = multihead_cross_attention_layer(*splt.first,*splt.second,
-						 Nheads, in_W_Q_p.data(), in_W_K_p.data(), in_W_V_p.data(), in_W_O, use_mask
+    auto model = multihead_cross_attention_layer(Nheads, in_W_Q_p.data(), in_W_K_p.data(), in_W_V_p.data(), in_W_O, use_mask,
+						 *splt.first,*splt.second
 						 );
     typedef Tensor<FloatType,3> TensorType;
     std::pair<TensorType, TensorType> X({ TensorType(C,E,B), TensorType(C,E,B) });

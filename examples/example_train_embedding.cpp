@@ -190,18 +190,19 @@ int main(int argc, char** argv){
     int d_model = d_model_in;
     auto pos_embed = embed_positions_sinusoidal_layer(input_layer<double,Tensor<double,3> >());
     
-    auto decoder1 = transformer_decoder_block(pos_embed,
-					      d_model, nheads, d_act, GeLU<double>());
-    auto decoder2 = transformer_decoder_block(decoder1,
-					      d_model, nheads, d_act, GeLU<double>());    
+    auto decoder1 = transformer_decoder_block(d_model, nheads, d_act, GeLU<double>(),
+					      pos_embed
+					      );
+    auto decoder2 = transformer_decoder_block(d_model, nheads, d_act, GeLU<double>(),
+					      decoder1
+					      );    
     int B = 3;
   
-    auto softmax_head = softmax_layer<3>( //softmax to transform the logits to probabilities
-					 batch_tensor_dnn_layer<3>( //this linear layer transforms the embedding dim into logits for each token in the vocabulary
-								   norm_layer<3>(decoder2, embedding_dim, d_model, true,true), //layer norm over embedding dimension
-								   embedding_dim, vocab.size(), d_model, noActivation<double>()
-								    ),
-					 embedding_dim);
+    auto softmax_head = softmax_layer<3>(embedding_dim, //softmax to transform the logits to probabilities
+					 batch_tensor_dnn_layer<3>(embedding_dim, vocab.size(), d_model, noActivation<double>(), //this linear layer transforms the embedding dim into logits for each token in the vocabulary
+								   norm_layer<3>(embedding_dim, d_model, true,true, decoder2) //layer norm over embedding dimension								   
+								   )
+					 );
 
     //int sizes[3] = {C,d_model,B};
     //testDeriv(softmax_head,sizes,sizes, 1e-8);
@@ -231,27 +232,27 @@ int main(int argc, char** argv){
     int d_model = d_model_out;
 
     int d_hidden = 50;
-    auto embedding = batch_tensor_dnn_layer<3>( batch_tensor_dnn_layer<3>(
-									  input_layer<double,Tensor<double,3> >(),
-									  embedding_dim, d_hidden, d_model_in, GeLU<double>()
-									  ),	  
-						embedding_dim, d_model, d_hidden, GeLU<double>()
-						);
+    auto embedding = batch_tensor_dnn_layer<3>(embedding_dim, d_model, d_hidden, GeLU<double>(),
+					       batch_tensor_dnn_layer<3>(embedding_dim, d_hidden, d_model_in, GeLU<double>(),
+									 input_layer<double,Tensor<double,3> >()									  
+									 )						
+					       );
 
     auto pos_embed = embed_positions_sinusoidal_layer(embedding);
     
-    auto decoder1 = transformer_decoder_block(pos_embed,
-					      d_model, nheads, d_act, GeLU<double>());
-    auto decoder2 = transformer_decoder_block(decoder1,
-					      d_model, nheads, d_act, GeLU<double>());    
+    auto decoder1 = transformer_decoder_block(d_model, nheads, d_act, GeLU<double>(),
+					      pos_embed
+					      );
+    auto decoder2 = transformer_decoder_block(d_model, nheads, d_act, GeLU<double>(),
+					      decoder1
+					      );    
     int B = 3;
   
-    auto softmax_head = softmax_layer<3>( //softmax to transform the logits to probabilities
-					 batch_tensor_dnn_layer<3>( //this linear layer transforms the embedding dim into logits for each token in the vocabulary
-								   norm_layer<3>(decoder2, embedding_dim, d_model, true,true), //layer norm over embedding dimension
-								   embedding_dim, vocab.size(), d_model, noActivation<double>()
-								    ),
-					 embedding_dim);
+    auto softmax_head = softmax_layer<3>(embedding_dim, //softmax to transform the logits to probabilities
+					 batch_tensor_dnn_layer<3>(embedding_dim, vocab.size(), d_model, noActivation<double>(), //this linear layer transforms the embedding dim into logits for each token in the vocabulary
+								   norm_layer<3>(embedding_dim, d_model, true,true, decoder2) //layer norm over embedding dimension								   
+								   )
+					 );
 
     std::cout << "Model parameters: " << softmax_head.nparams() << std::endl;
     

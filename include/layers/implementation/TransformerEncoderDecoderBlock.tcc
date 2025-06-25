@@ -14,12 +14,10 @@ namespace TransformerEncoderDecoderBlock{
     typedef Tensor<FloatType,3> LayerInputType;
 
     return skip_connection(
-			   multihead_self_attention_layer(
-							  norm_layer<3>(
-									input_layer<FloatType, LayerInputType>(),
-									embedding_dim, E, true, true
-									),
-							  nheads, E, use_mask
+			   multihead_self_attention_layer(nheads, E, use_mask,
+							  norm_layer<3>(embedding_dim, E, true, true,
+									input_layer<FloatType, LayerInputType>()
+									)							  
 							  ),
 			   std::move(below)
 			   );
@@ -28,9 +26,8 @@ namespace TransformerEncoderDecoderBlock{
   template<typename Below>
   auto declare_block_connection(int E,
 				Below && below){
-    return norm_layer<3>(
-			 std::move(below),
-			 embedding_dim, E, true, true
+    return norm_layer<3>(embedding_dim, E, true, true,
+			 std::move(below)
 			 );
   }
   
@@ -42,12 +39,11 @@ namespace TransformerEncoderDecoderBlock{
     typedef FLOATTYPE(Below) FloatType;
     typedef Tensor<FloatType,3> LayerInputType;
     return skip_connection(
-			   batch_tensor_dnn_layer<3>( //linear layer with no activation, size E x d_act
-						     batch_tensor_dnn_layer<3>(
-									       input_layer<FloatType,LayerInputType>(),
-									       embedding_dim, d_act, E, activation
-									       ), //linear layer with activation size d_act x E
-						     embedding_dim, E, d_act, noActivation<FloatType>()
+			   batch_tensor_dnn_layer<3>(embedding_dim, E, d_act, noActivation<FloatType>(), //linear layer with no activation, size E x d_act
+						     batch_tensor_dnn_layer<3>(embedding_dim, d_act, E, activation,
+									       input_layer<FloatType,LayerInputType>()									       
+									       ) //linear layer with activation size d_act x E
+						     
 						     ),
 			   std::move(below)
 			   );
@@ -69,13 +65,12 @@ namespace TransformerEncoderDecoderBlock{
     typedef FLOATTYPE(EncoderInput) FloatType;
     typedef Tensor<FloatType,3> LayerInputType;
 
-    auto repl = replicate_layer(std::move(decoder_in),2);
-    auto xlayer = multihead_cross_attention_layer(std::forward<EncoderInput>(encoder_in),
-						  norm_layer<3>(
-								std::move(*repl[0]),
-								embedding_dim, E, true, true
-								),
-						  nheads, E, false //don't use mask as we need to consider the whole context on the QK side
+    auto repl = replicate_layer(2, std::move(decoder_in));
+    auto xlayer = multihead_cross_attention_layer(nheads, E, false,  //don't use mask as we need to consider the whole context on the QK side
+						  std::forward<EncoderInput>(encoder_in),
+						  norm_layer<3>(embedding_dim, E, true, true,
+								std::move(*repl[0])								
+								)
 						  );
     return sum_join_layer( std::move(xlayer),
 			   std::move(*repl[1]) );
@@ -95,17 +90,15 @@ namespace TransformerEncoderDecoderBlock{
 
 
 template<typename Below, typename ActivationFunc>
-auto transformer_decoder_block(Below &&below,
-			       int E, int nheads, int d_act, const ActivationFunc &activation){
+auto transformer_decoder_block(int E, int nheads, int d_act, const ActivationFunc &activation, Below &&below){
   return TransformerEncoderDecoderBlock::transformer_encoder_decoder_block(std::forward<Below>(below),E,nheads,d_act,activation,true);
 }
 template<typename Below, typename ActivationFunc>
-auto transformer_encoder_block(Below &&below,
-			       int E, int nheads, int d_act, const ActivationFunc &activation){
+auto transformer_encoder_block( int E, int nheads, int d_act, const ActivationFunc &activation, Below &&below){
   return TransformerEncoderDecoderBlock::transformer_encoder_decoder_block(std::forward<Below>(below),E,nheads,d_act,activation,false);
 }
 template<typename EncoderInput, typename DecoderInput, typename ActivationFunc>
-auto transformer_cross_decoder_block(EncoderInput &&encoder_in, DecoderInput &&decoder_in,
-				     int E, int nheads, int d_act , const ActivationFunc &activation){
+auto transformer_cross_decoder_block(int E, int nheads, int d_act , const ActivationFunc &activation,
+				     EncoderInput &&encoder_in, DecoderInput &&decoder_in){
   return TransformerEncoderDecoderBlock::transformer_cross_decoder_block(std::forward<EncoderInput>(encoder_in), std::forward<DecoderInput>(decoder_in), E,nheads,d_act,activation);
 }

@@ -65,20 +65,34 @@ public:
 
 #define LAYER_TYPE NormLayer<FLOATTYPE(U),TensDim,INPUTTYPE(U),DDST(u)>
 template<int TensDim, typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto norm_layer(U &&u,
-		int norm_dim, int norm_dim_size,
+auto norm_layer(int norm_dim, int norm_dim_size,
 		bool use_affine, bool use_bias,
-		const Vector<FLOATTYPE(U)> &affine_init, const Vector<FLOATTYPE(U)>  &bias_init, FLOATTYPE(U) epsilon = 1e-5)-> LAYER_TYPE{
+		const Vector<FLOATTYPE(U)> &affine_init, const Vector<FLOATTYPE(U)>  &bias_init, FLOATTYPE(U) epsilon,
+		U &&u)-> LAYER_TYPE{
   return LAYER_TYPE(std::forward<U>(u), norm_dim, norm_dim_size, use_affine, use_bias, affine_init, bias_init, epsilon);
 }
+template<int TensDim, typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
+auto norm_layer(int norm_dim, int norm_dim_size,
+		bool use_affine, bool use_bias,
+		const Vector<FLOATTYPE(U)> &affine_init, const Vector<FLOATTYPE(U)>  &bias_init,
+		U &&u)-> LAYER_TYPE{
+  return LAYER_TYPE(std::forward<U>(u), norm_dim, norm_dim_size, use_affine, use_bias, affine_init, bias_init, 1e-5);
+}
+
 
 //Default initialization affine = {1,1,1,1,...}  bias = {0,0,0,0....}
 template<int TensDim, typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto norm_layer(U &&u,
-		int norm_dim, int norm_dim_size,
+auto norm_layer(int norm_dim, int norm_dim_size,
 		bool use_affine, bool use_bias,
-		FLOATTYPE(U) epsilon = 1e-5)-> LAYER_TYPE{
+		FLOATTYPE(U) epsilon,
+		U &&u)-> LAYER_TYPE{
   return LAYER_TYPE(std::forward<U>(u), norm_dim, norm_dim_size, use_affine, use_bias, Vector<FLOATTYPE(U)>(norm_dim_size,1.), Vector<FLOATTYPE(U)>(norm_dim_size,0.), epsilon);
+}
+template<int TensDim, typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
+auto norm_layer(int norm_dim, int norm_dim_size,
+		bool use_affine, bool use_bias,
+		U &&u)-> LAYER_TYPE{
+  return LAYER_TYPE(std::forward<U>(u), norm_dim, norm_dim_size, use_affine, use_bias, Vector<FLOATTYPE(U)>(norm_dim_size,1.), Vector<FLOATTYPE(U)>(norm_dim_size,0.), 1e-5);
 }
 
 #undef LAYER_TYPE

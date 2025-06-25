@@ -196,14 +196,12 @@ int main(int argc, char** argv){
   //for simplicity, as in https://arxiv.org/pdf/1706.03762, we will use a consistent embedding size. This means we need initial learned embedding layers to embed the differing vocabularies
   int d_model = 6;
   int d_hidden = 50;
-  auto embed_enc = batch_tensor_dnn_layer<3>(
-					     batch_tensor_dnn_layer<3>(*splt.first, embedding_dim, d_hidden, d_vocab_english, GeLU<double>()),
-					     embedding_dim, d_model, d_hidden, GeLU<double>()
+  auto embed_enc = batch_tensor_dnn_layer<3>(embedding_dim, d_model, d_hidden, GeLU<double>(),
+					     batch_tensor_dnn_layer<3>(embedding_dim, d_hidden, d_vocab_english, GeLU<double>(), *splt.first)
 					     );
 
-  auto embed_dec = batch_tensor_dnn_layer<3>(
-					     batch_tensor_dnn_layer<3>(*splt.second, embedding_dim, d_hidden, d_vocab_french, GeLU<double>()),
-					     embedding_dim, d_model, d_hidden, GeLU<double>()
+  auto embed_dec = batch_tensor_dnn_layer<3>(embedding_dim, d_model, d_hidden, GeLU<double>(),
+					     batch_tensor_dnn_layer<3>(embedding_dim, d_hidden, d_vocab_french, GeLU<double>(), *splt.second)					     
 					     );  
   
   //positional embedding for encoder and decoder
@@ -211,19 +209,19 @@ int main(int argc, char** argv){
   auto pos_embed_dec = embed_positions_sinusoidal_layer(embed_dec);
 
   //encoder
-  auto encoder = norm_layer<3>( transformer_encoder_block(pos_embed_enc, d_model, nheads, d_act, GeLU<double>()),
-				embedding_dim, d_model, true, true );
+  auto encoder = norm_layer<3>(embedding_dim, d_model, true, true,
+			       transformer_encoder_block(d_model, nheads, d_act, GeLU<double>(), pos_embed_enc)
+			       );
 
   //cross decoder
-  auto decoder = transformer_cross_decoder_block(encoder, pos_embed_dec, d_model, nheads, d_act, GeLU<double>());
+  auto decoder = transformer_cross_decoder_block(d_model, nheads, d_act, GeLU<double>(), encoder, pos_embed_dec);
 
   //softmax to transform the logits to probabilities
-  auto softmax_head = softmax_layer<3>( 
-				       batch_tensor_dnn_layer<3>( //this linear layer transforms the embedding dim into logits for each token in the French vocabulary
-								   norm_layer<3>(decoder, embedding_dim, d_model, true,true), //layer norm over embedding dimension
-								   embedding_dim, d_vocab_french, d_model, noActivation<double>()
-								  ),
-				       embedding_dim);
+  auto softmax_head = softmax_layer<3>(embedding_dim, 
+				       batch_tensor_dnn_layer<3>(embedding_dim, d_vocab_french, d_model, noActivation<double>(), //this linear layer transforms the embedding dim into logits for each token in the French vocabulary
+								 norm_layer<3>(embedding_dim, d_model, true,true, decoder) //layer norm over embedding dimension								   
+								 )
+				       );
 
   ///////////////////////////////////// Train model
   

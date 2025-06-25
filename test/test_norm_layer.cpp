@@ -194,8 +194,9 @@ void testNormLayer(){
     Vector<FloatType> gamma(size[0]), beta(size[0]);
     uniformRandom(gamma,rng); uniformRandom(beta,rng);
 
-    auto m = norm_layer<4>(input_layer<FloatType,Tensor<FloatType,4> >(),
-			0, size[0], true, true, gamma, beta, eps);
+    auto m = norm_layer<4>(0, size[0], true, true, gamma, beta, eps,
+			   input_layer<FloatType,Tensor<FloatType,4> >()
+			   );
 
     Tensor<FloatType,4> got = m.value(v);
     Tensor<FloatType,4> expect(size);
@@ -217,8 +218,9 @@ void testNormLayer(){
     for(int use_gamma=0; use_gamma<2; use_gamma++){
       for(int use_beta=0; use_beta<2; use_beta++){
 	std::cout << "use_gamma: " << use_gamma << " use_beta: " << use_beta << std::endl;
-	auto mm = norm_layer<4>(input_layer<FloatType,Tensor<FloatType,4> >(),
-			     0, size[0], bool(use_gamma), bool(use_beta), gamma, beta, eps);	
+	auto mm = norm_layer<4>(0, size[0], bool(use_gamma), bool(use_beta), gamma, beta, eps,
+				input_layer<FloatType,Tensor<FloatType,4> >()
+				);
 	testDeriv(mm,size,size, FloatType(1e-7));
       }
     }
@@ -230,8 +232,9 @@ void testNormLayer(){
     Vector<FloatType> gamma(size[1]), beta(size[1]);
     uniformRandom(gamma,rng); uniformRandom(beta,rng);
 
-    auto m = norm_layer<4>(input_layer<FloatType,Tensor<FloatType,4> >(),
-			1, size[1], true, true, gamma, beta, eps);
+    auto m = norm_layer<4>(1, size[1], true, true, gamma, beta, eps,
+			   input_layer<FloatType,Tensor<FloatType,4> >()
+			   );
 
     Tensor<FloatType,4> got = m.value(v);
     Tensor<FloatType,4> expect(size);
@@ -253,8 +256,9 @@ void testNormLayer(){
     for(int use_gamma=0; use_gamma<2; use_gamma++){
       for(int use_beta=0; use_beta<2; use_beta++){
 	std::cout << "use_gamma: " << use_gamma << " use_beta: " << use_beta << std::endl;
-	auto mm = norm_layer<4>(input_layer<FloatType,Tensor<FloatType,4> >(),
-			     1, size[1], bool(use_gamma), bool(use_beta), gamma, beta, eps);
+	auto mm = norm_layer<4>(1, size[1], bool(use_gamma), bool(use_beta), gamma, beta, eps,
+				input_layer<FloatType,Tensor<FloatType,4> >()
+				);
 	testDeriv(mm,size,size, FloatType(1e-7));
       }
     }
@@ -266,8 +270,9 @@ void testNormLayer(){
     Vector<FloatType> gamma(size[2]), beta(size[2]);
     uniformRandom(gamma,rng); uniformRandom(beta,rng);
 
-    auto m = norm_layer<4>(input_layer<FloatType,Tensor<FloatType,4> >(),
-			2, size[2], true, true, gamma, beta, eps);
+    auto m = norm_layer<4>(2, size[2], true, true, gamma, beta, eps,
+			   input_layer<FloatType,Tensor<FloatType,4> >()
+			   );
     
     Tensor<FloatType,4> got = m.value(v);
     Tensor<FloatType,4> expect(size);
@@ -289,8 +294,9 @@ void testNormLayer(){
     for(int use_gamma=0; use_gamma<2; use_gamma++){
       for(int use_beta=0; use_beta<2; use_beta++){
 	std::cout << "use_gamma: " << use_gamma << " use_beta: " << use_beta << std::endl;
-	auto mm = norm_layer<4>(input_layer<FloatType,Tensor<FloatType,4> >(),
-			    2, size[2], bool(use_gamma), bool(use_beta), gamma, beta, eps);
+	auto mm = norm_layer<4>(2, size[2], bool(use_gamma), bool(use_beta), gamma, beta, eps,
+				input_layer<FloatType,Tensor<FloatType,4> >()
+				);
 	testDeriv(mm,size,size, FloatType(1e-7));
       }
     }

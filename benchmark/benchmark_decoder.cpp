@@ -24,7 +24,7 @@ void benchmarkDecoder(){
 	  for(int nhead : nheads){
 	    if(E % nhead != 0) break;
 	    std::cout << "C:" << C << " E:" << E << " d_act: " << d_act << " B:" << B << " nhead:" << nhead << std::endl;
-	    auto m = transformer_decoder_block(input_layer<float, Tensor<float,3> >(), E, nhead, d_act, ReLU<float>());
+	    auto m = transformer_decoder_block(E, nhead, d_act, ReLU<float>(), input_layer<float, Tensor<float,3> >());
 
 	    int tsize[3] = {C,E,B};
 	    Tensor<float,3> x(tsize);

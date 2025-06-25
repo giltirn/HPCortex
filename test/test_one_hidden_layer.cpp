@@ -33,8 +33,8 @@ void testOneHiddenLayer(){
   Vector<FloatType> binit_out(1,0.01);
   Vector<FloatType> binit_h(nhidden, 0.01);
 
-  auto hidden_layer( dnn_layer(input_layer<FloatType>(), winit_h, binit_h, ReLU<FloatType>()) );
-  auto model = mse_cost( dnn_layer(hidden_layer, winit_out, binit_out) );
+  auto hidden_layer( dnn_layer(winit_h, binit_h, ReLU<FloatType>(), input_layer<FloatType>()) );
+  auto model = mse_cost( dnn_layer(winit_out, binit_out, hidden_layer) );
 
   //Test derivative
   {
@@ -46,8 +46,8 @@ void testOneHiddenLayer(){
       double c1 = model.loss(bxy.x,bxy.y);
       Vector<FloatType> pd = model.deriv();
       
-      auto hidden_layer2 = dnn_layer(input_layer<FloatType>(), winit_h, binit_h, ReLU<FloatType>());  
-      auto model2 = mse_cost( dnn_layer(hidden_layer2, winit_out, binit_out) );
+      auto hidden_layer2 = dnn_layer(winit_h, binit_h, ReLU<FloatType>(), input_layer<FloatType>());  
+      auto model2 = mse_cost( dnn_layer(winit_out, binit_out, hidden_layer2) );
 
       std::cout << "Test derivs " << d << " x=" << bxy.x << std::endl;
       for(int i=0;i<p.size(0);i++){

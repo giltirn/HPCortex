@@ -48,34 +48,56 @@ public:
 
 #define LAYER_TYPE MultiHeadSelfAttentionLayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u)>
 template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto multihead_self_attention_layer(U &&u,
-				    int Nheads,
+auto multihead_self_attention_layer(int Nheads,
 				    Matrix<FLOATTYPE(U)> const* const* W_Q,
 				    Matrix<FLOATTYPE(U)> const* const* W_K,
 				    Matrix<FLOATTYPE(U)> const* const* W_V,
 				    const Matrix<FLOATTYPE(U)> &W_O,
-				    bool use_mask = false)-> LAYER_TYPE{
+				    bool use_mask,
+				    U &&u)-> LAYER_TYPE{
   return LAYER_TYPE(std::forward<U>(u), Nheads, W_Q, W_K, W_V, W_O, use_mask);
 }
+template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
+auto multihead_self_attention_layer(int Nheads,
+				    Matrix<FLOATTYPE(U)> const* const* W_Q,
+				    Matrix<FLOATTYPE(U)> const* const* W_K,
+				    Matrix<FLOATTYPE(U)> const* const* W_V,
+				    const Matrix<FLOATTYPE(U)> &W_O,
+				    U &&u)-> LAYER_TYPE{
+  return LAYER_TYPE(std::forward<U>(u), Nheads, W_Q, W_K, W_V, W_O, false);
+}
+
+
+
 
 template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto multihead_self_attention_layer(U &&u,
-				    int Nheads,
+auto multihead_self_attention_layer(int Nheads,
 				    const std::vector<Matrix<FLOATTYPE(U)> > &W_Q,
 				    const std::vector<Matrix<FLOATTYPE(U)> > &W_K,
 				    const std::vector<Matrix<FLOATTYPE(U)> > &W_V,
 				    const Matrix<FLOATTYPE(U)> &W_O,
-				    bool use_mask = false)-> LAYER_TYPE{
+				    bool use_mask,
+				    U &&u)-> LAYER_TYPE{
   return LAYER_TYPE(std::forward<U>(u), Nheads, W_Q, W_K, W_V, W_O, use_mask);
 }
+template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
+auto multihead_self_attention_layer(int Nheads,
+				    const std::vector<Matrix<FLOATTYPE(U)> > &W_Q,
+				    const std::vector<Matrix<FLOATTYPE(U)> > &W_K,
+				    const std::vector<Matrix<FLOATTYPE(U)> > &W_V,
+				    const Matrix<FLOATTYPE(U)> &W_O,
+				    U &&u)-> LAYER_TYPE{
+  return LAYER_TYPE(std::forward<U>(u), Nheads, W_Q, W_K, W_V, W_O, false);
+}
+
 
 //Default initialization has W_Q,W_K,W_V all of size E/Nheads x E  and W_O of size ExE
 //each initialized using Glorot uniform
 template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto multihead_self_attention_layer(U &&u,
-				    int Nheads,
+auto multihead_self_attention_layer(int Nheads,
 				    int E,
-				    bool use_mask = false)-> LAYER_TYPE{
+				    bool use_mask,
+				    U &&u)-> LAYER_TYPE{
   typedef FLOATTYPE(U) FloatType;
   assert(E % Nheads == 0);
   int d_qkv = E/Nheads;
@@ -91,7 +113,14 @@ auto multihead_self_attention_layer(U &&u,
   auto layer = LAYER_TYPE(std::forward<U>(u), Nheads, W_Q, W_K, W_V, W_O, use_mask);  
   return layer;
 }
+template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
+auto multihead_self_attention_layer(int Nheads,
+				    int E,
+				    U &&u)-> LAYER_TYPE{
+  return multihead_self_attention_layer(Nheads,E,false,std::forward<U>(u));
+}
 
+  
 #undef LAYER_TYPE
 
 #include "implementation/MultiHeadSelfAttentionLayer.tcc"

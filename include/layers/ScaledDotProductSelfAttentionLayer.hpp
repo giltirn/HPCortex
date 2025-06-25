@@ -73,12 +73,19 @@ public:
 
 #define LAYER_TYPE ScaledDotProductSelfAttentionLayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u)>
 template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto scaled_dotproduct_self_attention_layer(U &&u,
-				       const Matrix<FLOATTYPE(U)> &W_Q,
-				       const Matrix<FLOATTYPE(U)> &W_K,
-				       const Matrix<FLOATTYPE(U)> &W_V,
-				       bool use_mask = false)-> LAYER_TYPE{
+auto scaled_dotproduct_self_attention_layer(const Matrix<FLOATTYPE(U)> &W_Q,
+					    const Matrix<FLOATTYPE(U)> &W_K,
+					    const Matrix<FLOATTYPE(U)> &W_V,
+					    bool use_mask,
+					    U &&u)-> LAYER_TYPE{
   return LAYER_TYPE(std::forward<U>(u), W_Q, W_K, W_V, use_mask);
+}
+template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
+auto scaled_dotproduct_self_attention_layer(const Matrix<FLOATTYPE(U)> &W_Q,
+					    const Matrix<FLOATTYPE(U)> &W_K,
+					    const Matrix<FLOATTYPE(U)> &W_V,
+					    U &&u)-> LAYER_TYPE{
+  return LAYER_TYPE(std::forward<U>(u), W_Q, W_K, W_V, false);
 }
 #undef LAYER_TYPE
 

@@ -46,7 +46,7 @@ public:
 
 #define LAYER_TYPE MatrixTensorContractLayer<FLOATTYPE(U),TensDim,INPUTTYPE(U),DDST(u)>
 template<int TensDim, typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto matrix_tensor_contract_layer(U &&u, const Matrix<FLOATTYPE(U)> &weights)-> LAYER_TYPE{
+auto matrix_tensor_contract_layer(const Matrix<FLOATTYPE(U)> &weights, U &&u)-> LAYER_TYPE{
   return LAYER_TYPE(std::forward<U>(u), weights);
 }
 #undef LAYER_TYPE

@@ -20,9 +20,9 @@ void testSkipConnection(){
   
   {
     //Test value for one layer  
-    auto skip1 = skip_connection( dnn_layer(input_layer<FloatType>(), w1_init, b1_init),  input_layer<FloatType>() );
+    auto skip1 = skip_connection( dnn_layer(w1_init, b1_init,input_layer<FloatType>()),  input_layer<FloatType>() );
 
-    auto internal1 = dnn_layer(input_layer<FloatType>(), w1_init, b1_init);
+    auto internal1 = dnn_layer(w1_init, b1_init,input_layer<FloatType>());
 
     Matrix<FloatType> x1(3,2,vecD({1.3, 0.6,
 	  -0.3, -1.7,
@@ -34,11 +34,11 @@ void testSkipConnection(){
   }
   {
     //Test value for two layer
-    auto skip1 = skip_connection( dnn_layer(input_layer<FloatType>(), w1_init, b1_init),  input_layer<FloatType>() );
-    auto skip2 = skip_connection( dnn_layer(input_layer<FloatType>(), w2_init, b2_init),  skip1 );
+    auto skip1 = skip_connection( dnn_layer(w1_init, b1_init,input_layer<FloatType>()),  input_layer<FloatType>() );
+    auto skip2 = skip_connection( dnn_layer(w2_init, b2_init,input_layer<FloatType>()),  skip1 );
     
-    auto internal1 = dnn_layer(input_layer<FloatType>(), w1_init, b1_init);
-    auto internal2 = dnn_layer(input_layer<FloatType>(), w2_init, b2_init);
+    auto internal1 = dnn_layer(w1_init, b1_init, input_layer<FloatType>());
+    auto internal2 = dnn_layer(w2_init, b2_init, input_layer<FloatType>());
 
     Matrix<FloatType> x1(3,2,vecD({1.3, 0.6,
 	  -0.3, -1.7,
@@ -138,7 +138,7 @@ void testSkipConnectionTensor(){
   uniformRandom(w1_init,rng);
   uniformRandom(b1_init,rng);
   
-  auto skip_over = batch_tensor_dnn_layer<3>(input_layer<FloatType,TensorType>(), w1_init, b1_init, 1, ReLU<FloatType>());
+  auto skip_over = batch_tensor_dnn_layer<3>(w1_init, b1_init, 1, ReLU<FloatType>(), input_layer<FloatType,TensorType>());
   auto skip = skip_connection( skip_over, input_layer<FloatType,TensorType>() );
 
   TensorType x(tens_size);
@@ -165,11 +165,11 @@ void testSkipConnectionTensorSplitJoin(){
   uniformRandom(w1_init,rng);
   uniformRandom(b1_init,rng);
 
-  auto repl = replicate_layer(input_layer<FloatType,TensorType>(),2);
-  auto chn = batch_tensor_dnn_layer<3>(*repl[0], w1_init, b1_init, 1, ReLU<FloatType>());
+  auto repl = replicate_layer(2, input_layer<FloatType,TensorType>() );
+  auto chn = batch_tensor_dnn_layer<3>(w1_init, b1_init, 1, ReLU<FloatType>(), *repl[0]);
   auto join = sum_join_layer(chn,*repl[1]);
   
-  auto skip_over = batch_tensor_dnn_layer<3>(input_layer<FloatType,TensorType>(), w1_init, b1_init, 1, ReLU<FloatType>());
+  auto skip_over = batch_tensor_dnn_layer<3>(w1_init, b1_init, 1, ReLU<FloatType>(), input_layer<FloatType,TensorType>());
   
   TensorType x(tens_size);
   uniformRandom(x,rng);

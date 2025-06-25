@@ -49,15 +49,15 @@ void testSimpleLinearPipelineDDP(){
   Matrix<FloatType> winit(1,1,0.1);
   Vector<FloatType> binit(1,0.01);
 
-  auto rank_model = pipe_rank == pipe_nranks-1 ? enwrap( dnn_layer(input_layer<FloatType>(), winit, binit) )  : enwrap( dnn_layer(input_layer<FloatType>(), winit, binit, ReLU<FloatType>()) );
+  auto rank_model = pipe_rank == pipe_nranks-1 ? enwrap( dnn_layer(winit, binit,input_layer<FloatType>()) )  : enwrap( dnn_layer(winit, binit, ReLU<FloatType>(),input_layer<FloatType>()) );
  
   auto rank_block = pipeline_block< Matrix<FloatType>, Matrix<FloatType> >(rank_model, in_out_dims, in_out_dims);
 
   auto cost = BatchPipelineCostFuncWrapper<decltype(rank_block), MSEcostFunc<Matrix<FloatType> > >(rank_block, call_batch_size);
 
-  auto full_model = enwrap( dnn_layer(input_layer<FloatType>(), winit, binit) );
+  auto full_model = enwrap( dnn_layer(winit, binit,input_layer<FloatType>()) );
   for(int i=0;i<pipe_nranks-1;i++)
-    full_model = enwrap( dnn_layer(std::move(full_model), winit, binit, ReLU<FloatType>()) );
+    full_model = enwrap( dnn_layer(winit, binit, ReLU<FloatType>(),std::move(full_model)) );
   auto full_cost = mse_cost(full_model);
 
   DecayScheduler<FloatType> lr(0.001, 0.1);

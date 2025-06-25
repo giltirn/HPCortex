@@ -161,7 +161,7 @@ void testSoftMaxLayer(){
   typedef std::vector<FloatType> vecD;
 
   FloatType beta = 0.3;
-  auto m = softmax_layer<2>(input_layer<FloatType>(), 0, beta);
+  auto m = softmax_layer<2>(0, beta,input_layer<FloatType>());
 
   int np = 20;
   int batch_size = 5;

@@ -9,7 +9,7 @@ void benchmarkMatrixDNN(){
   
   Matrix<float> weight(data_size,data_size,0.);
   Vector<float> bias(data_size,1.);
-  auto m = dnn_layer(input_layer<float>(), weight, bias, ReLU<float>());
+  auto m = dnn_layer(weight, bias, ReLU<float>(), input_layer<float>());
   
   Matrix<float> data(data_size,batch_size,0.);
   Matrix<float> got;
@@ -69,7 +69,7 @@ void benchmarkTensorDNN(){
 	  Tensor<float,3> x(tsize);
 	  uniformRandom(x, rng);
 
-	  auto m = batch_tensor_dnn_layer<3>(input_layer<float, Tensor<float,3> >(), a, y, contract_dim, ReLU<float>());
+	  auto m = batch_tensor_dnn_layer<3>(a, y, contract_dim, ReLU<float>(), input_layer<float, Tensor<float,3> >());
 
 	  Tensor<float,3> got;
   
@@ -128,8 +128,8 @@ void benchmarkCompareMatrixTensorDNN(){
       Matrix<float> x(matrix_dim,batch_size);
       uniformRandom(x, rng);
 
-      auto mt = batch_tensor_dnn_layer<2>(input_layer<float>(), a, y, contract_dim, ReLU<float>());
-      auto mm = dnn_layer(input_layer<float>(), a, y, ReLU<float>());
+      auto mt = batch_tensor_dnn_layer<2>(a, y, contract_dim, ReLU<float>(), input_layer<float>());
+      auto mm = dnn_layer(a, y, ReLU<float>(), input_layer<float>());
        
       double mum, sigmam;
       double mut, sigmat;

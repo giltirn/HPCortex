@@ -158,12 +158,12 @@ void testBatchTensorDNNcomponentAndLayer(){
 
       std::cout << "Test layer deriv" << std::endl;
       if(use_bias){
-	auto m = batch_tensor_dnn_layer<4>(input_layer<FloatType,Tensor<FloatType,4> >(), weights, bias, contract_dim, activation);
+	auto m = batch_tensor_dnn_layer<4>(weights, bias, contract_dim, activation, input_layer<FloatType,Tensor<FloatType,4> >());
 	Tensor<FloatType,4> got2 = m.value(x);
 	assert(abs_near(got2,expect, 1e-6, true));
 	testDeriv(m, x.sizeArray(), expect.sizeArray(), 1e-8);
       }else{
-	auto m = batch_tensor_dnn_layer<4>(input_layer<FloatType,Tensor<FloatType,4> >(), weights, contract_dim, activation);
+	auto m = batch_tensor_dnn_layer<4>(weights, contract_dim, activation, input_layer<FloatType,Tensor<FloatType,4> >());
 	Tensor<FloatType,4> got2 = m.value(x);
 	assert(abs_near(got2,expect, 1e-6, true));
 	testDeriv(m, x.sizeArray(), expect.sizeArray(), 1e-8);
@@ -246,12 +246,12 @@ void testBatchTensorDNNcomponentAndLayer2D(){
 
     std::cout << "Test layer deriv" << std::endl;
     if(use_bias){
-      auto m = batch_tensor_dnn_layer<2>(input_layer<FloatType>(), weights, bias, contract_dim, activation);
+      auto m = batch_tensor_dnn_layer<2>(weights, bias, contract_dim, activation, input_layer<FloatType>());
       Matrix<FloatType> got2 = m.value(x);
       assert(abs_near(got2,expect, 1e-6, true));
       testDeriv(m, x.sizeArray(), expect.sizeArray(), 1e-8);
     }else{
-      auto m = batch_tensor_dnn_layer<2>(input_layer<FloatType>(), weights, contract_dim, activation);
+      auto m = batch_tensor_dnn_layer<2>(weights, contract_dim, activation, input_layer<FloatType>());
       Matrix<FloatType> got2 = m.value(x);
       assert(abs_near(got2,expect, 1e-6, true));
       testDeriv(m, x.sizeArray(), expect.sizeArray(), 1e-8);
@@ -268,6 +268,7 @@ int main(int argc, char** argv){
   initialize(argc,argv);
   testBatchTensorDNNcomponentAndLayer();
   testBatchTensorDNNcomponentAndLayer2D();
+
   return 0;
 }
 

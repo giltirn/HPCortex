@@ -47,7 +47,7 @@ public:
 };
 
 template<int OutDimension, typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto unflatten_layer(U &&u, int const* output_tens_dim)->UnflattenLayer<FLOATTYPE(U),OutDimension,INPUTTYPE(U),DDST(u)>{
+auto unflatten_layer(int const* output_tens_dim, U &&u)->UnflattenLayer<FLOATTYPE(U),OutDimension,INPUTTYPE(U),DDST(u)>{
   return UnflattenLayer<FLOATTYPE(U),OutDimension,INPUTTYPE(U),DDST(u)>(std::forward<U>(u), output_tens_dim);
 }
 

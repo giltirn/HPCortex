@@ -12,17 +12,17 @@ void testDynamicModel(){
     Matrix<FloatType> winit(1,1,A);
     Vector<FloatType> binit(1,B);
 
-    auto model = dnn_layer(
-			   dnn_layer(
-				     dnn_layer(
-					       input_layer<FloatType>(),
-					       winit,binit),
-				     winit, binit),
-			   winit,binit);
+    auto model = dnn_layer(winit,binit,
+			   dnn_layer(winit, binit,
+				     dnn_layer(winit,binit,
+					       input_layer<FloatType>()
+					       )
+				     )
+			   );
  
     auto composed = enwrap( input_layer<FloatType>() );
     for(int i=0;i<3;i++)
-      composed = enwrap( dnn_layer(std::move(composed), winit,binit) );
+      composed = enwrap( dnn_layer(winit,binit, std::move(composed) ) );
  
   
     int iters=10;
@@ -47,14 +47,16 @@ void testDynamicModel(){
     NoPadding<FloatType> padding;
     int conv_out_len = padding.layerOutputLength(input_size,kernel_size,stride);
 
-    auto conv_layer_w = enwrap( conv1d_layer(input_layer<FloatType,Tens3 >(),
-					     filter, ReLU<FloatType>(), padding, stride) );
+    auto conv_layer_w = enwrap( conv1d_layer(filter, ReLU<FloatType>(), padding, stride,
+					     input_layer<FloatType,Tens3 >()
+					     )
+				);
     auto flatten_layer_w = enwrap(flatten_layer(conv_layer_w));
     Matrix<FloatType> weights(2,conv_out_len);
     Vector<FloatType> bias(2);
     uniformRandom(weights,rng);
     uniformRandom(bias,rng);
-    auto dnn_layer_w = enwrap( dnn_layer( flatten_layer_w, weights, bias ) );
+    auto dnn_layer_w = enwrap( dnn_layer( weights, bias, flatten_layer_w ) );
 
     int batch_size = 3;
     Tens3 input(1,input_size,batch_size);
@@ -64,14 +66,13 @@ void testDynamicModel(){
     assert(got.size(0) == 2 && got.size(1) == batch_size);
     
     
-    auto full_model = dnn_layer(
+    auto full_model = dnn_layer(weights, bias,
 				flatten_layer(
-					      conv1d_layer(
-							   input_layer<FloatType,Tens3>(),
-							   filter, ReLU<FloatType>(), padding, stride
+					      conv1d_layer(filter, ReLU<FloatType>(), padding, stride,
+							   input_layer<FloatType,Tens3>()							   
 							   )
 					      )
-				, weights, bias);
+				);
     Matrix<FloatType> expect = full_model.value(input);
     assert( abs_near(got,expect,1e-8,true) );
   }

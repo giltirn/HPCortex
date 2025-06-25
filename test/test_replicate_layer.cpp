@@ -88,8 +88,8 @@ void testReplicateLayer(){
   Vector<FloatType> bbase(szbase);
   uniformRandom(bbase,rng);
   
-  auto base = dnn_layer(input_layer<FloatType,Matrix<FloatType>>(), wbase,bbase);
-  auto repls = replicate_layer(base,2);
+  auto base = dnn_layer(wbase,bbase,input_layer<FloatType,Matrix<FloatType>>());
+  auto repls = replicate_layer(2, base);
   
   assert(repls.size() == 2);
 
@@ -98,14 +98,14 @@ void testReplicateLayer(){
   uniformRandom(w1,rng);
   Vector<FloatType> b1(sz1);
   uniformRandom(b1,rng);
-  auto chain1 = dnn_layer(*repls[0], w1,b1);
+  auto chain1 = dnn_layer(w1,b1, *repls[0]);
 
   int sz2 = 8;
   Matrix<FloatType> w2(sz2,szbase);
   uniformRandom(w2,rng);
   Vector<FloatType> b2(sz2);
   uniformRandom(b2,rng);
-  auto chain2 = dnn_layer(*repls[1], w2,b2);
+  auto chain2 = dnn_layer(w2,b2, *repls[1]);
   
   //Check nparams
   int nparams = chain1.nparams() + chain2.nparams();
@@ -183,11 +183,11 @@ void testReplicateLayer(){
     Matrix<FloatType> x(in_sz, B);
     uniformRandom(x,rng);
     
-    auto base_solo = dnn_layer(input_layer<FloatType,Matrix<FloatType>>(), wbase,bbase);
+    auto base_solo = dnn_layer(wbase,bbase,input_layer<FloatType,Matrix<FloatType>>());
     auto vbase = base_solo.value(x);
 
-    auto chain1_solo = dnn_layer(input_layer<FloatType,Matrix<FloatType>>(), w1,b1);
-    auto chain2_solo = dnn_layer(input_layer<FloatType,Matrix<FloatType>>(), w2,b2);
+    auto chain1_solo = dnn_layer(w1,b1,input_layer<FloatType,Matrix<FloatType>>());
+    auto chain2_solo = dnn_layer(w2,b2,input_layer<FloatType,Matrix<FloatType>>());
 
     auto expect1 = chain1_solo.value(vbase);
     auto expect2 = chain2_solo.value(vbase);
@@ -204,46 +204,6 @@ void testReplicateLayer(){
   
   std::cout << "testReplicateLayer passed" << std::endl;
 }
-
-// //Another non-trivial test we can perform is to reproduce multi-head self-attention from multi-head cross-attention
-// void testReplicateLayerAttention(){
-//   std::mt19937 rng(1234);
-
-//   int C=2;
-//   int E=6;
-//   int B=4;
-//   int nheads = 3;
-//   //Require W_Q[i], W_K[i] :  d_qk^(i) x E,     W_V[i] : d_v^(i) x E      W_O :  E x sum_i d_v^(i)
-//   int d_qk = 3;
-//   int d_v = 2;
-  
-//   std::vector<Matrix<FloatType> > W_Q(nheads), W_K(nheads), W_V(nheads);
-//   for(int i=0;i<nheads;i++){
-//     W_Q[i] = Matrix<FloatType>(d_qk,E); uniformRandom(W_Q[i],rng);
-//     W_K[i] = Matrix<FloatType>(d_qk,E); uniformRandom(W_K[i],rng);
-//     W_V[i] = Matrix<FloatType>(d_v,E); uniformRandom(W_V[i],rng);
-//   }
-//   Matrix<FloatType> W_O(E, nheads*d_v);
-//   uniformRandom(W_O,rng);
-//   typedef Tensor<FloatType,3> TensorType;
-  
-//   auto slf = multihead_self_attention_layer(input_layer<FloatType,TensorType>(),
-// 					    nheads, W_Q, W_K, W_V, W_O);
-
-//   auto splt = replicate_layer(input_layer<FloatType,TensorType>(),2);
-//   auto jn = pair_join_layer(*splt[0],*splt[1]);
-
-//   auto crs = multihead_cross_attention_layer(ChainQK &&chain_QK, ChainV &&chain_V,
-// 				     int Nheads,
-// 				     const std::vector<Matrix<FLOATTYPE(ChainQK)> > &W_Q,
-// 				     const std::vector<Matrix<FLOATTYPE(ChainQK)> > &W_K,
-// 				     const std::vector<Matrix<FLOATTYPE(ChainQK)> > &W_V,
-// 				     const Matrix<FLOATTYPE(ChainQK)> &W_O,
-//   auto crs = multihead_self_attention_layer(input_layer<FloatType,TensorType>(),
-// 					    nheads, W_Q, W_K, W_V, W_O);
-
-  
-// }
 
 
 int main(int argc, char** argv){

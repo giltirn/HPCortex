@@ -98,41 +98,61 @@ public:
 #define LAYER_TYPE MultiHeadCrossAttentionLayer<FLOATTYPE(ChainKV), \
 						INPUTTYPE(ChainKV), \
 						DDST(chain_KV),DDST(chain_Q)>
-template<typename ChainKV, typename ChainQ,
-	 typename std::enable_if<ISLEAF(ChainKV) && ISLEAF(ChainQ) && std::is_same<FLOATTYPE(ChainKV),FLOATTYPE(ChainQ)>::value && std::is_same<INPUTTYPE(ChainKV),INPUTTYPE(ChainQ)>::value , int>::type = 0
+#define TEMPL \
+template<typename ChainKV, typename ChainQ, \
+	 typename std::enable_if<ISLEAF(ChainKV) && ISLEAF(ChainQ) && std::is_same<FLOATTYPE(ChainKV),FLOATTYPE(ChainQ)>::value && std::is_same<INPUTTYPE(ChainKV),INPUTTYPE(ChainQ)>::value , int>::type = 0 \
 	 >
-auto multihead_cross_attention_layer(ChainKV &&chain_KV, ChainQ &&chain_Q,
-				     int Nheads,
+
+TEMPL
+auto multihead_cross_attention_layer(int Nheads,
+				     Matrix<FLOATTYPE(ChainKV)> const* const* W_Q,
+				     Matrix<FLOATTYPE(ChainKV)> const* const* W_K,
+				     Matrix<FLOATTYPE(ChainKV)> const* const* W_V,
+				     const Matrix<FLOATTYPE(ChainKV)> &W_O,				     
+				     bool use_mask,
+				     ChainKV &&chain_KV, ChainQ &&chain_Q)-> LAYER_TYPE{
+  return LAYER_TYPE(std::forward<ChainKV>(chain_KV), std::forward<ChainQ>(chain_Q), Nheads, W_Q, W_K, W_V, W_O, use_mask);
+}
+TEMPL
+auto multihead_cross_attention_layer(int Nheads,
 				     Matrix<FLOATTYPE(ChainKV)> const* const* W_Q,
 				     Matrix<FLOATTYPE(ChainKV)> const* const* W_K,
 				     Matrix<FLOATTYPE(ChainKV)> const* const* W_V,
 				     const Matrix<FLOATTYPE(ChainKV)> &W_O,
-				     bool use_mask = false)-> LAYER_TYPE{
-  return LAYER_TYPE(std::forward<ChainKV>(chain_KV), std::forward<ChainQ>(chain_Q), Nheads, W_Q, W_K, W_V, W_O, use_mask);
+				     ChainKV &&chain_KV, ChainQ &&chain_Q)-> LAYER_TYPE{
+  return LAYER_TYPE(std::forward<ChainKV>(chain_KV), std::forward<ChainQ>(chain_Q), Nheads, W_Q, W_K, W_V, W_O, false);
 }
 
-template<typename ChainKV, typename ChainQ,
-	 typename std::enable_if<ISLEAF(ChainKV) && ISLEAF(ChainQ) && std::is_same<FLOATTYPE(ChainKV),FLOATTYPE(ChainQ)>::value && std::is_same<INPUTTYPE(ChainKV),INPUTTYPE(ChainQ)>::value  , int>::type = 0
-	 >
-auto multihead_cross_attention_layer(ChainKV &&chain_KV, ChainQ &&chain_Q,
-				     int Nheads,
+
+
+TEMPL
+auto multihead_cross_attention_layer(int Nheads,
 				     const std::vector<Matrix<FLOATTYPE(ChainKV)> > &W_Q,
 				     const std::vector<Matrix<FLOATTYPE(ChainKV)> > &W_K,
 				     const std::vector<Matrix<FLOATTYPE(ChainKV)> > &W_V,
 				     const Matrix<FLOATTYPE(ChainKV)> &W_O,
-				     bool use_mask = false)-> LAYER_TYPE{
+				     bool use_mask,
+				     ChainKV &&chain_KV, ChainQ &&chain_Q)-> LAYER_TYPE{
   return LAYER_TYPE(std::forward<ChainKV>(chain_KV), std::forward<ChainQ>(chain_Q), Nheads, W_Q, W_K, W_V, W_O, use_mask);
 }
+TEMPL
+auto multihead_cross_attention_layer(int Nheads,
+				     const std::vector<Matrix<FLOATTYPE(ChainKV)> > &W_Q,
+				     const std::vector<Matrix<FLOATTYPE(ChainKV)> > &W_K,
+				     const std::vector<Matrix<FLOATTYPE(ChainKV)> > &W_V,
+				     const Matrix<FLOATTYPE(ChainKV)> &W_O,
+				     ChainKV &&chain_KV, ChainQ &&chain_Q)-> LAYER_TYPE{
+  return LAYER_TYPE(std::forward<ChainKV>(chain_KV), std::forward<ChainQ>(chain_Q), Nheads, W_Q, W_K, W_V, W_O, false);
+}
+
 
 //Default initialization has W_Q,W_K,W_V all of size E/Nheads x E  and W_O of size ExE
 //each initialized using Glorot uniform
-template<typename ChainKV, typename ChainQ,
-	 typename std::enable_if<ISLEAF(ChainKV) && ISLEAF(ChainQ) && std::is_same<FLOATTYPE(ChainKV),FLOATTYPE(ChainQ)>::value && std::is_same<INPUTTYPE(ChainKV),INPUTTYPE(ChainQ)>::value  , int>::type = 0
-	 >
-auto multihead_cross_attention_layer(ChainKV &&chain_KV, ChainQ &&chain_Q,
-				     int Nheads,
+TEMPL
+auto multihead_cross_attention_layer(int Nheads,
 				     int E,
-				     bool use_mask = false)-> LAYER_TYPE{
+				     bool use_mask,
+				     ChainKV &&chain_KV, ChainQ &&chain_Q)-> LAYER_TYPE{
   typedef FLOATTYPE(ChainKV) FloatType;
   assert(E % Nheads == 0);
   int d_qkv = E/Nheads;
@@ -148,4 +168,13 @@ auto multihead_cross_attention_layer(ChainKV &&chain_KV, ChainQ &&chain_Q,
   auto layer = LAYER_TYPE(std::forward<ChainKV>(chain_KV), std::forward<ChainQ>(chain_Q), Nheads, W_Q, W_K, W_V, W_O, use_mask);  
   return layer;
 }
+
+TEMPL
+auto multihead_cross_attention_layer(int Nheads,
+				     int E,
+				     ChainKV &&chain_KV, ChainQ &&chain_Q){
+  return multihead_cross_attention_layer(Nheads,E,false,std::forward<ChainKV>(chain_KV),std::forward<ChainQ>(chain_Q));
+}
+
+#undef TEMPL
 #undef LAYER_TYPE

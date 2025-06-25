@@ -80,9 +80,15 @@ public:
 };
 
 template<typename U, typename ActivationFunc, typename PaddingFunc, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto conv1d_layer(U &&u, const Tensor<FLOATTYPE(U),3> &filter, const ActivationFunc &activation_func, const PaddingFunc &padding_func, int stride = 1)
+auto conv1d_layer(const Tensor<FLOATTYPE(U),3> &filter, const ActivationFunc &activation_func, const PaddingFunc &padding_func, int stride, U &&u)
   ->ConvolutionLayer1D<FLOATTYPE(U),INPUTTYPE(U),DDST(u),ActivationFunc,PaddingFunc>{
   return ConvolutionLayer1D<FLOATTYPE(U),INPUTTYPE(U),DDST(u),ActivationFunc,PaddingFunc>(std::forward<U>(u),filter,activation_func,padding_func,stride);
+}
+
+template<typename U, typename ActivationFunc, typename PaddingFunc, typename std::enable_if<ISLEAF(U), int>::type = 0>
+auto conv1d_layer(const Tensor<FLOATTYPE(U),3> &filter, const ActivationFunc &activation_func, const PaddingFunc &padding_func, U &&u)
+  ->ConvolutionLayer1D<FLOATTYPE(U),INPUTTYPE(U),DDST(u),ActivationFunc,PaddingFunc>{
+  return ConvolutionLayer1D<FLOATTYPE(U),INPUTTYPE(U),DDST(u),ActivationFunc,PaddingFunc>(std::forward<U>(u),filter,activation_func,padding_func,1);
 }
 
 #include "implementation/ConvolutionLayer1D.tcc"

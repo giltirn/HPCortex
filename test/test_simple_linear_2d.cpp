@@ -40,14 +40,13 @@ void testSimpleLinear2D(){
   
   //Flatten and unflatten to push through a DNN layer
   auto model = mse_cost(
-			unflatten_layer<3>(
-					dnn_layer(
-						  flatten_layer(
-								input_layer<FloatType, Tensor<FloatType,3> >()
-								)
-						  , winit, binit),
-					tens_sz_batch
-					)
+			unflatten_layer<3>(tens_sz_batch,
+					   dnn_layer(winit, binit,
+						     flatten_layer(
+								   input_layer<FloatType, Tensor<FloatType,3> >()
+								   )
+						     )					
+					   )
 			);
   DecayScheduler<FloatType> lr(0.01, 0.1);  
   AdamParams<FloatType> ap;

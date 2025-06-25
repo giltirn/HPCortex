@@ -55,7 +55,7 @@ void testUnflattenLayer(){
   TensType expect(dims, in_lin);
   Matrix<FloatType> in(2*3, 4, in_lin); 
 
-  auto m = unflatten_layer<3>( input_layer<FloatType, Matrix<FloatType> >(), dims );
+  auto m = unflatten_layer<3>(dims, input_layer<FloatType, Matrix<FloatType> >());
   
   TensType got = m.value(in);
   

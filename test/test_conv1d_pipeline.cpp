@@ -67,7 +67,7 @@ void testConvPipeline(){
   Tensor<FloatType,3> filter_init(out_channels, in_channels, kernel_size);
   uniformRandom(filter_init, rng);
 
-  auto conv_block = conv1d_layer( input_layer<FloatType,InputType>(), filter_init, ReLU<FloatType>(), padding, stride ); //last rank
+  auto conv_block = conv1d_layer( filter_init, ReLU<FloatType>(), padding, stride, input_layer<FloatType,InputType>() ); //last rank
   int conv_block_output_data_sz[3] = {out_channels, in_len, call_batch_size }; //same padding
 
   ///////////////////////////////////////////////////////////////////////
@@ -80,17 +80,16 @@ void testConvPipeline(){
   Vector<FloatType> bias_init(flat_size);
   uniformRandom(bias_init, rng);
   
-  auto dnn_first = dnn_layer(
-			      flatten_layer( input_layer<FloatType,InputType>() ),
-			      weight_init, bias_init, ReLU<FloatType>()
-			      ); //next to last rank
+  auto dnn_first = dnn_layer(weight_init, bias_init, ReLU<FloatType>(),
+			     flatten_layer( input_layer<FloatType,InputType>() )			      
+			     ); //next to last rank
 
 
   ///////////////////////////////////////////////////////////////////////
   ////// Other DNN block
-  auto dnn_other = dnn_layer( input_layer<FloatType,Matrix<FloatType> >(),
-			      weight_init, bias_init, ReLU<FloatType>()
-			      );
+  auto dnn_other = dnn_layer(weight_init, bias_init, ReLU<FloatType>(),
+			     input_layer<FloatType,Matrix<FloatType> >()			      
+			     );
   
 
   ///////////////////////////////////////////////////////////////////////
@@ -102,38 +101,35 @@ void testConvPipeline(){
   Vector<FloatType> bias_out_init(out_flat_size);
   uniformRandom(bias_out_init, rng);
   
-  auto output_block = unflatten_layer<3>( dnn_layer(
-						 input_layer<FloatType,Matrix<FloatType> >(),
-						 weight_out_init, bias_out_init
-						 ),
-				       output_data_sz
-				       );
+  auto output_block = unflatten_layer<3>(output_data_sz,
+					 dnn_layer(weight_out_init, bias_out_init,
+						   input_layer<FloatType,Matrix<FloatType> >()						   
+						   )
+					 );
   
   static_assert(std::is_same< LAYEROUTPUTTYPE(decltype(output_block)), OutputType >::value );
 
   //////////////////////////////////////////////////////////////////////
   //Generate expectations
-  auto full_model = enwrap( dnn_layer(
+  auto full_model = enwrap( dnn_layer(weight_init, bias_init, ReLU<FloatType>(),
 				      flatten_layer(
-						    conv1d_layer(
-								 input_layer<FloatType,InputType>(),
-								 filter_init, ReLU<FloatType>(), padding, stride ) 
-						    ),
-				      weight_init, bias_init, ReLU<FloatType>()
+						    conv1d_layer(filter_init, ReLU<FloatType>(), padding, stride,
+								 input_layer<FloatType,InputType>()
+								 ) 
+						    )				      
 				      )
 			    );
   for(int r=2; r<nranks-1; r++){
-    full_model = enwrap(dnn_layer( std::move(full_model),
-				   weight_init, bias_init, ReLU<FloatType>()
-				   )
+    full_model = enwrap(dnn_layer(weight_init, bias_init, ReLU<FloatType>(),
+				  std::move(full_model)				   
+				  )
 			);
   }
-  auto full_model_complete = unflatten_layer<3>( dnn_layer(
-							   full_model,
-							   weight_out_init, bias_out_init
-							   ),
-						 output_data_sz
-						 );
+  auto full_model_complete = unflatten_layer<3>(output_data_sz,
+						dnn_layer(weight_out_init, bias_out_init,
+							  full_model							   
+							   )						 
+						);
   auto full_cost = mse_cost( full_model_complete );
 
   std::vector<FloatType> loss_expect(ndata);

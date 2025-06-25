@@ -112,7 +112,7 @@ void basicTests(){
     doHost(c, { assert(c_v(0) == FloatType(0.1) && c_v(1) == FloatType(-0.1) && c_v(2) == FloatType(0.7) ); });
   }
   
-  auto f = mse_cost( dnn_layer(input_layer<FloatType>(), w1_init, b1_init) );
+  auto f = mse_cost( dnn_layer(w1_init, b1_init, input_layer<FloatType>()) );
 
   //NB batch size 2, batches in different *columns*
   Matrix<FloatType> x1(2,2,vecD({1.3, 0.6,
@@ -147,14 +147,14 @@ void basicTests(){
       for(int j=0;j<2;j++){
 	Matrix<FloatType> w1_p = w1_init;
 	doHost(w1_p, { w1_p_v(i,j) += delta; });
-	auto f2 = mse_cost( dnn_layer(input_layer<FloatType>(), w1_p, b1_init) );
+	auto f2 = mse_cost( dnn_layer(w1_p, b1_init, input_layer<FloatType>()) );
 	dexpect_v(p++) = (f2.loss(x1,y1) - got)/delta;
       }
     }
     for(int i=0;i<3;i++){
       Vector<FloatType> b1_p = b1_init;
       doHost(b1_p, { b1_p_v(i) += delta; });      
-      auto f2 = mse_cost( dnn_layer(input_layer<FloatType>(), w1_init, b1_p) );
+      auto f2 = mse_cost( dnn_layer(w1_init, b1_p, input_layer<FloatType>()) );
       dexpect_v(p++) = (f2.loss(x1,y1) - got)/delta;    
     }
   }
@@ -173,7 +173,7 @@ void basicTests(){
 					  2.1,-3.0}));
   Vector<FloatType> b1_new( vecD({-0.5,0.7,-1.1}));	
 
-  auto ftest = mse_cost( dnn_layer(input_layer<FloatType>(), w1_new, b1_new) );
+  auto ftest = mse_cost( dnn_layer(w1_new, b1_new, input_layer<FloatType>()) );
   f.update(ftest.getParams());
 
   FloatType expect_l = ftest.loss(x1,y1);
@@ -240,7 +240,7 @@ void testTensorOffset(){
 int main(int argc, char** argv){
   initialize(argc,argv);
   
-  //basicTests();
+  basicTests();
   testTensorOffset();
   return 0;
 }

@@ -99,7 +99,7 @@ void testCrossDecoder(){
   Vector<FloatType> b1(E);
   uniformRandom(b1,rng);  
   
-  auto encoder_in = batch_tensor_dnn_layer<3>(*splt.first, w1, b1, 1, ReLU<FloatType>());
+  auto encoder_in = batch_tensor_dnn_layer<3>(w1, b1, 1, ReLU<FloatType>(), *splt.first);
 
   //Do something non-trivial prior to the decoder block
   Matrix<FloatType> w2(E,E);
@@ -107,18 +107,18 @@ void testCrossDecoder(){
   Vector<FloatType> b2(E);
   uniformRandom(b2,rng);  
   
-  auto decoder_in = batch_tensor_dnn_layer<3>(*splt.second, w2, b2, 1, ReLU<FloatType>());
+  auto decoder_in = batch_tensor_dnn_layer<3>(w2, b2, 1, ReLU<FloatType>(), *splt.second);
 
   reseedGlobalRNG(9876);
-  auto xdecoder = transformer_cross_decoder_block(encoder_in, decoder_in, E, nheads, d_act, GeLU<FloatType>() );
+  auto xdecoder = transformer_cross_decoder_block(E, nheads, d_act, GeLU<FloatType>(), encoder_in, decoder_in );
 
   auto xdecoder_solo_in = pair_split_layer(input_layer<FloatType,InputType>());
   reseedGlobalRNG(9876); //ensure it gets the same initial params as the above
-  auto xdecoder_solo = transformer_cross_decoder_block(*xdecoder_solo_in.first, *xdecoder_solo_in.second, E, nheads, d_act, GeLU<FloatType>() );
+  auto xdecoder_solo = transformer_cross_decoder_block(E, nheads, d_act, GeLU<FloatType>(), *xdecoder_solo_in.first, *xdecoder_solo_in.second );
   int decoder_solo_nparam = xdecoder_solo.nparams();
 
-  auto encoder_in_solo = batch_tensor_dnn_layer<3>(input_layer<FloatType,TensorType>(), w1, b1, 1, ReLU<FloatType>());
-  auto decoder_in_solo = batch_tensor_dnn_layer<3>(input_layer<FloatType,TensorType>(), w2, b2, 1, ReLU<FloatType>());
+  auto encoder_in_solo = batch_tensor_dnn_layer<3>(w1, b1, 1, ReLU<FloatType>(), input_layer<FloatType,TensorType>());
+  auto decoder_in_solo = batch_tensor_dnn_layer<3>(w2, b2, 1, ReLU<FloatType>(), input_layer<FloatType,TensorType>());
   
   //Check nparams
   int nparams = xdecoder.nparams();
@@ -168,8 +168,8 @@ void testCrossDecoderMultiBlock(){
   Vector<FloatType> b1(E);
   uniformRandom(b1,rng);  
   
-  auto encoder_in = batch_tensor_dnn_layer<3>(*splt.first, w1, b1, 1, ReLU<FloatType>());
-  auto encoder_in_repl = replicate_layer(encoder_in,2);
+  auto encoder_in = batch_tensor_dnn_layer<3>(w1, b1, 1, ReLU<FloatType>(), *splt.first);
+  auto encoder_in_repl = replicate_layer(2, encoder_in);
   
   //Do something non-trivial prior to the decoder block
   Matrix<FloatType> w2(E,E);
@@ -177,23 +177,23 @@ void testCrossDecoderMultiBlock(){
   Vector<FloatType> b2(E);
   uniformRandom(b2,rng);  
   
-  auto decoder_in = batch_tensor_dnn_layer<3>(*splt.second, w2, b2, 1, ReLU<FloatType>());
+  auto decoder_in = batch_tensor_dnn_layer<3>(w2, b2, 1, ReLU<FloatType>(), *splt.second);
 
   reseedGlobalRNG(9876);
-  auto xdecoder1 = transformer_cross_decoder_block(*encoder_in_repl[0], decoder_in, E, nheads, d_act, GeLU<FloatType>() );
-  auto xdecoder2 = transformer_cross_decoder_block(*encoder_in_repl[1], xdecoder1, E, nheads, d_act, GeLU<FloatType>() );
+  auto xdecoder1 = transformer_cross_decoder_block(E, nheads, d_act, GeLU<FloatType>(), *encoder_in_repl[0], decoder_in );
+  auto xdecoder2 = transformer_cross_decoder_block(E, nheads, d_act, GeLU<FloatType>(), *encoder_in_repl[1], xdecoder1 );
 
   auto xdecoder_solo_in = pair_split_layer(input_layer<FloatType,InputType>());
   auto xdecoder_solo2_in = pair_split_layer(input_layer<FloatType,InputType>());
   
   reseedGlobalRNG(9876); //ensure it gets the same initial params as the above
-  auto xdecoder_solo = transformer_cross_decoder_block(*xdecoder_solo_in.first, *xdecoder_solo_in.second, E, nheads, d_act, GeLU<FloatType>() );
-  auto xdecoder_solo2 = transformer_cross_decoder_block(*xdecoder_solo2_in.first, *xdecoder_solo2_in.second, E, nheads, d_act, GeLU<FloatType>() );
+  auto xdecoder_solo = transformer_cross_decoder_block( E, nheads, d_act, GeLU<FloatType>(), *xdecoder_solo_in.first, *xdecoder_solo_in.second );
+  auto xdecoder_solo2 = transformer_cross_decoder_block(E, nheads, d_act, GeLU<FloatType>(), *xdecoder_solo2_in.first, *xdecoder_solo2_in.second );
   
   int decoder_solo_nparam = xdecoder_solo.nparams();
 
-  auto encoder_in_solo = batch_tensor_dnn_layer<3>(input_layer<FloatType,TensorType>(), w1, b1, 1, ReLU<FloatType>());
-  auto decoder_in_solo = batch_tensor_dnn_layer<3>(input_layer<FloatType,TensorType>(), w2, b2, 1, ReLU<FloatType>());
+  auto encoder_in_solo = batch_tensor_dnn_layer<3>(w1, b1, 1, ReLU<FloatType>(), input_layer<FloatType,TensorType>());
+  auto decoder_in_solo = batch_tensor_dnn_layer<3>(w2, b2, 1, ReLU<FloatType>(), input_layer<FloatType,TensorType>());
   
   //Check nparams
   int nparams = xdecoder2.nparams();

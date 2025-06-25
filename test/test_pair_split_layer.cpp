@@ -107,14 +107,14 @@ void testPairSplitLayer(){
   uniformRandom(w1,rng);
   Vector<FloatType> b1(sz1);
   uniformRandom(b1,rng);
-  auto chain1 = dnn_layer(*splt.first, w1,b1);
+  auto chain1 = dnn_layer(w1,b1,*splt.first);
 
   int sz2 = 8;
   Matrix<FloatType> w2(sz2,in_sz2);
   uniformRandom(w2,rng);
   Vector<FloatType> b2(sz2);
   uniformRandom(b2,rng);
-  auto chain2 = dnn_layer(*splt.second, w2,b2);
+  auto chain2 = dnn_layer(w2,b2,*splt.second);
 
   //Check nparams
   int nparams = chain1.nparams() + chain2.nparams();
@@ -189,8 +189,8 @@ void testPairSplitLayer(){
     uniformRandom(x.first,rng);
     uniformRandom(x.second,rng);
     
-    auto chain1_solo = dnn_layer(input_layer<FloatType,Matrix<FloatType>>(), w1,b1);
-    auto chain2_solo = dnn_layer(input_layer<FloatType,Matrix<FloatType>>(), w2,b2);
+    auto chain1_solo = dnn_layer(w1,b1,input_layer<FloatType,Matrix<FloatType>>());
+    auto chain2_solo = dnn_layer(w2,b2,input_layer<FloatType,Matrix<FloatType>>());
 
     auto expect1 = chain1_solo.value(x.first);
     auto expect2 = chain2_solo.value(x.second);
@@ -309,14 +309,14 @@ void testDivergingConverging(){
   uniformRandom(w1,rng);
   Vector<FloatType> b1(sz1);
   uniformRandom(b1,rng);
-  auto chain1 = dnn_layer(*splt.first, w1,b1);
+  auto chain1 = dnn_layer(w1,b1, *splt.first);
 
   int sz2 = 8;
   Matrix<FloatType> w2(sz2,in_sz2);
   uniformRandom(w2,rng);
   Vector<FloatType> b2(sz2);
   uniformRandom(b2,rng);
-  auto chain2 = dnn_layer(*splt.second, w2,b2);
+  auto chain2 = dnn_layer(w2,b2, *splt.second);
 
 
   auto conv = pair_join_layer(chain1,chain2);
@@ -384,8 +384,8 @@ void testDivergingConverging(){
     uniformRandom(x.first,rng);
     uniformRandom(x.second,rng);
     
-    auto chain1_solo = dnn_layer(input_layer<FloatType,Matrix<FloatType>>(), w1,b1);
-    auto chain2_solo = dnn_layer(input_layer<FloatType,Matrix<FloatType>>(), w2,b2);
+    auto chain1_solo = dnn_layer(w1,b1, input_layer<FloatType,Matrix<FloatType>>() );
+    auto chain2_solo = dnn_layer(w2,b2, input_layer<FloatType,Matrix<FloatType>>() );
 
     auto expect1 = chain1_solo.value(x.first);
     auto expect2 = chain2_solo.value(x.second);

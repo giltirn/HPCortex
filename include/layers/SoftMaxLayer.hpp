@@ -44,9 +44,16 @@ public:
 
 #define LAYER_TYPE SoftMaxLayer<FLOATTYPE(U),TensDim,INPUTTYPE(U),DDST(u)>
 template<int TensDim, typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto softmax_layer(U &&u, int softmax_dim, FLOATTYPE(U) beta=FLOATTYPE(U)(1.0) )->LAYER_TYPE{
+auto softmax_layer(int softmax_dim, FLOATTYPE(U) beta, U &&u)->LAYER_TYPE{
   return LAYER_TYPE(std::forward<U>(u), softmax_dim, beta);
 }
+
+template<int TensDim, typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
+auto softmax_layer(int softmax_dim, U &&u)->LAYER_TYPE{
+  return LAYER_TYPE(std::forward<U>(u), softmax_dim, FLOATTYPE(U)(1.0) );
+}
+
+
 #undef LAYER_TYPE
 
 #include "implementation/SoftMaxLayer.tcc"

@@ -18,7 +18,7 @@ void testMatrixTensorContract(){
   int in_sizes[4] = {2,3,size1,batch_size};
   int out_sizes[4] = {2,3,size0,batch_size};
   
-  auto m = matrix_tensor_contract_layer<4>(input_layer<FloatType, Tens>(), winit);
+  auto m = matrix_tensor_contract_layer<4>(winit, input_layer<FloatType, Tens>());
 
   Tens in(in_sizes);
   uniformRandom(in, rng);

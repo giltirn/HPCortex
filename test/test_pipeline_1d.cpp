@@ -19,13 +19,13 @@ void testPipeline(){
   Matrix<FloatType> winit(1,1,A);
   Vector<FloatType> binit(1,B);
   int block_output_dims[2] = {1, batch_size};
-  typedef decltype( dnn_layer(input_layer<FloatType>(), winit,binit) ) Ltype;
+  typedef decltype( dnn_layer(winit,binit,input_layer<FloatType>()) ) Ltype;
 
 
   if(1){ //test model
     if(!rank) std::cout << "Testing model value pipeline" << std::endl;
 
-    auto p = pipeline_block< Matrix<FloatType>, Matrix<FloatType> >( dnn_layer(input_layer<FloatType>(), winit,binit), block_output_dims, rank == nranks - 1  ? input_dims : block_output_dims);
+    auto p = pipeline_block< Matrix<FloatType>, Matrix<FloatType> >( dnn_layer(winit,binit,input_layer<FloatType>()), block_output_dims, rank == nranks - 1  ? input_dims : block_output_dims);
     
     int value_lag = p.valueLag(); //iterations before first complete cycle of forwards differentiation
     int deriv_lag = p.derivLag(); //iterations before first complete cycle of backwards differentiation
@@ -34,7 +34,7 @@ void testPipeline(){
 
     //Build the same model on just this rank
     auto test_model = enwrap( input_layer<FloatType>() );
-    for(int r=0;r<nranks;r++) test_model = enwrap( dnn_layer(std::move(test_model), winit,binit) ); 
+    for(int r=0;r<nranks;r++) test_model = enwrap( dnn_layer(winit,binit,std::move(test_model)) ); 
 
     if(!rank) std::cout << "Computing expectations" << std::endl;
     std::vector<Matrix<FloatType> > expect_v(iters);
@@ -81,14 +81,14 @@ void testPipeline(){
   }
   if(1){ //test cost
     if(!rank) std::cout << "Testing loss pipeline" << std::endl;
-    auto p = pipeline_block< Matrix<FloatType>, Matrix<FloatType> >( dnn_layer(input_layer<FloatType>(), winit,binit) , block_output_dims, rank == nranks - 1  ? input_dims : block_output_dims);
+    auto p = pipeline_block< Matrix<FloatType>, Matrix<FloatType> >( dnn_layer(winit,binit,input_layer<FloatType>()) , block_output_dims, rank == nranks - 1  ? input_dims : block_output_dims);
     PipelineCostFuncWrapper<decltype(p),MSEcostFunc<Matrix<FloatType>> > pc(p);
     int value_lag = p.valueLag();
     int deriv_lag = p.derivLag();
     
     //Build the same model on just this rank
     auto test_model = enwrap( input_layer<FloatType>() );
-    for(int r=0;r<nranks;r++) test_model = enwrap( dnn_layer(std::move(test_model), winit,binit) ); 
+    for(int r=0;r<nranks;r++) test_model = enwrap( dnn_layer(winit,binit,std::move(test_model)) ); 
     auto test_cost = mse_cost(test_model);
 
     int nparams = p.nparams();
@@ -147,7 +147,7 @@ void testPipeline(){
     int input_dims_2[2] = {input_features, call_batch_size};  
     int block_output_dims_2[2] = {1, call_batch_size};
     
-    auto p = pipeline_block<Matrix<FloatType>, Matrix<FloatType> >( dnn_layer(input_layer<FloatType>(), winit,binit) , block_output_dims_2, rank == nranks -1 ? input_dims_2 : block_output_dims_2);
+    auto p = pipeline_block<Matrix<FloatType>, Matrix<FloatType> >( dnn_layer(winit,binit,input_layer<FloatType>()) , block_output_dims_2, rank == nranks -1 ? input_dims_2 : block_output_dims_2);
     BatchPipelineCostFuncWrapper<decltype(p),MSEcostFunc<Matrix<FloatType>> > pc(p, call_batch_size);
 
     Matrix<FloatType> x(input_features, glob_batch_size);
@@ -166,7 +166,7 @@ void testPipeline(){
     
     //Build the same model on just this rank
     auto test_model = enwrap( input_layer<FloatType>() );
-    for(int r=0;r<nranks;r++) test_model = enwrap( dnn_layer(std::move(test_model), winit,binit) ); 
+    for(int r=0;r<nranks;r++) test_model = enwrap( dnn_layer(winit,binit,std::move(test_model)) ); 
     auto test_cost = mse_cost(test_model);
 
 

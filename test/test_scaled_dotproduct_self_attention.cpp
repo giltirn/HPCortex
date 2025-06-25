@@ -107,7 +107,7 @@ void testScaledDotProductSelfAttention(){
   uniformRandom(in_W_V,rng);
 
   for(int use_mask = 0; use_mask < 2; use_mask++){
-    auto model = scaled_dotproduct_self_attention_layer(input_layer<FloatType, Tensor<FloatType,3> >(), in_W_Q, in_W_K, in_W_V, use_mask);
+    auto model = scaled_dotproduct_self_attention_layer(in_W_Q, in_W_K, in_W_V, use_mask, input_layer<FloatType, Tensor<FloatType,3> >());
 
     Tensor<FloatType,3> X(C,E,B);
     uniformRandom(X,rng);
