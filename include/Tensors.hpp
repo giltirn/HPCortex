@@ -423,7 +423,7 @@ public:
      */
     accelerator_inline FloatType compact3(int i,int j,int k) const{
       return *( this->Base::data() + k + _size[Dim-1]*( j + _size[Dim-2]*i ) );
-    }      
+    }
   };
 
   /**
@@ -681,6 +681,11 @@ Tensor<FloatType,Dim> batchTensorConcatenate(Tensor<FloatType,Dim> const* const*
 template<int Dim, typename FloatType>
 void batchTensorSplit(Tensor<FloatType,Dim>* const* out, int Ntens, const Tensor<FloatType,Dim> &in, int split_dim);
 
+/**
+ * @brief Return the tensor norm^2, i.e.  \sum_{i,j,k,...} T[i,j,k,...]^2
+ */
+template<int Dim, typename FloatType>
+double norm2(const Tensor<FloatType,Dim> &T);
 
 #include "implementation/Tensors.tcc"
 

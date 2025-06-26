@@ -529,3 +529,48 @@ void batchTensorSplit(Tensor<FloatType,Dim>* const* out, int Ntens, const Tensor
     off += out[i]->size(split_dim);
   }
 }
+
+template<int Dim, typename FloatType>
+double norm2(const Tensor<FloatType,Dim> &T){
+#ifndef USE_CUDA
+  double out = 0.;
+  autoView(T_v,T,HostRead);
+  for(size_t i=0; i<T.data_len(); t++){
+    FloatType v = T_v.data()[i];
+    out += v*v;
+  }
+  return out;
+#else 
+  int last_dim_sz = T.size(Dim-1);
+  double* accum = (double*)acceleratorAllocDevice(sizeof(double));
+  acceleratorMemSet(accum,0,sizeof(double));
+
+  int blocksize = 32;
+  int blocks = (last_dim_sz + blocksize -1)/blocksize;
+
+  size_t other_dim_lin = 1;
+  for(int i=0;i<Dim-1;i++)
+    other_dim_lin *= T.size(i);
+
+  autoView(T_v,T,DeviceRead);
+  accelerator_for3d_shm(bb,blocksize, b, blocks, o, other_dim_lin, 1, (blocksize*sizeof(FloatType)),
+			{
+			  extern __shared__ char shared[];
+			  FloatType* buf = (FloatType*)shared;
+			  int last_dim_idx = bb + blocksize*b;
+			  FloatType v = last_dim_idx < last_dim_sz ? *(T_v.data() + last_dim_idx + last_dim_sz*o) : 0.;
+			  buf[bb] = v*v;
+			  acceleratorSynchronizeBlock();
+			  if(bb == 0){
+			    double vs = 0.;
+			    for(int i=0;i<blocksize;i++)
+			      vs += buf[i];
+			    atomicAdd(accum, vs);
+			  }
+			});  
+  double out;
+  acceleratorCopyFromDevice(&out, accum, sizeof(double));
+  acceleratorFreeDevice(accum);
+  return out;
+#endif  
+}

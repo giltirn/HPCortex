@@ -40,13 +40,18 @@ public:
   PredictionType predict(const InputType &x){
     return leaf.v.value(x);
   }
-
-  template<typename O=PredictionType, typename std::enable_if< std::is_same<O,Matrix<FloatType> >::value && std::is_same<O,ComparisonType>::value && std::is_same<InputType,Matrix<FloatType> >::value, int>::type = 0>
-  Vector<FloatType> predict(const Vector<FloatType> &x, int batch_size){
-    Matrix<FloatType> b(x.size(0),batch_size);
-    pokeColumn(b,0,x);
-    return peekColumn(predict(b),0);    
-  }
+ 
+  template<typename _PredictionType=PredictionType, typename _InputType=InputType, int TensDimIn = _InputType::Dimension, int TensDimOut = _PredictionType::Dimension,
+	   typename std::enable_if< std::is_same<_PredictionType,Tensor<FloatType,TensDimOut> >::value &&
+				    std::is_same<_InputType,Tensor<FloatType,TensDimIn> >::value &&
+				    std::is_same<_PredictionType,ComparisonType>::value, int>::type = 0>
+  Tensor<FloatType,TensDimOut-1> predict(const Tensor<FloatType,TensDimIn-1> &x, int batch_size){
+    int size_in[TensDimIn]; size_in[TensDimIn-1] = batch_size;
+    memcpy(size_in, x.sizeArray(), (TensDimIn-1)*sizeof(int));
+    Tensor<FloatType,TensDimIn> bx(size_in);
+    bx.pokeLastDimension(x,0);    
+    return predict(bx).peekLastDimension(0);
+  }   
   
   void update(const Vector<FloatType> &new_params){
     leaf.v.update(0, new_params);

@@ -98,7 +98,7 @@ auto dnn_layer(int fan_out, int fan_in, const ActivationFunc &activation, U &&u)
   return LAYER_TYPE(std::forward<U>(u), weights, bias, 0, activation);
 }
 
-template<typename U, typename ActivationFunc, typename std::enable_if<ISLEAF(U), int>::type = 0>
+template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
 auto dnn_layer(int fan_out, int fan_in, U &&u){
   return dnn_layer(fan_out,fan_in, noActivation<FLOATTYPE(U)>(), std::forward<U>(u));
 }
