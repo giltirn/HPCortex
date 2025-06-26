@@ -35,4 +35,6 @@ Pure OpenMP:
     make install
 
 
+## Documentation
 
+Please refer to our [documentation](https://giltirn.github.io/HPCortex/index.html) for usage details
