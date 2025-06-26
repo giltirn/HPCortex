@@ -1,0 +1,616 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HPCortex Documentation &mdash; HPCortex 0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=2709fde1"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Dependencies" href="installation.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="#" class="icon icon-home">
+            HPCortex
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Dependencies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html#installation">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting started</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html">Accelerator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#activationfuncs">ActivationFuncs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#comms">Comms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#components">Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#ddp">DDP</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#dynamicmodel">DynamicModel</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#embeddings">Embeddings</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#hpcortex">HPCortex</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#init">Init</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#instancestorage">InstanceStorage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#layers">Layers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#linalg">Linalg</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#lossfunctions">LossFunctions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#managedarray">ManagedArray</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#memorymanager">MemoryManager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#optimizers">Optimizers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#padding">Padding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#performance">Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#pipelining">Pipelining</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#random">Random</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#ringbuffer">RingBuffer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#serialization">Serialization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#tensors">Tensors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#testing">Testing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#timing">Timing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#batch3tensorpaircontractcomponent">Batch3tensorPairContractComponent</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#batchedmatrixrowsoftmaxcomponent">BatchedMatrixRowSoftMaxComponent</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#batchtensorconcatenatecomponent">BatchTensorConcatenateComponent</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#batchtensordimensionslicecomponent">BatchTensorDimensionSliceComponent</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#batchtensordnncomponent">BatchTensorDNNcomponent</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#matrixtensorcontractcomponent">MatrixTensorContractComponent</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#multiheadattentioncomponent">MultiHeadAttentionComponent</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#normcomponent">NormComponent</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#scalecomponent">ScaleComponent</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#scaleddotproductattentioncomponent">ScaledDotProductAttentionComponent</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#scaleddotproductattentionheadcomponent">ScaledDotProductAttentionHeadComponent</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#softmaxcomponent">SoftMaxComponent</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#batchtensordnnlayer">BatchTensorDNNlayer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#convolutionlayer1d">ConvolutionLayer1D</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#embedpositionssinusoidallayer">EmbedPositionsSinusoidalLayer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#flattenlayer">FlattenLayer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#inputlayer">InputLayer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#layercommon">LayerCommon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#matrixtensorcontractlayer">MatrixTensorContractLayer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#multiheadcrossattentionlayer">MultiHeadCrossAttentionLayer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#multiheadselfattentionlayer">MultiHeadSelfAttentionLayer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#normlayer">NormLayer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#pairjoinlayer">PairJoinLayer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#pairsplitlayer">PairSplitLayer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#replicatelayer">ReplicateLayer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#scaleddotproductselfattentionlayer">ScaledDotProductSelfAttentionLayer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#skipconnection">SkipConnection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#softmaxlayer">SoftMaxLayer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#sumjoinlayer">SumJoinLayer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#transformerencoderdecoderblock">TransformerEncoderDecoderBlock</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#unflattenlayer">UnflattenLayer</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">HPCortex</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">HPCortex Documentation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="hpcortex-documentation">
+<h1>HPCortex Documentation<a class="headerlink" href="#hpcortex-documentation" title="Link to this heading"></a></h1>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Dependencies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html#installation">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="getting_started.html#building-a-simple-model">Building a simple model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="getting_started.html#training-the-model">Training the model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="getting_started.html#inference">Inference</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">API:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html">Accelerator</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.strong_inline"><code class="docutils literal notranslate"><span class="pre">strong_inline</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.DO_PRAGMA_"><code class="docutils literal notranslate"><span class="pre">DO_PRAGMA_</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.DO_PRAGMA"><code class="docutils literal notranslate"><span class="pre">DO_PRAGMA</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.thread_num"><code class="docutils literal notranslate"><span class="pre">thread_num</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.thread_max"><code class="docutils literal notranslate"><span class="pre">thread_max</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.set_threads"><code class="docutils literal notranslate"><span class="pre">set_threads</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.in_thread_parallel_region"><code class="docutils literal notranslate"><span class="pre">in_thread_parallel_region</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.thread_for"><code class="docutils literal notranslate"><span class="pre">thread_for</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.thread_for3d"><code class="docutils literal notranslate"><span class="pre">thread_for3d</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.thread_for2d"><code class="docutils literal notranslate"><span class="pre">thread_for2d</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.accelerator"><code class="docutils literal notranslate"><span class="pre">accelerator</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.accelerator_inline"><code class="docutils literal notranslate"><span class="pre">accelerator_inline</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.accelerator_barrier"><code class="docutils literal notranslate"><span class="pre">accelerator_barrier</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.accelerator_for3dNB"><code class="docutils literal notranslate"><span class="pre">accelerator_for3dNB</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.accelerator_for3d"><code class="docutils literal notranslate"><span class="pre">accelerator_for3d</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.accelerator_for2dNB"><code class="docutils literal notranslate"><span class="pre">accelerator_for2dNB</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.accelerator_for2d"><code class="docutils literal notranslate"><span class="pre">accelerator_for2d</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.accelerator_forNB"><code class="docutils literal notranslate"><span class="pre">accelerator_forNB</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.accelerator_for"><code class="docutils literal notranslate"><span class="pre">accelerator_for</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.accelerator_for3d_shm"><code class="docutils literal notranslate"><span class="pre">accelerator_for3d_shm</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.accelerator_for2dNB_shm"><code class="docutils literal notranslate"><span class="pre">accelerator_for2dNB_shm</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.accelerator_for2d_shm"><code class="docutils literal notranslate"><span class="pre">accelerator_for2d_shm</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.accelerator_forNB_shm"><code class="docutils literal notranslate"><span class="pre">accelerator_forNB_shm</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.accelerator_for_shm"><code class="docutils literal notranslate"><span class="pre">accelerator_for_shm</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.autoView"><code class="docutils literal notranslate"><span class="pre">autoView</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.doHost"><code class="docutils literal notranslate"><span class="pre">doHost</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.doHost2"><code class="docutils literal notranslate"><span class="pre">doHost2</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.doHost3"><code class="docutils literal notranslate"><span class="pre">doHost3</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv415acceleratorInitv"><code class="docutils literal notranslate"><span class="pre">acceleratorInit()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv417acceleratorReportv"><code class="docutils literal notranslate"><span class="pre">acceleratorReport()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv423acceleratorCopyToDevicePvPKv6size_t"><code class="docutils literal notranslate"><span class="pre">acceleratorCopyToDevice()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv425acceleratorCopyFromDevicePvPKv6size_t"><code class="docutils literal notranslate"><span class="pre">acceleratorCopyFromDevice()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv429acceleratorCopyDeviceToDevicePvPKv6size_t"><code class="docutils literal notranslate"><span class="pre">acceleratorCopyDeviceToDevice()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv435acceleratorCopyDeviceToDeviceAsynchPvPKv6size_t"><code class="docutils literal notranslate"><span class="pre">acceleratorCopyDeviceToDeviceAsynch()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv426acceleratorCopySynchronizev"><code class="docutils literal notranslate"><span class="pre">acceleratorCopySynchronize()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv417acceleratorMemSetPvi6size_t"><code class="docutils literal notranslate"><span class="pre">acceleratorMemSet()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv420acceleratorAllocHost6size_t"><code class="docutils literal notranslate"><span class="pre">acceleratorAllocHost()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv422acceleratorAllocShared6size_t"><code class="docutils literal notranslate"><span class="pre">acceleratorAllocShared()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv422acceleratorAllocDevice6size_t"><code class="docutils literal notranslate"><span class="pre">acceleratorAllocDevice()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv419acceleratorFreeHostPv"><code class="docutils literal notranslate"><span class="pre">acceleratorFreeHost()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv421acceleratorFreeSharedPv"><code class="docutils literal notranslate"><span class="pre">acceleratorFreeShared()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv421acceleratorFreeDevicePv"><code class="docutils literal notranslate"><span class="pre">acceleratorFreeDevice()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv412profileStartv"><code class="docutils literal notranslate"><span class="pre">profileStart()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv411profileStopv"><code class="docutils literal notranslate"><span class="pre">profileStop()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv416labelRegionBeginPKc"><code class="docutils literal notranslate"><span class="pre">labelRegionBegin()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv414labelRegionEndv"><code class="docutils literal notranslate"><span class="pre">labelRegionEnd()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E9atomicAddvP9FloatTypeK9FloatType"><code class="docutils literal notranslate"><span class="pre">atomicAdd()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E15viewDeallocator"><code class="docutils literal notranslate"><span class="pre">viewDeallocator</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#activationfuncs">ActivationFuncs</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E4ReLU"><code class="docutils literal notranslate"><span class="pre">ReLU</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E12noActivation"><code class="docutils literal notranslate"><span class="pre">noActivation</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E4GeLU"><code class="docutils literal notranslate"><span class="pre">GeLU</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#comms">Comms</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv413communicatorsv"><code class="docutils literal notranslate"><span class="pre">communicators()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv415initializeCommsiPPc"><code class="docutils literal notranslate"><span class="pre">initializeComms()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv48UniqueIDv"><code class="docutils literal notranslate"><span class="pre">UniqueID()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E14getMPIdataType12MPI_Datatypev"><code class="docutils literal notranslate"><span class="pre">getMPIdataType()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E11commsReducevP9FloatType6size_tRK8MPI_Comm"><code class="docutils literal notranslate"><span class="pre">commsReduce()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E11commsReducevR6VectorI9FloatTypeERK8MPI_Comm"><code class="docutils literal notranslate"><span class="pre">commsReduce()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E14commsBroadcastvP9FloatType6size_tiRK8MPI_Comm"><code class="docutils literal notranslate"><span class="pre">commsBroadcast()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E14commsBroadcastvR6VectorI9FloatTypeEiRK8MPI_Comm"><code class="docutils literal notranslate"><span class="pre">commsBroadcast()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E14commsBroadcastvR6MatrixI9FloatTypeEiRK8MPI_Comm"><code class="docutils literal notranslate"><span class="pre">commsBroadcast()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv413Communicators"><code class="docutils literal notranslate"><span class="pre">Communicators</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#components">Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#ddp">DDP</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E10ddpAveragevP9FloatType6size_tb"><code class="docutils literal notranslate"><span class="pre">ddpAverage()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E10ddpAveragevR6VectorI9FloatTypeEb"><code class="docutils literal notranslate"><span class="pre">ddpAverage()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#dynamicmodel">DynamicModel</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_NSt9enable_ifIF6ISLEAF1UEiE4typeEE6enwrap12LayerWrapperIF9FLOATTYPE1UEF9INPUTTYPE1UEF15LAYEROUTPUTTYPE1UEERR1U"><code class="docutils literal notranslate"><span class="pre">enwrap()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I000E24LayerWrapperInternalBase"><code class="docutils literal notranslate"><span class="pre">LayerWrapperInternalBase</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_NSt9enable_ifIF9ISSTORAGE5StoreEiE4typeEE20LayerWrapperInternal"><code class="docutils literal notranslate"><span class="pre">LayerWrapperInternal</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I000E12LayerWrapper"><code class="docutils literal notranslate"><span class="pre">LayerWrapper</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#embeddings">Embeddings</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E24embedPositionsSinusoidal6TensorI9FloatTypeXL3EEERK6TensorI9FloatTypeXL3EEEP12FLOPScounter"><code class="docutils literal notranslate"><span class="pre">embedPositionsSinusoidal()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E24embedPositionsSinusoidal6TensorI9FloatTypeXL2EEERK6TensorI9FloatTypeXL2EEEP12FLOPScounter"><code class="docutils literal notranslate"><span class="pre">embedPositionsSinusoidal()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#hpcortex">HPCortex</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#init">Init</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv410initializeiPPc"><code class="docutils literal notranslate"><span class="pre">initialize()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#instancestorage">InstanceStorage</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.DDST"><code class="docutils literal notranslate"><span class="pre">DDST</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.ISSTORAGE"><code class="docutils literal notranslate"><span class="pre">ISSTORAGE</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv410StorageTag"><code class="docutils literal notranslate"><span class="pre">StorageTag</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E9LeafStore"><code class="docutils literal notranslate"><span class="pre">LeafStore</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E7LeafRef"><code class="docutils literal notranslate"><span class="pre">LeafRef</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E13deduceStorage"><code class="docutils literal notranslate"><span class="pre">deduceStorage</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E13deduceStorageIR1TE"><code class="docutils literal notranslate"><span class="pre">deduceStorage&lt;</span> <span class="pre">T</span> <span class="pre">&amp;</span> <span class="pre">&gt;</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E13deduceStorageIRR1TE"><code class="docutils literal notranslate"><span class="pre">deduceStorage&lt;</span> <span class="pre">T</span> <span class="pre">&amp;&amp;</span> <span class="pre">&gt;</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#layers">Layers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#linalg">Linalg</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E24thinMulMatMatTranspose_pvP9FloatTypeRK6MatrixI9FloatTypeERK6MatrixI9FloatTypeEP12FLOPScounter"><code class="docutils literal notranslate"><span class="pre">thinMulMatMatTranspose_p()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E22thinMulMatMatTranspose6MatrixI9FloatTypeERK6MatrixI9FloatTypeERK6MatrixI9FloatTypeEP12FLOPScounter"><code class="docutils literal notranslate"><span class="pre">thinMulMatMatTranspose()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E22mulMatTransposeThinMat6MatrixI9FloatTypeERK6MatrixI9FloatTypeERK6MatrixI9FloatTypeEP12FLOPScounter"><code class="docutils literal notranslate"><span class="pre">mulMatTransposeThinMat()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E23computeThinMatOuterProd6MatrixI9FloatTypeERK6MatrixI9FloatTypeERK6MatrixI9FloatTypeEP12FLOPScounter"><code class="docutils literal notranslate"><span class="pre">computeThinMatOuterProd()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E14axpyMatThinMat6MatrixI9FloatTypeERK6MatrixI9FloatTypeERK6MatrixI9FloatTypeERK6VectorI9FloatTypeEP12FLOPScounter"><code class="docutils literal notranslate"><span class="pre">axpyMatThinMat()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E20batch3tensorContract6TensorI9FloatTypeXL3EEERK6TensorI9FloatTypeXL3EEERK6TensorI9FloatTypeXL3EEEii9FloatTypeP12FLOPScounter"><code class="docutils literal notranslate"><span class="pre">batch3tensorContract()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_iE21matrixBatchTensorAxpy6TensorI9FloatType3DimERK6MatrixI9FloatTypeERK6TensorI9FloatType3DimERK6VectorI9FloatTypeEKiP12FLOPScounter"><code class="docutils literal notranslate"><span class="pre">matrixBatchTensorAxpy()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_iE29batchTensorContractToMatrix_pvP9FloatTypeRK6TensorI9FloatType3DimERK6TensorI9FloatType3DimEKiP12FLOPScounter"><code class="docutils literal notranslate"><span class="pre">batchTensorContractToMatrix_p()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_iE30matrixBatchTensorContractRight6TensorI9FloatType3DimERK6TensorI9FloatType3DimERK6MatrixI9FloatTypeEKiP12FLOPScounter"><code class="docutils literal notranslate"><span class="pre">matrixBatchTensorContractRight()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_iE29matrixBatchTensorContractLeft6TensorI9FloatType3DimERK6MatrixI9FloatTypeERK6TensorI9FloatType3DimEKiP12FLOPScounter"><code class="docutils literal notranslate"><span class="pre">matrixBatchTensorContractLeft()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#lossfunctions">LossFunctions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.CWRP"><code class="docutils literal notranslate"><span class="pre">CWRP</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_NSt9enable_ifIF6ISLEAF1UEiE4typeEE8mse_cost4CWRPRR1U"><code class="docutils literal notranslate"><span class="pre">mse_cost()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I00_NSt9enable_ifIXaacl6ISLEAF1UENSt24is_default_constructibleI8CostFuncE5valueEEiE4typeEE14cost_func_wrapDaRR1U"><code class="docutils literal notranslate"><span class="pre">cost_func_wrap()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I00_NSt9enable_ifIF6ISLEAF1UEiE4typeEE14cost_func_wrapDaRR1URK8CostFunc"><code class="docutils literal notranslate"><span class="pre">cost_func_wrap()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I00E15CostFuncWrapper"><code class="docutils literal notranslate"><span class="pre">CostFuncWrapper</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E11MSEcostFunc"><code class="docutils literal notranslate"><span class="pre">MSEcostFunc</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_iE11MSEcostFuncI6TensorI9FloatType3DimEE"><code class="docutils literal notranslate"><span class="pre">MSEcostFunc&lt;</span> <span class="pre">Tensor&lt;</span> <span class="pre">FloatType,</span> <span class="pre">Dim</span> <span class="pre">&gt;</span> <span class="pre">&gt;</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#managedarray">ManagedArray</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E12ManagedArray"><code class="docutils literal notranslate"><span class="pre">ManagedArray</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#memorymanager">MemoryManager</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv48ViewMode"><code class="docutils literal notranslate"><span class="pre">ViewMode</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv420memPoolManagerReportb"><code class="docutils literal notranslate"><span class="pre">memPoolManagerReport()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv413MemoryManager"><code class="docutils literal notranslate"><span class="pre">MemoryManager</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#optimizers">Optimizers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I000E5trainNSt6vectorIN9ModelType9FloatTypeEEER9ModelTypeRK10DataLoaderR9Optimizeriib"><code class="docutils literal notranslate"><span class="pre">train()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_i_iE9batchData6XYpairI9FloatTypeXpl4DimXL1EEXpl4DimYL1EEEPKiiRKNSt6vectorI6XYpairI9FloatType4DimX4DimYEEE"><code class="docutils literal notranslate"><span class="pre">batchData()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_i_i00E5trainNSt6vectorI9FloatTypeEER9ModelTypeRKNSt6vectorI6XYpairI9FloatType4DimX4DimYEEER9Optimizeriib"><code class="docutils literal notranslate"><span class="pre">train()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E11noScheduler"><code class="docutils literal notranslate"><span class="pre">noScheduler</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I00E24GradientDescentOptimizer"><code class="docutils literal notranslate"><span class="pre">GradientDescentOptimizer</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E10AdamParams"><code class="docutils literal notranslate"><span class="pre">AdamParams</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I00E13AdamOptimizer"><code class="docutils literal notranslate"><span class="pre">AdamOptimizer</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E14DecayScheduler"><code class="docutils literal notranslate"><span class="pre">DecayScheduler</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_i_iE6XYpair"><code class="docutils literal notranslate"><span class="pre">XYpair</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_i_iE16XYpairDataLoader"><code class="docutils literal notranslate"><span class="pre">XYpairDataLoader</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#padding">Padding</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E9NoPadding"><code class="docutils literal notranslate"><span class="pre">NoPadding</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E17SamePaddingZero1D"><code class="docutils literal notranslate"><span class="pre">SamePaddingZero1D</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#performance">Performance</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv412FLOPScounter"><code class="docutils literal notranslate"><span class="pre">FLOPScounter</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#pipelining">Pipelining</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E17pipeline_mse_cost4CWRPR17PipelineBlockType"><code class="docutils literal notranslate"><span class="pre">pipeline_mse_cost()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I000_NSt9enable_ifIF6ISLEAF1UEiE4typeEE14pipeline_block13PipelineBlockIF4DDST1uE9InputType10OutputTypeERR1UPKiPKi"><code class="docutils literal notranslate"><span class="pre">pipeline_block()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I00E28BatchPipelineCostFuncWrapper"><code class="docutils literal notranslate"><span class="pre">BatchPipelineCostFuncWrapper</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I00E23PipelineCostFuncWrapper"><code class="docutils literal notranslate"><span class="pre">PipelineCostFuncWrapper</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv418LockControlWrapper"><code class="docutils literal notranslate"><span class="pre">LockControlWrapper</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_iE24LockControlWrapperTensor"><code class="docutils literal notranslate"><span class="pre">LockControlWrapperTensor</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv420PipelineCommunicator"><code class="docutils literal notranslate"><span class="pre">PipelineCommunicator</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I000E13PipelineBlock"><code class="docutils literal notranslate"><span class="pre">PipelineBlock</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#random">Random</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv413GlobalRNGtype"><code class="docutils literal notranslate"><span class="pre">GlobalRNGtype</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv49globalRNGv"><code class="docutils literal notranslate"><span class="pre">globalRNG()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv415reseedGlobalRNG6size_t"><code class="docutils literal notranslate"><span class="pre">reseedGlobalRNG()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_i00E6randomvR6TensorI9FloatType3DimER4DistR3RNG"><code class="docutils literal notranslate"><span class="pre">random()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_i0E13uniformRandomvR6TensorI9FloatType3DimER3RNG9FloatType9FloatType"><code class="docutils literal notranslate"><span class="pre">uniformRandom()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_iE13uniformRandomvR6TensorI9FloatType3DimE9FloatType9FloatType"><code class="docutils literal notranslate"><span class="pre">uniformRandom()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I00E19glorotUniformRandomvR6MatrixI9FloatTypeER3RNG9FloatType"><code class="docutils literal notranslate"><span class="pre">glorotUniformRandom()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E19glorotUniformRandomvR6MatrixI9FloatTypeE9FloatType"><code class="docutils literal notranslate"><span class="pre">glorotUniformRandom()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I00E23drawWeightedRandomIndex6size_tPK9FloatTypei6size_tR3RNG"><code class="docutils literal notranslate"><span class="pre">drawWeightedRandomIndex()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E23drawWeightedRandomIndex6size_tPK9FloatTypei6size_t"><code class="docutils literal notranslate"><span class="pre">drawWeightedRandomIndex()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv412default_seed"><code class="docutils literal notranslate"><span class="pre">default_seed</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#ringbuffer">RingBuffer</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E10RingBuffer"><code class="docutils literal notranslate"><span class="pre">RingBuffer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#serialization">Serialization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv410Endianness"><code class="docutils literal notranslate"><span class="pre">Endianness</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv48toStringK10Endianness"><code class="docutils literal notranslate"><span class="pre">toString()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv410endiannessv"><code class="docutils literal notranslate"><span class="pre">endianness()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv418BitReverseTable2566size_t"><code class="docutils literal notranslate"><span class="pre">BitReverseTable256()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E10bitReverse1T1T"><code class="docutils literal notranslate"><span class="pre">bitReverse()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv412BinaryWriter"><code class="docutils literal notranslate"><span class="pre">BinaryWriter</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv412BinaryReader"><code class="docutils literal notranslate"><span class="pre">BinaryReader</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#tensors">Tensors</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c._1D_TENSOR_ONLY"><code class="docutils literal notranslate"><span class="pre">_1D_TENSOR_ONLY</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c._2D_TENSOR_ONLY"><code class="docutils literal notranslate"><span class="pre">_2D_TENSOR_ONLY</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c._3D_TENSOR_ONLY"><code class="docutils literal notranslate"><span class="pre">_3D_TENSOR_ONLY</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c._4D_TENSOR_ONLY"><code class="docutils literal notranslate"><span class="pre">_4D_TENSOR_ONLY</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E6Vector"><code class="docutils literal notranslate"><span class="pre">Vector</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E6Matrix"><code class="docutils literal notranslate"><span class="pre">Matrix</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E10pokeColumnvR6MatrixI9FloatTypeEiRK6VectorI9FloatTypeE"><code class="docutils literal notranslate"><span class="pre">pokeColumn()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E7pokeRowvR6MatrixI9FloatTypeEiRK6VectorI9FloatTypeE"><code class="docutils literal notranslate"><span class="pre">pokeRow()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E10peekColumn6VectorI9FloatTypeERK6MatrixI9FloatTypeEi"><code class="docutils literal notranslate"><span class="pre">peekColumn()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E11peekColumns6MatrixI9FloatTypeERK6MatrixI9FloatTypeEii"><code class="docutils literal notranslate"><span class="pre">peekColumns()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E11pokeColumnsvR6MatrixI9FloatTypeEiiRK6MatrixI9FloatTypeE"><code class="docutils literal notranslate"><span class="pre">pokeColumns()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0ElsRNSt7ostreamERNSt7ostreamERK6VectorI9FloatTypeE"><code class="docutils literal notranslate"><span class="pre">operator&lt;&lt;()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0ElsRNSt7ostreamERNSt7ostreamERK6MatrixI9FloatTypeE"><code class="docutils literal notranslate"><span class="pre">operator&lt;&lt;()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0Eml6VectorI9FloatTypeERK6MatrixI9FloatTypeERK6VectorI9FloatTypeE"><code class="docutils literal notranslate"><span class="pre">operator*()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_iEpLR6TensorI9FloatType3DimER6TensorI9FloatType3DimERK6TensorI9FloatType3DimE"><code class="docutils literal notranslate"><span class="pre">operator+=()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_iEpl6TensorI9FloatType3DimERK6TensorI9FloatType3DimERK6TensorI9FloatType3DimE"><code class="docutils literal notranslate"><span class="pre">operator+()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_iEmIR6TensorI9FloatType3DimER6TensorI9FloatType3DimERK6TensorI9FloatType3DimE"><code class="docutils literal notranslate"><span class="pre">operator-=()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_iEmi6TensorI9FloatType3DimERK6TensorI9FloatType3DimERK6TensorI9FloatType3DimE"><code class="docutils literal notranslate"><span class="pre">operator-()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_iEmLR6TensorI9FloatType3DimER6TensorI9FloatType3DimE9FloatType"><code class="docutils literal notranslate"><span class="pre">operator*=()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_iEml6TensorI9FloatType3DimE9FloatTypeRK6TensorI9FloatType3DimE"><code class="docutils literal notranslate"><span class="pre">operator*()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_iEml6TensorI9FloatType3DimERK6TensorI9FloatType3DimE9FloatType"><code class="docutils literal notranslate"><span class="pre">operator*()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I_i0E7flatten6VectorI9FloatTypeERK6TensorI9FloatType3DimE"><code class="docutils literal notranslate"><span class="pre">flatten()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I_i0E7flattenP9FloatTypeP9FloatTypeRK6TensorI9FloatType3DimE"><code class="docutils literal notranslate"><span class="pre">flatten()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I_i0E9unflattenvR6TensorI9FloatType3DimERK6VectorI9FloatTypeE"><code class="docutils literal notranslate"><span class="pre">unflatten()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I_i0E9unflattenPK9FloatTypeR6TensorI9FloatType3DimEPK9FloatType"><code class="docutils literal notranslate"><span class="pre">unflatten()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I_i_i0E8flatten26VectorI9FloatTypeERK6TensorI9FloatType4Dim1ERK6TensorI9FloatType4Dim2E"><code class="docutils literal notranslate"><span class="pre">flatten2()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I_i_i0E10unflatten2vR6TensorI9FloatType4Dim1ER6TensorI9FloatType4Dim2ERK6VectorI9FloatTypeE"><code class="docutils literal notranslate"><span class="pre">unflatten2()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I_i0E15flattenNsameDim6VectorI9FloatTypeEPPCK6TensorI9FloatType3DimEi"><code class="docutils literal notranslate"><span class="pre">flattenNsameDim()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I_i0E17unflattenNsameDimvPPC6TensorI9FloatType3DimEiRK6VectorI9FloatTypeE"><code class="docutils literal notranslate"><span class="pre">unflattenNsameDim()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I_i0E22batchTensorConcatenate6TensorI9FloatType3DimEPPCK6TensorI9FloatType3DimEii"><code class="docutils literal notranslate"><span class="pre">batchTensorConcatenate()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I_i0E16batchTensorSplitvPPC6TensorI9FloatType3DimEiRK6TensorI9FloatType3DimEi"><code class="docutils literal notranslate"><span class="pre">batchTensorSplit()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I_i0E5norm2dRK6TensorI9FloatType3DimE"><code class="docutils literal notranslate"><span class="pre">norm2()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_iE6Tensor"><code class="docutils literal notranslate"><span class="pre">Tensor</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#testing">Testing</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E4nearb9FloatType9FloatType9FloatTypeP9FloatType"><code class="docutils literal notranslate"><span class="pre">near()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E4nearbRK6VectorI9FloatTypeERK6VectorI9FloatTypeE9FloatTypeb"><code class="docutils literal notranslate"><span class="pre">near()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E4nearbRK6MatrixI9FloatTypeERK6MatrixI9FloatTypeE9FloatTypeb"><code class="docutils literal notranslate"><span class="pre">near()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E8abs_nearb9FloatType9FloatType9FloatTypeP9FloatType"><code class="docutils literal notranslate"><span class="pre">abs_near()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E8abs_nearbRK6MatrixI9FloatTypeERK6MatrixI9FloatTypeE9FloatTypeb"><code class="docutils literal notranslate"><span class="pre">abs_near()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_iE8abs_nearbRK6TensorI9FloatType3DimERK6TensorI9FloatType3DimE9FloatTypeb"><code class="docutils literal notranslate"><span class="pre">abs_near()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_iE5equalbRK6TensorI9FloatType3DimERK6TensorI9FloatType3DimEb"><code class="docutils literal notranslate"><span class="pre">equal()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I00E9benchmarkvRdRdiiRK2OpRK5PreOp"><code class="docutils literal notranslate"><span class="pre">benchmark()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E8testCostN8TensType9FloatTypeERK6VectorIN8TensType9FloatTypeEERK8TensType"><code class="docutils literal notranslate"><span class="pre">testCost()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E9testDerivvR9ModelTypePKiPKiN9ModelType9FloatTypeE"><code class="docutils literal notranslate"><span class="pre">testDeriv()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E18testComponentDerivvR16ComponentWrapperN16ComponentWrapper9FloatTypeEb"><code class="docutils literal notranslate"><span class="pre">testComponentDeriv()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E13softMaxVectorNSt6vectorI9FloatTypeEERKNSt6vectorI9FloatTypeEE9FloatType"><code class="docutils literal notranslate"><span class="pre">softMaxVector()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#timing">Timing</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv43nowv"><code class="docutils literal notranslate"><span class="pre">now()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv412usSinceEpochv"><code class="docutils literal notranslate"><span class="pre">usSinceEpoch()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv412usCountSinceRKNSt6chrono12system_clock10time_pointE"><code class="docutils literal notranslate"><span class="pre">usCountSince()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv45sinceRKNSt6chrono12system_clock10time_pointE"><code class="docutils literal notranslate"><span class="pre">since()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#batch3tensorpaircontractcomponent">Batch3tensorPairContractComponent</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E33Batch3tensorPairContractComponent"><code class="docutils literal notranslate"><span class="pre">Batch3tensorPairContractComponent</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#batchedmatrixrowsoftmaxcomponent">BatchedMatrixRowSoftMaxComponent</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E32BatchedMatrixRowSoftMaxComponent"><code class="docutils literal notranslate"><span class="pre">BatchedMatrixRowSoftMaxComponent</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#batchtensorconcatenatecomponent">BatchTensorConcatenateComponent</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_iE31BatchTensorConcatenateComponent"><code class="docutils literal notranslate"><span class="pre">BatchTensorConcatenateComponent</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#batchtensordimensionslicecomponent">BatchTensorDimensionSliceComponent</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_iE34BatchTensorDimensionSliceComponent"><code class="docutils literal notranslate"><span class="pre">BatchTensorDimensionSliceComponent</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#batchtensordnncomponent">BatchTensorDNNcomponent</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_i0E23BatchTensorDNNcomponent"><code class="docutils literal notranslate"><span class="pre">BatchTensorDNNcomponent</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#matrixtensorcontractcomponent">MatrixTensorContractComponent</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_iE29MatrixTensorContractComponent"><code class="docutils literal notranslate"><span class="pre">MatrixTensorContractComponent</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#multiheadattentioncomponent">MultiHeadAttentionComponent</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E27MultiHeadAttentionComponent"><code class="docutils literal notranslate"><span class="pre">MultiHeadAttentionComponent</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#normcomponent">NormComponent</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_iE13NormComponent"><code class="docutils literal notranslate"><span class="pre">NormComponent</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#scalecomponent">ScaleComponent</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_iE14ScaleComponent"><code class="docutils literal notranslate"><span class="pre">ScaleComponent</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#scaleddotproductattentioncomponent">ScaledDotProductAttentionComponent</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E34ScaledDotProductAttentionComponent"><code class="docutils literal notranslate"><span class="pre">ScaledDotProductAttentionComponent</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#scaleddotproductattentionheadcomponent">ScaledDotProductAttentionHeadComponent</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0E38ScaledDotProductAttentionHeadComponent"><code class="docutils literal notranslate"><span class="pre">ScaledDotProductAttentionHeadComponent</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#softmaxcomponent">SoftMaxComponent</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_iE16SoftMaxComponent"><code class="docutils literal notranslate"><span class="pre">SoftMaxComponent</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#batchtensordnnlayer">BatchTensorDNNlayer</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.LAYER_TYPE"><code class="docutils literal notranslate"><span class="pre">LAYER_TYPE</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I_i00_NSt9enable_ifIF6ISLEAF1UEiE4typeEE22batch_tensor_dnn_layer10LAYER_TYPERK6MatrixIF9FLOATTYPE1UEERK6VectorIF9FLOATTYPE1UEEiRK14ActivationFuncRR1U"><code class="docutils literal notranslate"><span class="pre">batch_tensor_dnn_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I_i00_NSt9enable_ifIF6ISLEAF1UEiE4typeEE22batch_tensor_dnn_layer10LAYER_TYPERK6MatrixIF9FLOATTYPE1UEEiRK14ActivationFuncRR1U"><code class="docutils literal notranslate"><span class="pre">batch_tensor_dnn_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I_i00_NSt9enable_ifIF6ISLEAF1UEiE4typeEE22batch_tensor_dnn_layer10LAYER_TYPEiiiRK14ActivationFuncRR1U"><code class="docutils literal notranslate"><span class="pre">batch_tensor_dnn_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I_i00_NSt9enable_ifIF6ISLEAF1UEiE4typeEE31batch_tensor_unbiased_dnn_layer10LAYER_TYPEiiiRK14ActivationFuncRR1U"><code class="docutils literal notranslate"><span class="pre">batch_tensor_unbiased_dnn_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I00_NSt9enable_ifIF6ISLEAF1UEiE4typeEE9dnn_layerDaRK6MatrixIF9FLOATTYPE1UEERK6VectorIF9FLOATTYPE1UEERK14ActivationFuncRR1U"><code class="docutils literal notranslate"><span class="pre">dnn_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_NSt9enable_ifIF6ISLEAF1UEiE4typeEE9dnn_layerDaRK6MatrixIF9FLOATTYPE1UEERK6VectorIF9FLOATTYPE1UEERR1U"><code class="docutils literal notranslate"><span class="pre">dnn_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I00_NSt9enable_ifIF6ISLEAF1UEiE4typeEE9dnn_layerDaiiRK14ActivationFuncRR1U"><code class="docutils literal notranslate"><span class="pre">dnn_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_NSt9enable_ifIF6ISLEAF1UEiE4typeEE9dnn_layerDaiiRR1U"><code class="docutils literal notranslate"><span class="pre">dnn_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_i000E19BatchTensorDNNlayer"><code class="docutils literal notranslate"><span class="pre">BatchTensorDNNlayer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#convolutionlayer1d">ConvolutionLayer1D</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I000_NSt9enable_ifIF6ISLEAF1UEiE4typeEE12conv1d_layer18ConvolutionLayer1DIF9FLOATTYPE1UEF9INPUTTYPE1UEF4DDST1uE14ActivationFunc11PaddingFuncERK6TensorIF9FLOATTYPE1UEXL3EEERK14ActivationFuncRK11PaddingFunciRR1U"><code class="docutils literal notranslate"><span class="pre">conv1d_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I000_NSt9enable_ifIF6ISLEAF1UEiE4typeEE12conv1d_layer18ConvolutionLayer1DIF9FLOATTYPE1UEF9INPUTTYPE1UEF4DDST1uE14ActivationFunc11PaddingFuncERK6TensorIF9FLOATTYPE1UEXL3EEERK14ActivationFuncRK11PaddingFuncRR1U"><code class="docutils literal notranslate"><span class="pre">conv1d_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I00000E18ConvolutionLayer1D"><code class="docutils literal notranslate"><span class="pre">ConvolutionLayer1D</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#embedpositionssinusoidallayer">EmbedPositionsSinusoidalLayer</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_NSt9enable_ifIF6ISLEAF1UEiE4typeEE32embed_positions_sinusoidal_layerDaRR1U"><code class="docutils literal notranslate"><span class="pre">embed_positions_sinusoidal_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I000E29EmbedPositionsSinusoidalLayer"><code class="docutils literal notranslate"><span class="pre">EmbedPositionsSinusoidalLayer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#flattenlayer">FlattenLayer</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_NSt9enable_ifIF6ISLEAF1UEiE4typeEE13flatten_layer12FlattenLayerIF9FLOATTYPE1UEF9INPUTTYPE1UEF4DDST1uEERR1U"><code class="docutils literal notranslate"><span class="pre">flatten_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I000E12FlattenLayer"><code class="docutils literal notranslate"><span class="pre">FlattenLayer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#inputlayer">InputLayer</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I00E11input_layer10InputLayerI9FloatType9InputTypeEv"><code class="docutils literal notranslate"><span class="pre">input_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I00E10InputLayer"><code class="docutils literal notranslate"><span class="pre">InputLayer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#layercommon">LayerCommon</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.ISLEAF"><code class="docutils literal notranslate"><span class="pre">ISLEAF</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.FLOATTYPE"><code class="docutils literal notranslate"><span class="pre">FLOATTYPE</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.INPUTTYPE"><code class="docutils literal notranslate"><span class="pre">INPUTTYPE</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.LAYEROUTPUTTYPE"><code class="docutils literal notranslate"><span class="pre">LAYEROUTPUTTYPE</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.LAYERTYPEOUTPUTTYPE"><code class="docutils literal notranslate"><span class="pre">LAYERTYPEOUTPUTTYPE</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv47LeafTag"><code class="docutils literal notranslate"><span class="pre">LeafTag</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#matrixtensorcontractlayer">MatrixTensorContractLayer</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I_i0_NSt9enable_ifIF6ISLEAF1UEiE4typeEE28matrix_tensor_contract_layer10LAYER_TYPERK6MatrixIF9FLOATTYPE1UEERR1U"><code class="docutils literal notranslate"><span class="pre">matrix_tensor_contract_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_i00E25MatrixTensorContractLayer"><code class="docutils literal notranslate"><span class="pre">MatrixTensorContractLayer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#multiheadcrossattentionlayer">MultiHeadCrossAttentionLayer</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#c.TEMPL"><code class="docutils literal notranslate"><span class="pre">TEMPL</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv431multihead_cross_attention_layeriPPCK6MatrixIF9FLOATTYPE7ChainKVEEPPCK6MatrixIF9FLOATTYPE7ChainKVEEPPCK6MatrixIF9FLOATTYPE7ChainKVEERK6MatrixIF9FLOATTYPE7ChainKVEEbRR7ChainKVRR6ChainQ"><code class="docutils literal notranslate"><span class="pre">multihead_cross_attention_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv431multihead_cross_attention_layeriPPCK6MatrixIF9FLOATTYPE7ChainKVEEPPCK6MatrixIF9FLOATTYPE7ChainKVEEPPCK6MatrixIF9FLOATTYPE7ChainKVEERK6MatrixIF9FLOATTYPE7ChainKVEERR7ChainKVRR6ChainQ"><code class="docutils literal notranslate"><span class="pre">multihead_cross_attention_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv431multihead_cross_attention_layeriRKNSt6vectorI6MatrixIF9FLOATTYPE7ChainKVEEEERKNSt6vectorI6MatrixIF9FLOATTYPE7ChainKVEEEERKNSt6vectorI6MatrixIF9FLOATTYPE7ChainKVEEEERK6MatrixIF9FLOATTYPE7ChainKVEEbRR7ChainKVRR6ChainQ"><code class="docutils literal notranslate"><span class="pre">multihead_cross_attention_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv431multihead_cross_attention_layeriRKNSt6vectorI6MatrixIF9FLOATTYPE7ChainKVEEEERKNSt6vectorI6MatrixIF9FLOATTYPE7ChainKVEEEERKNSt6vectorI6MatrixIF9FLOATTYPE7ChainKVEEEERK6MatrixIF9FLOATTYPE7ChainKVEERR7ChainKVRR6ChainQ"><code class="docutils literal notranslate"><span class="pre">multihead_cross_attention_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv431multihead_cross_attention_layeriibRR7ChainKVRR6ChainQ"><code class="docutils literal notranslate"><span class="pre">multihead_cross_attention_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv431multihead_cross_attention_layeriiRR7ChainKVRR6ChainQ"><code class="docutils literal notranslate"><span class="pre">multihead_cross_attention_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0000E28MultiHeadCrossAttentionLayer"><code class="docutils literal notranslate"><span class="pre">MultiHeadCrossAttentionLayer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#multiheadselfattentionlayer">MultiHeadSelfAttentionLayer</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_NSt9enable_ifIF6ISLEAF1UEiE4typeEE30multihead_self_attention_layer10LAYER_TYPEiPPCK6MatrixIF9FLOATTYPE1UEEPPCK6MatrixIF9FLOATTYPE1UEEPPCK6MatrixIF9FLOATTYPE1UEERK6MatrixIF9FLOATTYPE1UEEbRR1U"><code class="docutils literal notranslate"><span class="pre">multihead_self_attention_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_NSt9enable_ifIF6ISLEAF1UEiE4typeEE30multihead_self_attention_layer10LAYER_TYPEiPPCK6MatrixIF9FLOATTYPE1UEEPPCK6MatrixIF9FLOATTYPE1UEEPPCK6MatrixIF9FLOATTYPE1UEERK6MatrixIF9FLOATTYPE1UEERR1U"><code class="docutils literal notranslate"><span class="pre">multihead_self_attention_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_NSt9enable_ifIF6ISLEAF1UEiE4typeEE30multihead_self_attention_layer10LAYER_TYPEiRKNSt6vectorI6MatrixIF9FLOATTYPE1UEEEERKNSt6vectorI6MatrixIF9FLOATTYPE1UEEEERKNSt6vectorI6MatrixIF9FLOATTYPE1UEEEERK6MatrixIF9FLOATTYPE1UEEbRR1U"><code class="docutils literal notranslate"><span class="pre">multihead_self_attention_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_NSt9enable_ifIF6ISLEAF1UEiE4typeEE30multihead_self_attention_layer10LAYER_TYPEiRKNSt6vectorI6MatrixIF9FLOATTYPE1UEEEERKNSt6vectorI6MatrixIF9FLOATTYPE1UEEEERKNSt6vectorI6MatrixIF9FLOATTYPE1UEEEERK6MatrixIF9FLOATTYPE1UEERR1U"><code class="docutils literal notranslate"><span class="pre">multihead_self_attention_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_NSt9enable_ifIF6ISLEAF1UEiE4typeEE30multihead_self_attention_layer10LAYER_TYPEiibRR1U"><code class="docutils literal notranslate"><span class="pre">multihead_self_attention_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_NSt9enable_ifIF6ISLEAF1UEiE4typeEE30multihead_self_attention_layer10LAYER_TYPEiiRR1U"><code class="docutils literal notranslate"><span class="pre">multihead_self_attention_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I000E27MultiHeadSelfAttentionLayer"><code class="docutils literal notranslate"><span class="pre">MultiHeadSelfAttentionLayer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#normlayer">NormLayer</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I_i0_NSt9enable_ifIF6ISLEAF1UEiE4typeEE10norm_layer10LAYER_TYPEiibbRK6VectorIF9FLOATTYPE1UEERK6VectorIF9FLOATTYPE1UEERR1U"><code class="docutils literal notranslate"><span class="pre">norm_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I_i0_NSt9enable_ifIF6ISLEAF1UEiE4typeEE10norm_layer10LAYER_TYPEiibbRR1U"><code class="docutils literal notranslate"><span class="pre">norm_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_i00E9NormLayer"><code class="docutils literal notranslate"><span class="pre">NormLayer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#pairjoinlayer">PairJoinLayer</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I00_NSt9enable_ifIXaacl6ISLEAF1UEaacl6ISLEAF1VENSt7is_sameIF9INPUTTYPE1UEF9INPUTTYPE1VEE5valueEEiE4typeEE15pair_join_layerDaRR1URR1V"><code class="docutils literal notranslate"><span class="pre">pair_join_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0000E13PairJoinLayer"><code class="docutils literal notranslate"><span class="pre">PairJoinLayer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#pairsplitlayer">PairSplitLayer</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_NSt9enable_ifIF6ISLEAF1UEiE4typeEE16pair_split_layerDaRR1U"><code class="docutils literal notranslate"><span class="pre">pair_split_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I000E20PairSplitLayerLeader"><code class="docutils literal notranslate"><span class="pre">PairSplitLayerLeader</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I000E15PairSplitLayer1"><code class="docutils literal notranslate"><span class="pre">PairSplitLayer1</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I000E15PairSplitLayer2"><code class="docutils literal notranslate"><span class="pre">PairSplitLayer2</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#replicatelayer">ReplicateLayer</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_NSt9enable_ifIF6ISLEAF1UEiE4typeEE15replicate_layerDaiRR1U"><code class="docutils literal notranslate"><span class="pre">replicate_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I000E20ReplicateLayerLeader"><code class="docutils literal notranslate"><span class="pre">ReplicateLayerLeader</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I000E14ReplicateLayer"><code class="docutils literal notranslate"><span class="pre">ReplicateLayer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#scaleddotproductselfattentionlayer">ScaledDotProductSelfAttentionLayer</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_NSt9enable_ifIF6ISLEAF1UEiE4typeEE38scaled_dotproduct_self_attention_layer10LAYER_TYPERK6MatrixIF9FLOATTYPE1UEERK6MatrixIF9FLOATTYPE1UEERK6MatrixIF9FLOATTYPE1UEEbRR1U"><code class="docutils literal notranslate"><span class="pre">scaled_dotproduct_self_attention_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_NSt9enable_ifIF6ISLEAF1UEiE4typeEE38scaled_dotproduct_self_attention_layer10LAYER_TYPERK6MatrixIF9FLOATTYPE1UEERK6MatrixIF9FLOATTYPE1UEERK6MatrixIF9FLOATTYPE1UEERR1U"><code class="docutils literal notranslate"><span class="pre">scaled_dotproduct_self_attention_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I000E34ScaledDotProductSelfAttentionLayer"><code class="docutils literal notranslate"><span class="pre">ScaledDotProductSelfAttentionLayer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#skipconnection">SkipConnection</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I00_NSt9enable_ifIXaacl6ISLEAF8InternalEcl6ISLEAF5BelowEEiE4typeEE15skip_connection10LAYER_TYPERR8InternalRR5Below"><code class="docutils literal notranslate"><span class="pre">skip_connection()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0000E14SkipConnection"><code class="docutils literal notranslate"><span class="pre">SkipConnection</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#softmaxlayer">SoftMaxLayer</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I_i0_NSt9enable_ifIF6ISLEAF1UEiE4typeEE13softmax_layer10LAYER_TYPEiRR1U"><code class="docutils literal notranslate"><span class="pre">softmax_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_i00E12SoftMaxLayer"><code class="docutils literal notranslate"><span class="pre">SoftMaxLayer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#sumjoinlayer">SumJoinLayer</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I00_NSt9enable_ifIXaacl6ISLEAF1UEaacl6ISLEAF1VENSt7is_sameIF9INPUTTYPE1UEF9INPUTTYPE1VEE5valueEEiE4typeEE14sum_join_layerDaRR1URR1V"><code class="docutils literal notranslate"><span class="pre">sum_join_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0000E12SumJoinLayer"><code class="docutils literal notranslate"><span class="pre">SumJoinLayer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#transformerencoderdecoderblock">TransformerEncoderDecoderBlock</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I00E25transformer_decoder_blockDaiiiRK14ActivationFuncRR5Below"><code class="docutils literal notranslate"><span class="pre">transformer_decoder_block()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I00E25transformer_encoder_blockDaiiiRK14ActivationFuncRR5Below"><code class="docutils literal notranslate"><span class="pre">transformer_encoder_block()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I000E31transformer_cross_decoder_blockDaiiiRK14ActivationFuncRR12EncoderInputRR12DecoderInput"><code class="docutils literal notranslate"><span class="pre">transformer_cross_decoder_block()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_code.html#unflattenlayer">UnflattenLayer</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I_i0_NSt9enable_ifIF6ISLEAF1UEiE4typeEE15unflatten_layer14UnflattenLayerIF9FLOATTYPE1UE12OutDimensionF9INPUTTYPE1UEF4DDST1uEEPKiRR1U"><code class="docutils literal notranslate"><span class="pre">unflatten_layer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_code.html#_CPPv4I0_i00E14UnflattenLayer"><code class="docutils literal notranslate"><span class="pre">UnflattenLayer</span></code></a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="installation.html" class="btn btn-neutral float-right" title="Dependencies" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright .</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
