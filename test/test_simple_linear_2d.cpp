@@ -78,6 +78,7 @@ void testSimpleLinear2D(){
 
   assert(abs_near(wgot,wexpect,FloatType(1e-3)));
   assert(abs_near(bgot,bexpect,FloatType(1e-3)));
+  std::cout << "testSimpleLinear2D passed" << std::endl;
 }
 
 int main(int argc, char** argv){

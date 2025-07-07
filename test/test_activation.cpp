@@ -132,6 +132,7 @@ void testActivation(){
     }
     });
   assert(near(dgot,dexpect,FloatType(1e-3),true));
+  std::cout << "testActivation passed" << std::endl;
 }
 
 int main(int argc, char** argv){

@@ -91,6 +91,7 @@ void testOneHiddenLayer(){
   avg_loss /= data.size();
   std::cout << "Avg. loss " << avg_loss << std::endl;
   assert(avg_loss < 1e-4);
+  std::cout << "testOneHiddenLayer passed" << std::endl;
 }
 
 int main(int argc, char** argv){

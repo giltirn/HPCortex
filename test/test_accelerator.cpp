@@ -1,6 +1,132 @@
 #include <HPCortex.hpp>
 #include <cassert>
 
+void testAcceleratorAPI(){
+  Matrix<double> v(6,4);
+
+  //2D normal
+  {
+    autoView(v_v,v,DeviceWrite);
+    accelerator_for_2d_gen(1,1,normal(),
+			    i,6,j,4,
+			    {
+			      v_v(i,j) = j+4*i;
+			    });
+  }
+  {
+    autoView(v_v,v,HostRead);
+    double* p = v_v.data();
+    for(int i=0;i<6;i++)
+      for(int j=0;j<4;j++){
+	double got = *p++;
+	double expect = j+4*i;
+	std::cout << got << " " << expect << std::endl;
+	assert(fabs(got-expect)<1e-10);
+      }
+  }
+
+  //2D split
+  {
+    autoView(v_v,v,DeviceWrite);
+    acceleratorMemSet(v_v.data(),0,v_v.data_len()*sizeof(double));
+    accelerator_for_2d_gen(1,1,splitBlock<2>(),
+			  i,6,j,4,
+			  {
+			    v_v(i,j) = j+4*i;
+			  });
+  }
+  {
+    autoView(v_v,v,HostRead);
+    double* p = v_v.data();
+    for(int i=0;i<6;i++)
+      for(int j=0;j<4;j++){
+	double got = *p++;
+	double expect = j+4*i;
+	std::cout << got << " " << expect << std::endl;
+	assert(fabs(got-expect)<1e-10);
+      }
+  }
+
+  //2D shm
+  {
+    autoView(v_v,v,DeviceWrite);
+    acceleratorMemSet(v_v.data(),0,v_v.data_len()*sizeof(double));
+    accelerator_for_2d_gen(1,1,shm(6*sizeof(double)),
+			    i,6,j,4,
+			    {
+			      double* sp = (double*)shared;
+			      sp[i] = j+4*i;
+			      acceleratorSynchronizeBlock();
+			      if(i==0){
+				for(int ii=0;ii<6;ii++){
+				  v_v(ii,j) = sp[ii];
+				}
+			      }
+			      
+			    });
+  }
+  {
+    autoView(v_v,v,HostRead);
+    double* p = v_v.data();
+    for(int i=0;i<6;i++)
+      for(int j=0;j<4;j++){
+	double got = *p++;
+	double expect = j+4*i;
+	std::cout << got << " " << expect << std::endl;
+	assert(fabs(got-expect)<1e-10);
+      }
+  }
+
+
+  //2D shm with atomic
+  {
+    autoView(v_v,v,DeviceWrite);
+    acceleratorMemSet(v_v.data(),0,v_v.data_len()*sizeof(double));
+    accelerator_for_2d_gen(1,1,shm(6*sizeof(double)),
+			    i,6,j,4,
+			    {
+			      double* sp = (double*)shared;
+			      sp[i] = j+4*i;
+			      acceleratorSynchronizeBlock();
+			      if(i==0){
+				for(int ii=0;ii<6;ii++){
+				  atomicAdd(&v_v(ii,j),sp[ii]);
+				}
+			      }
+			      
+			    });
+    accelerator_for_2d_gen(1,1,shm(6*sizeof(double)),
+			    i,6,j,4,
+			    {
+			      double* sp = (double*)shared;
+			      sp[i] = j+4*i;
+			      acceleratorSynchronizeBlock();
+			      if(i==0){
+				for(int ii=0;ii<6;ii++){
+				  atomicAdd(&v_v(ii,j),sp[ii]);
+				}
+			      }
+			      
+			    });
+  }
+  {
+    autoView(v_v,v,HostRead);
+    double* p = v_v.data();
+    for(int i=0;i<6;i++)
+      for(int j=0;j<4;j++){
+	double got = *p++;
+	double expect = 2*(j+4*i);
+	std::cout << got << " " << expect << std::endl;
+	assert(fabs(got-expect)<1e-10);
+      }
+  }
+  
+  
+  std::cout << "testAcceleratorAPI passed" << std::endl;
+}
+
+
+
 void testAccelerator(){
   bool using_omp = false;
 #ifdef USE_OMP
@@ -159,11 +285,10 @@ void testAccelerator(){
   std::cout << "Tests passed" << std::endl;
 }
 
-
 int main(int argc, char** argv){
   initialize(argc,argv);
   
+  testAcceleratorAPI();
   testAccelerator();
-
   return 0;
 }

@@ -535,7 +535,7 @@ double norm2(const Tensor<FloatType,Dim> &T){
 #ifndef USE_CUDA
   double out = 0.;
   autoView(T_v,T,HostRead);
-  for(size_t i=0; i<T.data_len(); t++){
+  for(size_t i=0; i<T.data_len(); i++){
     FloatType v = T_v.data()[i];
     out += v*v;
   }

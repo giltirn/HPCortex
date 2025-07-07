@@ -19,7 +19,7 @@ Matrix<FloatType> FlattenLayer<FloatType,InputType,Store>::value(const InputType
   autoView(out_v,out,DeviceWrite);
   autoView(in_v,in,DeviceRead);
   accelerator_for2d(b,batch_size, i,out_size, 1,{
-      //rely on the fact that the batch index is the fastest moving,  eg. for a 3 tensor   off = b + batch_size*(z + zsize*(y + ysize*x))      i=(z + zsize*(y + ysize*x)) 
+      //rely on the fact that the batch index is the fastest moving,  eg. for a 3 tensor   off = b + batch_size*(z + zsize*(y + ysize*x))      i=(z + zsize*(y + ysize*x))
       out_v(i,b) = in_v.data()[b + i*batch_size];
     });
   return out;

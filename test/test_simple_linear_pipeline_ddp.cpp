@@ -88,7 +88,7 @@ void testSimpleLinearPipelineDDP(){
     for(int i=0;i<ndata;i++)
       std::cout << "Got " << predict[i] << " expect " << full_cost.predict(data[i].x, eff_batch_size) << " actual " << data[i].y << std::endl;
   }
-
+  std::cout << "testSimpleLinearPipelineDDP passed" << std::endl;
 }
 
 int main(int argc, char** argv){

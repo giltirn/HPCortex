@@ -35,6 +35,7 @@ void testSimpleLinear(){
   Vector<FloatType> expect_p(std::vector<FloatType>({0.2,0.3}));
   
   assert(near(expect_p,final_p,FloatType(1e-3),true));
+  std::cout << "testSimpleLinear passed" << std::endl;
 }
 
 int main(int argc, char** argv){

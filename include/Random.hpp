@@ -1,5 +1,6 @@
 #pragma once
 #include<random>
+#include<algorithm>
 #include "Tensors.hpp"
 
 typedef std::mt19937 GlobalRNGtype;

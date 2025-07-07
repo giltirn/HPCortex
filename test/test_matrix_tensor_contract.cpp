@@ -45,7 +45,7 @@ void testMatrixTensorContract(){
 
   testDeriv(m, in_sizes, out_sizes);
 
-  std::cout << "Tests passed" << std::endl;
+  std::cout << "testMatrixTensorContract passed" << std::endl;
 }
 
 void testbatch3tensorContract(){
@@ -163,11 +163,7 @@ void testbatch3tensorContract(){
     assert(abs_near(Cexpect,C,1e-5,true));
   }
 
-
-
-
-
-  
+  std::cout << "testbatch3tensorContract passed" << std::endl;
 }
 
 

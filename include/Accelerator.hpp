@@ -5,6 +5,8 @@
 #include<memory.h>
 #include<stdio.h>
 #include<cassert>
+#include<cmath>
+#include<iostream>
 //Functionality for writing generic GPU kernels with CPU fallback
 //Adapted from Peter Boyle's Grid library https://github.com/paboyle/Grid
 
@@ -12,10 +14,12 @@
 //- The entire x dimension and a tunable amount of the y direction are iterated over within a block
 //- The remainder of the y direction and all of the z direction are iterated over between blocks
 
-
 void     acceleratorInit(void);
 void acceleratorReport();
 
+template<typename decompCoordPolicy, int thrDims, int blockDims, int splitBlockSize>
+struct decomp;
+  
 /////////////////////////// CUDA ////////////////////////////////////////////////////////
 #ifdef USE_CUDA
 #include <cuda.h>
@@ -26,6 +30,7 @@ void acceleratorReport();
 #define SIMT_ACTIVE
 #endif
 
+#define accelerator_only __device__
 #define accelerator        __host__ __device__
 #define accelerator_inline __host__ __device__ __forceinline__
 //inline
@@ -33,138 +38,6 @@ void acceleratorReport();
 extern int acceleratorAbortOnGpuError;
 extern cudaStream_t copyStream; //stream for async copies
 extern cudaStream_t computeStream; //stream for computation
-
-//Baseline call allows for up to 3 dimensions
-template<typename lambda>  __global__
-void LambdaApply(uint64_t num1, uint64_t num2, uint64_t num3, uint64_t block2, lambda Lambda)
-{
-  uint64_t x = threadIdx.x; //all of num1 within the block
-  uint64_t y = threadIdx.y + block2*blockIdx.x; //note ordering of cu_blocks indices below
-  uint64_t z = blockIdx.y;
-  
-  if ( (x < num1) && (y<num2) && (z<num3) ) {
-    Lambda(x,y,z);
-  }
-}
-
-//block2 is the number of y elements to iterate over within a block
-//ideally should be a divisor of num2 but not required
-#define accelerator_for3dNB( iter1, num1, iter2, num2, iter3, num3, block2, ... ) \
-  {                                                                     \
-    if ( num1*num2*num3 ) {							\
-      typedef uint64_t Iterator;					\
-      auto lambda = [=] accelerator					\
-	(Iterator iter1,Iterator iter2,Iterator iter3) mutable {	\
-		      __VA_ARGS__;					\
-		    };							\
-      dim3 cu_threads(num1,block2,1);			\
-      dim3 cu_blocks ((num2+block2-1)/block2,num3,1);				\
-      LambdaApply<<<cu_blocks,cu_threads,0,computeStream>>>(num1,num2,num3,block2,lambda); \
-    }									\
-  }
-
-#define accelerator_for3dNB_shm( iter1, num1, iter2, num2, iter3, num3, block2, shm_size, ... ) \
-  {									\
-    if ( num1*num2*num3 ) {							\
-      typedef uint64_t Iterator;					\
-      auto lambda = [=] __device__					\
-	(Iterator iter1,Iterator iter2,Iterator iter3) mutable {	\
-		      __VA_ARGS__;					\
-		    };							\
-      dim3 cu_threads(num1,block2,1);			\
-      dim3 cu_blocks ((num2+block2-1)/block2,num3,1);				\
-      LambdaApply<<<cu_blocks,cu_threads,shm_size,computeStream>>>(num1,num2,num3,block2,lambda); \
-    }									\
-  }
-
-template<typename lambda>  __global__
-void LambdaApply1_3(uint64_t num1, uint64_t num2, uint64_t num3, uint64_t num4, uint64_t block2, lambda Lambda)
-{
-  uint64_t x = threadIdx.x; //all of num1 within the block
-  uint64_t y = threadIdx.y + block2*blockIdx.x; //note ordering of cu_blocks indices below
-  uint64_t z = blockIdx.y;
-  uint64_t t = blockIdx.z;
-  
-  if ( (x < num1) && (y<num2) && (z<num3) && (t<num4) ) {
-    Lambda(x,y,z,t);
-  }
-}
-
-//1 iterable within block, 3 over blocks
-#define accelerator_for_1_3_NB_shm( iter1, num1, iter2, num2, iter3, num3, iter4, num4, block2, shm_size, ... ) \
-  {									\
-    if ( num1*num2*num3*num4 ) {							\
-      typedef uint64_t Iterator;					\
-      auto lambda = [=] __device__					\
-	(Iterator iter1,Iterator iter2,Iterator iter3, Iterator iter4) mutable {	\
-		      __VA_ARGS__;					\
-		    };							\
-      dim3 cu_threads(num1,block2,1);			\
-      dim3 cu_blocks ((num2+block2-1)/block2,num3,num4);				\
-      LambdaApply1_3<<<cu_blocks,cu_threads,shm_size,computeStream>>>(num1,num2,num3,num4,block2,lambda); \
-    }									\
-  }
-
-#define accelerator_for_1_3_shm( iter1, num1, iter2, num2, iter3, num3, iter4, num4, block2, shm_size, ... ) \
-  accelerator_for_1_3_NB_shm(iter1,num1,iter2,num2,iter3,num3,iter4,num4,block2,shm_size,{__VA_ARGS__}) \
-  accelerator_barrier(dummy)
-
-
-#define accelerator_for_1_3_NB( iter1, num1, iter2, num2, iter3, num3, iter4, num4, block2, ... ) \
-  {									\
-    if ( num1*num2*num3*num4 ) {							\
-      typedef uint64_t Iterator;					\
-      auto lambda = [=] __device__					\
-	(Iterator iter1,Iterator iter2,Iterator iter3, Iterator iter4) mutable {	\
-		      __VA_ARGS__;					\
-		    };							\
-      dim3 cu_threads(num1,block2,1);			\
-      dim3 cu_blocks ((num2+block2-1)/block2,num3,num4);				\
-      LambdaApply1_3<<<cu_blocks,cu_threads,0,computeStream>>>(num1,num2,num3,num4,block2,lambda); \
-    }									\
-  }
-
-#define accelerator_for_1_3( iter1, num1, iter2, num2, iter3, num3, iter4, num4, block2, ... ) \
-  accelerator_for_1_3_NB(iter1,num1,iter2,num2,iter3,num3,iter4,num4,block2,{__VA_ARGS__}) \
-  accelerator_barrier(dummy)
-
-
-template<typename lambda>  __global__
-void LambdaApply2_3(uint64_t num1, uint64_t num2, uint64_t num3, uint64_t num4, uint64_t num5, lambda Lambda)
-{
-  uint64_t x = threadIdx.x;
-  uint64_t y = threadIdx.y;  
-  uint64_t z = blockIdx.x;
-  uint64_t t = blockIdx.y;
-  uint64_t u = blockIdx.z;
-  
-  if ( (x < num1) && (y<num2) && (z<num3) && (t<num4) && (u<num5) ){
-    Lambda(x,y,z,t,u);
-  }
-}
-
-//2 iterable within block, 3 over blocks
-#define accelerator_for_2_3_NB_shm( iter1, num1, iter2, num2, iter3, num3, iter4, num4, iter5, num5, shm_size, ... ) \
-  {									\
-    if ( num1*num2*num3*num4*num5 ) {							\
-      typedef uint64_t Iterator;					\
-      auto lambda = [=] __device__					\
-	(Iterator iter1,Iterator iter2,Iterator iter3, Iterator iter4, Iterator iter5) mutable { \
-		      __VA_ARGS__;					\
-		    };							\
-      dim3 cu_threads(num1,num2,1);			\
-      dim3 cu_blocks (num3,num4,num5);					\
-      LambdaApply2_3<<<cu_blocks,cu_threads,shm_size,computeStream>>>(num1,num2,num3,num4,num5,lambda); \
-    }									\
-  }
-
-#define accelerator_for_2_3_shm( iter1, num1, iter2, num2, iter3, num3, iter4, num4, iter5, num5, shm_size, ... ) \
-  accelerator_for_2_3_NB_shm(iter1,num1,iter2,num2,iter3,num3,iter4,num4,iter5,num5,shm_size,{__VA_ARGS__}) \
-  accelerator_barrier(dummy)
-
-
-
-
 
 #define accelerator_barrier(dummy)					\
   {									\
@@ -248,6 +121,41 @@ inline void labelRegionEnd(){
   nvtxRangePop();
 }
 
+template<int d6>
+struct CUDAitemPos;
+
+struct dummyType{};
+
+template<typename lambda>
+__global__ void lambdaApply(lambda l){
+  extern __shared__ char shared[];
+  l(dummyType(),shared);
+}
+
+struct decompCoordPolicyCUDA{
+  typedef dummyType itemPosContainerType;
+  
+  template<int Dim>
+  static accelerator_inline int itemPos(itemPosContainerType pos){ return CUDAitemPos<Dim>::value(); }
+};
+
+#define LAMBDA_MOD mutable
+#define DECOMP_POLICY decompCoordPolicyCUDA
+
+template<int thrDim, int blockDim, typename OptionsType, typename Lambda>
+void accelerator_for_body(int dims[thrDim+blockDim],
+			  const OptionsType &opt,
+			  Lambda lambda){
+  constexpr int splitBlockSize = OptionsType::splitBlockSize;	\
+  decomp<decompCoordPolicyCUDA, thrDim, blockDim, splitBlockSize> decomposition(dims);
+  if (decomposition.total_size) {
+    dim3 cu_threads(decomposition.decomp_sizes[0],decomposition.decomp_sizes[1],decomposition.decomp_sizes[2]);
+    dim3 cu_blocks (decomposition.decomp_sizes[3],decomposition.decomp_sizes[4],decomposition.decomp_sizes[5]);
+    lambdaApply<<<cu_blocks,cu_threads,opt.shm_size,computeStream>>>(lambda);
+    if(opt.do_barrier) accelerator_barrier(dummy);
+  }
+}
+
 #endif
 //////////////////////////// CUDA ///////////////////////////////////////////////////////
 
@@ -305,12 +213,11 @@ inline void labelRegionEnd(){
 
 #undef SIMT_ACTIVE
 
-#define accelerator 
+#define accelerator
+#define accelerator_only
 #define accelerator_inline strong_inline
 
 #define accelerator_barrier(dummy) 
-#define accelerator_for3dNB( iter1, num1, iter2, num2, iter3, num3, block2, ... ) thread_for3d( iter1, num1, iter2, num2, iter3, num3, { __VA_ARGS__ } )
-
 
 inline void acceleratorCopyToDevice(void* to, void const* from,size_t bytes)  { bcopy(from,to,bytes); }
 inline void acceleratorCopyFromDevice(void* to, void const* from,size_t bytes){ bcopy(from,to,bytes);}
@@ -342,10 +249,315 @@ inline void atomicAdd(FloatType *p, const FloatType v){
   *p += v;
 }
 
+inline void acceleratorSynchronizeBlock(){
+#pragma omp barrier
+}
+
+struct decompCoordPolicyThread{
+  typedef int itemPosContainerType[6];
+  
+  template<int Dim>
+  static accelerator_inline int itemPos(itemPosContainerType pos){ return pos[Dim]; }
+};
+
+template<int thrDim, int blockDim, typename OptionsType, typename Lambda>
+void accelerator_for_body(int dims[thrDim+blockDim],
+		     const OptionsType &opt,
+		     Lambda lambda){
+  constexpr int splitBlockSize = OptionsType::splitBlockSize;
+  decomp<decompCoordPolicyThread, thrDim, blockDim, splitBlockSize> decomposition(dims);
+
+  int nthr = decomposition.decomp_sizes[0]*decomposition.decomp_sizes[1]*decomposition.decomp_sizes[2];
+  omp_set_dynamic(0);
+
+  char shared[opt.shm_size];
+  
+  if (decomposition.total_size) {
+    for(int f=0;f<decomposition.decomp_sizes[5];f++){
+      for(int e=0;e<decomposition.decomp_sizes[4];e++){
+	for(int d=0;d<decomposition.decomp_sizes[3];d++){
+#pragma omp parallel num_threads(nthr)
+	  {
+	    int rem = omp_get_thread_num();
+	    int a = rem % decomposition.decomp_sizes[0]; rem /= decomposition.decomp_sizes[0];
+	    int b = rem % decomposition.decomp_sizes[1]; rem /= decomposition.decomp_sizes[1];
+	    int c = rem;
+	    
+	    int x[6] = {a,b,c,d,e,f};
+	    lambda(x,shared);
+	  }
+	}
+      }
+    }
+  }
+}
+
+//Allow the captured views to be accessed as non-const
+#define LAMBDA_MOD mutable
+#define DECOMP_POLICY decompCoordPolicyThread
+
+using std::erf;
+using std::erff;
+
 #endif // CPU target
 
 
 ////////////////////////////////// GENERAL ///////////////////////////////////////
+template<typename decompCoordPolicy, int thrDims, int blockDims, int splitBlockSize>
+struct decomp{
+  typedef typename decompCoordPolicy::itemPosContainerType itemPosContainerType;
+  enum { totalDims = thrDims + blockDims };
+  static_assert(thrDims <= 3 && blockDims < 3);
+  int decomp_sizes[6];
+  int dim_sizes[totalDims]; 
+  size_t total_size;
+  
+  template<int w, bool isThread = (w < thrDims), bool isLastThread = (w == thrDims - 1)>
+  struct helper;
+
+  template<int w>
+  struct helper<w, true,  false> {
+    static accelerator_inline int value(itemPosContainerType pos) { return decompCoordPolicy::template itemPos<w>(pos); }
+  };
+  template<int w>
+  struct helper<w, true,  true> {
+    static accelerator_inline int value(itemPosContainerType pos) { return decompCoordPolicy::template itemPos<w>(pos) + splitBlockSize * decompCoordPolicy::template itemPos<3>(pos); }
+  }; 
+  template<int w, bool na>
+  struct helper<w, false, na> {
+    static accelerator_inline int value(itemPosContainerType pos) { return decompCoordPolicy::template itemPos<w - thrDims + 4>(pos); }
+  };
+
+  template<int w>
+  static accelerator_inline int coord(itemPosContainerType pos) {
+    return helper<w>::value(pos);
+  }
+ 
+  decomp(int _dim_sizes[totalDims]): decomp_sizes{1,1,1,1,1,1}, total_size(1){
+    int const* lst = _dim_sizes;
+    memcpy(dim_sizes, lst, totalDims*sizeof(int));
+
+    //split the last thread dimension over that and the first dimension of the block
+    memcpy(decomp_sizes, lst, thrDims * sizeof(int));
+    int nb = (decomp_sizes[thrDims-1] + splitBlockSize - 1) / splitBlockSize;
+    decomp_sizes[thrDims-1] = splitBlockSize;
+    decomp_sizes[3] = nb;
+
+    memcpy(decomp_sizes+4, lst + thrDims, blockDims * sizeof(int));
+    for(int i=0;i<totalDims;i++)
+      total_size *= lst[i];
+  }
+  void print(){
+    std::cout << "Blocked decomposition: ";
+    for(int i=0;i<6;i++)
+      std::cout << decomp_sizes[i] << (i == 2 ? " || " : " ");
+    std::cout << std::endl;
+  }
+  
+};
+
+template<typename decompCoordPolicy, int thrDims, int blockDims>
+struct decomp<decompCoordPolicy, thrDims,blockDims,1>{
+  typedef typename decompCoordPolicy::itemPosContainerType itemPosContainerType;
+  enum { totalDims = thrDims + blockDims };
+  static_assert(thrDims <= 3 && blockDims <= 3);
+  int decomp_sizes[6];
+  int dim_sizes[totalDims]; 
+  size_t total_size;
+  
+  template<int w, bool isThread = (w < thrDims)>
+  struct helper;
+
+  template<int w>
+  struct helper<w, true> {
+    static accelerator_inline int value(itemPosContainerType pos){ return decompCoordPolicy::template itemPos<w>(pos);  }
+  };
+  template<int w>
+  struct helper<w, false> {
+    static accelerator_inline int value(itemPosContainerType pos){ return decompCoordPolicy::template itemPos<w - thrDims + 3>(pos); }
+  };
+  template<int w>
+  static accelerator_inline int coord(itemPosContainerType pos) {  return helper<w>::value(pos);  }
+
+  decomp(int _dim_sizes[totalDims]): decomp_sizes{1,1,1,1,1,1}, total_size(1){
+    int const* lst = _dim_sizes;
+    memcpy(dim_sizes, lst, totalDims*sizeof(int));    
+    memcpy(decomp_sizes, lst, thrDims * sizeof(int));
+    memcpy(decomp_sizes+3, lst + thrDims, blockDims * sizeof(int));
+    for(int i=0;i<totalDims;i++)
+      total_size *= lst[i];
+  }
+  void print(){
+    std::cout << "Regular decomposition: ";
+    for(int i=0;i<6;i++)
+      std::cout << decomp_sizes[i] << (i == 2 ? " || " : " ");
+    std::cout << std::endl;
+  }
+};
+
+template<int _splitBlockSize = 1>
+struct loopOptions{
+  enum { splitBlockSize = _splitBlockSize };
+  size_t shm_size;
+  bool do_barrier;
+
+  loopOptions(): shm_size(0), do_barrier(true){};
+
+  template<int B>
+  inline loopOptions<B> splitBlock(){
+    loopOptions<B> out; out.shm_size = shm_size; out.do_barrier = do_barrier; return out;
+  }
+  inline loopOptions<_splitBlockSize> shm(size_t shm){
+    shm_size = shm; return *this;
+  }
+  inline loopOptions<_splitBlockSize> barrier(bool doit){
+    do_barrier = doit; return *this;
+  }
+  inline loopOptions<_splitBlockSize> normal(){
+    return *this;
+  } 
+};
+
+
+#define gen_lambda1(iter1, _num1, ...)	\
+  int num1 = _num1; \
+  int dims[1] = {num1};				\
+  auto lambda = [=] accelerator_only (typename dimAccessorType::itemPosContainerType pos, char* shared) LAMBDA_MOD { \
+    int iter1 = dimAccessorType::coord<0>(pos); \
+    if(iter1 < num1){		     \
+      __VA_ARGS__; \
+    }\
+  } 
+
+#define accelerator_for_gen(thrDim, blockDim, options, \
+			    iter1, num1, ... )	\
+  { \
+    static_assert(thrDim+blockDim==1);	 \
+    auto opt = loopOptions<>().options ; \
+    typedef decomp<DECOMP_POLICY, thrDim, blockDim, decltype(opt)::splitBlockSize> dimAccessorType; \
+    gen_lambda1(iter1, num1, { __VA_ARGS__ });		\
+    accelerator_for_body<thrDim,blockDim>(dims, opt, lambda); \
+  };
+
+
+#define gen_lambda2(iter1, _num1, iter2, _num2, ...)	\
+  int num1 = _num1, num2 = _num2;			\
+  int dims[2] = {num1,num2};				\
+  auto lambda = [=] accelerator_only (typename dimAccessorType::itemPosContainerType pos, char* shared) LAMBDA_MOD { \
+    int iter1 = dimAccessorType::coord<0>(pos); \
+    int iter2 = dimAccessorType::coord<1>(pos); \
+    if(iter1 < num1 && iter2 < num2){		     \
+      __VA_ARGS__; \
+    }\
+  } 
+
+#define accelerator_for_2d_gen(thrDim, blockDim, options,	\
+			      iter1, num1, iter2, num2, ... )	\
+  { \
+    static_assert(thrDim+blockDim==2);	 \
+    auto opt = loopOptions<>().options ; \
+    typedef decomp<DECOMP_POLICY, thrDim, blockDim, decltype(opt)::splitBlockSize> dimAccessorType; \
+    gen_lambda2(iter1, num1, iter2, num2, { __VA_ARGS__ });		\
+    accelerator_for_body<thrDim,blockDim>(dims, opt, lambda); \
+  };
+
+#define gen_lambda3(iter1, _num1, iter2, _num2, iter3, _num3, ...) \
+  int num1 = _num1, num2 = _num2, num3 = _num3;			\
+  int dims[3] = {num1,num2,num3};					\
+  auto lambda = [=] accelerator_only (typename dimAccessorType::itemPosContainerType pos, char* shared) LAMBDA_MOD { \
+    int iter1 = dimAccessorType::coord<0>(pos); \
+    int iter2 = dimAccessorType::coord<1>(pos); \
+    int iter3 = dimAccessorType::coord<2>(pos);		\
+    if(iter1 < num1 && iter2 < num2 && iter3 < num3){			\
+      __VA_ARGS__; \
+    }\
+  } 
+
+#define accelerator_for_3d_gen(thrDim, blockDim, options,	\
+				iter1, num1, iter2, num2, iter3, num3, ... ) \
+  { \
+    static_assert(thrDim+blockDim==3);	 \
+    auto opt = loopOptions<>().options ; \
+    typedef decomp<DECOMP_POLICY, thrDim, blockDim, decltype(opt)::splitBlockSize> dimAccessorType; \
+    gen_lambda3(iter1, num1, iter2, num2, iter3, num3, { __VA_ARGS__ }); \
+    accelerator_for_body<thrDim,blockDim>(dims, opt, lambda);		\
+  };
+
+#define gen_lambda4(iter1, _num1, iter2, _num2, iter3, _num3, iter4, _num4, ...) \
+  int num1 = _num1, num2 = _num2, num3 = _num3, num4 = _num4;			\
+  int dims[4] = {num1,num2,num3,num4};					\
+  auto lambda = [=] accelerator_only (typename dimAccessorType::itemPosContainerType pos, char* shared) LAMBDA_MOD { \
+    int iter1 = dimAccessorType::coord<0>(pos); \
+    int iter2 = dimAccessorType::coord<1>(pos); \
+    int iter3 = dimAccessorType::coord<2>(pos);		\
+    int iter4 = dimAccessorType::coord<3>(pos);		\
+    if(iter1 < num1 && iter2 < num2 && iter3 < num3 && iter4 < num4){			\
+      __VA_ARGS__; \
+    }\
+  } 
+
+#define accelerator_for_4d_gen(thrDim, blockDim, options,	\
+				iter1, num1, iter2, num2, iter3, num3, iter4, num4, ... ) \
+  { \
+    static_assert(thrDim+blockDim==4);	 \
+    auto opt = loopOptions<>().options ; \
+    typedef decomp<DECOMP_POLICY, thrDim, blockDim, decltype(opt)::splitBlockSize> dimAccessorType; \
+    gen_lambda4(iter1, num1, iter2, num2, iter3, num3, iter4, num4, { __VA_ARGS__ }); \
+    accelerator_for_body<thrDim,blockDim>(dims, opt, lambda);		\
+  };
+
+#define gen_lambda5(iter1, _num1, iter2, _num2, iter3, _num3, iter4, _num4, iter5, _num5, ...) \
+  int num1 = _num1, num2 = _num2, num3 = _num3, num4 = _num4, num5 = _num5;			\
+  int dims[5] = {num1,num2,num3,num4,num5};					\
+  auto lambda = [=] accelerator_only (typename dimAccessorType::itemPosContainerType pos, char* shared) LAMBDA_MOD { \
+    int iter1 = dimAccessorType::coord<0>(pos); \
+    int iter2 = dimAccessorType::coord<1>(pos); \
+    int iter3 = dimAccessorType::coord<2>(pos);		\
+    int iter4 = dimAccessorType::coord<3>(pos);		\
+    int iter5 = dimAccessorType::coord<4>(pos);				\
+    if(iter1 < num1 && iter2 < num2 && iter3 < num3 && iter4 < num4 && iter5 < num5){			\
+      __VA_ARGS__; \
+    }\
+  } 
+
+#define accelerator_for_5d_gen(thrDim, blockDim, options,	\
+			       iter1, num1, iter2, num2, iter3, num3, iter4, num4, iter5, num5, ... ) \
+  { \
+    static_assert(thrDim+blockDim==5);	 \
+    auto opt = loopOptions<>().options ; \
+    typedef decomp<DECOMP_POLICY, thrDim, blockDim, decltype(opt)::splitBlockSize> dimAccessorType; \
+    gen_lambda5(iter1, num1, iter2, num2, iter3, num3, iter4, num4, iter5, num5, { __VA_ARGS__ }); \
+    accelerator_for_body<thrDim,blockDim>(dims, opt, lambda);		\
+  };
+
+
+///////////////////////////// OLD MACROS, UNDERGOING DEPRECATION /////////////////////////////////
+
+
+#define accelerator_for3dNB( iter1, num1, iter2, num2, iter3, num3, block2, ... ) \
+  accelerator_for_3d_gen(1,2,splitBlock<block2>().barrier(false),iter1,num1,iter2,num2,iter3,num3, { __VA_ARGS__ })
+
+#define accelerator_for3dNB_shm( iter1, num1, iter2, num2, iter3, num3, block2, shm_size, ... ) \
+  accelerator_for_3d_gen(1,2,splitBlock<block2>().shm(shm_size).barrier(false),iter1,num1,iter2,num2,iter3,num3, { __VA_ARGS__ })
+
+#define accelerator_for_1_3_NB_shm( iter1, num1, iter2, num2, iter3, num3, iter4, num4, block2, shm_size, ... ) \
+  accelerator_for_4d_gen(1,3,splitBlock<block2>().shm(shm_size).barrier(false),iter1,num1,iter2,num2,iter3,num3,iter4,num4, { __VA_ARGS__ })
+
+#define accelerator_for_1_3_shm( iter1, num1, iter2, num2, iter3, num3, iter4, num4, block2, shm_size, ... ) \
+  accelerator_for_4d_gen(1,3,splitBlock<block2>().shm(shm_size),iter1,num1,iter2,num2,iter3,num3,iter4,num4, { __VA_ARGS__ })
+
+#define accelerator_for_1_3_NB( iter1, num1, iter2, num2, iter3, num3, iter4, num4, block2, ... ) \
+  accelerator_for_4d_gen(1,3,splitBlock<block2>().barrier(false),iter1,num1,iter2,num2,iter3,num3,iter4,num4, { __VA_ARGS__ })
+
+#define accelerator_for_1_3( iter1, num1, iter2, num2, iter3, num3, iter4, num4, block2, ... ) \
+  accelerator_for_4d_gen(1,3,splitBlock<block2>(),iter1,num1,iter2,num2,iter3,num3,iter4,num4, { __VA_ARGS__ })
+
+#define accelerator_for_2_3_NB_shm( iter1, num1, iter2, num2, iter3, num3, iter4, num4, iter5, num5, shm_size, ... ) \
+  accelerator_for_5d_gen(2,3,shm(shm_size).barrier(false),iter1,num1,iter2,num2,iter3,num3,iter4,num4,iter5,num5, { __VA_ARGS__ })
+
+#define accelerator_for_2_3_shm( iter1, num1, iter2, num2, iter3, num3, iter4, num4, iter5, num5, shm_size, ... ) \
+  accelerator_for_5d_gen(2,3,shm(shm_size),iter1,num1,iter2,num2,iter3,num3,iter4,num4,iter5,num5, { __VA_ARGS__ })
+
 #define accelerator_for3d(iter1, num1, iter2, num2, iter3, num3, block2, ... ) \
   accelerator_for3dNB(iter1, num1, iter2, num2, iter3, num3, block2, { __VA_ARGS__ } ); \
   accelerator_barrier(dummy);
@@ -357,8 +569,7 @@ accelerator_for3dNB(iter1, num1, iter2, num2, dummy, 1, block2, { __VA_ARGS__ } 
   accelerator_for2dNB(iter1, num1, iter2, num2, block2, { __VA_ARGS__ } ); \
   accelerator_barrier(dummy);
 
-//#define accelerator_forNB( iter1, num1, ... ) accelerator_for3dNB( dummy1,1, iter1, num1, dummy2,1,  1, {__VA_ARGS__} );  //note iter is over blocks
-#define accelerator_forNB( iter1, num1, ... ) accelerator_for3dNB( dummy1,1, iter1, num1, dummy2,1,  32, {__VA_ARGS__} );  //note iter is over blocks
+#define accelerator_forNB( iter1, num1, ... ) accelerator_for3dNB( iter1, num1, dummy1, 1, dummy2,1,  32, {__VA_ARGS__} );  //note iter is over blocks
 
 #define accelerator_for( iter, num, ... )		\
   accelerator_forNB(iter, num, { __VA_ARGS__ } );	\
@@ -427,3 +638,5 @@ struct viewDeallocator{
     autoView(c##_v,c,HostReadWrite); \
     { __VA_ARGS__ } \
   }
+
+#include "implementation/Accelerator.tcc"

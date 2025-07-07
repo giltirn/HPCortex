@@ -80,7 +80,8 @@ int main(int argc, char** argv){
     Vector<float> pmr = mrw.getParams();
         
     assert(equal(pm,pmr));
-  }   
+  }
+  std::cout << "testSerialization passed" << std::endl;
   
   return 0;
 }

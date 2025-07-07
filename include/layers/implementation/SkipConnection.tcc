@@ -1,5 +1,5 @@
 template<typename FloatType, typename InputType, typename ChainInternal, typename ChainBelow>
-SkipConnection<FloatType,InputType,ChainInternal,ChainBelow>::LayerInputOutputType SkipConnection<FloatType,InputType,ChainInternal,ChainBelow>::value(const InputType &x){
+typename SkipConnection<FloatType,InputType,ChainInternal,ChainBelow>::LayerInputOutputType SkipConnection<FloatType,InputType,ChainInternal,ChainBelow>::value(const InputType &x){
   LayerInputOutputType in = leaf_below.v.value(x);
   LayerInputOutputType out = in + leaf_internal.v.value(in);
   return out;

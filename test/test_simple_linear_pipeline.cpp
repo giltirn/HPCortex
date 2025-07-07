@@ -71,7 +71,7 @@ void testSimpleLinearPipeline(){
     for(int i=0;i<nbatch;i++)
       std::cout << "Got " << predict[i] << " expect " << full_cost.predict(data[i].x, glob_batch_size) << " actual " << data[i].y << std::endl;
   }
-
+  std::cout << "testSimpleLinearPipeline passed" << std::endl;
 }
 
 int main(int argc, char** argv){

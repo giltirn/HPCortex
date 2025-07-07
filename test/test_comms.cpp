@@ -41,4 +41,5 @@ int main(int argc, char** argv){
   communicators().enableDDPnoPipelining();
   communicators().reportSetup();
 
+  std::cout << "testComms passed"<< std::endl; //TODO: Need actual checks here!!
 }

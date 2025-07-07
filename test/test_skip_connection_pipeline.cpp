@@ -87,6 +87,7 @@ void testSkipConnectionPipeline(){
       }
     }
   }
+  std::cout << "testSkipConnectionPipeline passed" << std::endl;
 }
 
 

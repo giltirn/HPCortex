@@ -69,7 +69,7 @@ void BatchTensorDNNcomponent<FloatType,TensDim,ActivationFunc>::deriv(Vector<Flo
     autoView(activated_above_deriv_v, activated_above_deriv, DeviceWrite);
     autoView(above_deriv_v, above_deriv, DeviceRead);
     autoView(activation_deriv_v, activation_deriv, DeviceRead);    
-    accelerator_for3d(b, batch_size, i, out_dims[contract_dim], o, other_size, 1, {
+    accelerator_for_3d_gen(1,2,normal(),  b, batch_size, i, out_dims[contract_dim], o, other_size, {
 	size_t poff = batchTensorDimensionBaseLin<TensDim>(_contract_dim, b, o, above_deriv_v.sizeArray())   + i*_stride;
 	activated_above_deriv_v.data()[poff] = above_deriv_v.data()[poff] * activation_deriv_v.data()[poff];
       });
@@ -111,7 +111,7 @@ void BatchTensorDNNcomponent<FloatType,TensDim,ActivationFunc>::deriv(Vector<Flo
       autoView(cost_deriv_v,cost_deriv,DeviceReadWrite);
       labelRegionBegin("cost_deriv_bias");
 
-      accelerator_for3d(dummy1,1, j, weights.size(0), o, other_size, 64,{
+      accelerator_for_2d_gen(1,1,splitBlock<64>(), j, weights.size(0), o, other_size, {
 	  FloatType* activated_above_deriv_p = activated_above_deriv_v.data() + batchTensorDimensionBaseLin<TensDim>(_contract_dim, 0, o, activated_above_deriv_v.sizeArray()) + _stride*j;
 
 	  FloatType v = *activated_above_deriv_p++;

@@ -183,7 +183,7 @@ void testPipeline(){
       assert(near(deriv_expect,deriv_got,FloatType(1e-4),true));
     }
   }
-  
+  std::cout << "testPipeline passed" << std::endl;
 }
 
 

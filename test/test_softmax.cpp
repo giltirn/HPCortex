@@ -149,7 +149,7 @@ void testSoftMaxComponent(){
     SoftMaxComponentWrapper<FloatType,4> wrp(cpt,size);
     testComponentDeriv(wrp);
   }
-    
+  std::cout << "testSoftMaxComponent passed" << std::endl;
 }
 
 
@@ -229,7 +229,7 @@ void testSoftMaxLayer(){
   }
   assert(abs_near(in_deriv, expect_deriv, FloatType(1e-3), true));
   
-  std::cout << "Tests passed" << std::endl;
+  std::cout << "testSoftMaxLayer passed" << std::endl;
 }
 
 
@@ -319,6 +319,7 @@ void testBatchedMatrixRowSoftMaxComponent(){
     BatchedMatrixRowSoftMaxComponentWrapper<FloatType> wrp(cpt,size);
     testComponentDeriv(wrp);
   }
+  std::cout << "testBatchedMatrixRowSoftMaxComponent passed" << std::endl;
 }
 
 

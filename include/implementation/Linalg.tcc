@@ -369,8 +369,7 @@ Tensor<FloatType,Dim> matrixBatchTensorAxpy(const Matrix<FloatType> &A, const Te
     constexpr int oblocksz = 4;
     int oblocks = (other_size + oblocksz - 1)/oblocksz;
     
-    accelerator_for3d_shm(b, batch_size, i, _sizei, bo, oblocks,    1, (jblocksz*sizeof(FloatType) + 2*oblocksz*sizeof(size_t)  ), {
-	extern __shared__ char shared[];
+    accelerator_for_3d_gen(1,2,shm( jblocksz*sizeof(FloatType) + 2*oblocksz*sizeof(size_t) ), b, batch_size, i, _sizei, bo, oblocks, {
 	size_t* off_X_o = (size_t*)shared;
 	size_t* off_out_o = (size_t*)(shared + oblocksz*sizeof(size_t));
 	FloatType* shared_A = (FloatType*)(shared + 2*oblocksz*sizeof(size_t));
@@ -422,7 +421,7 @@ Tensor<FloatType,Dim> matrixBatchTensorAxpy(const Matrix<FloatType> &A, const Te
 
 #else
  
-    accelerator_for3d(b, batch_size, i, _sizei, o, other_size,    1, {
+    accelerator_for_3d_gen(1,2,normal(), b, batch_size, i, _sizei, o, other_size, {
 	size_t off_X = batchTensorDimensionBaseLin<Dim>(_contract_dim, b, o, X_v.sizeArray());
 	size_t off_out = batchTensorDimensionBaseLin<Dim>(_contract_dim, b, o, out_v.sizeArray());
 	FloatType *X_p = X_v.data() + off_X;
@@ -482,7 +481,7 @@ void batchTensorContractToMatrix_p(FloatType* out_p, const Tensor<FloatType,Dim>
   
   size_t shmsize = std::max(2*oblocksz*sizeof(size_t), bblocksz*jkblocksz*sizeof(FloatType));
 
-  accelerator_for_2_3_shm(bb, bblocksz, jjkk, jkblocksz, bblock, bblocks, bjk, jkblocks, bo, oblocks, shmsize,  {
+  accelerator_for_5d_gen(2,3,shm(shmsize), bb, bblocksz, jjkk, jkblocksz, bblock, bblocks, bjk, jkblocks, bo, oblocks, {
       extern __shared__ char _shared[];
       size_t* aoff = (size_t*)_shared;
       size_t* boff = (size_t*)(_shared + oblocksz*sizeof(size_t) );

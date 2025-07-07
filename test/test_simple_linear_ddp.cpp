@@ -52,6 +52,7 @@ void testSimpleLinearDDP(){
 
   std::cout << "Params got " << params_global << " expect " << params_local << std::endl;
   assert(near(params_global, params_local, FloatType(1e-4), true));
+  std::cout << "testSimpleLinearDDP passed" << std::endl;
 }
 
 int main(int argc, char** argv){
