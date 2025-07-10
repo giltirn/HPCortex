@@ -244,8 +244,37 @@ Tensor<FloatType,Dim> matrixBatchTensorAxpy_v3(const Matrix<FloatType> &A, const
   return out;
 }
 
+template<typename lambda>  __global__
+void LambdaApply(uint64_t num1, uint64_t num2, uint64_t num3, uint64_t block2, lambda Lambda)
+{
+   extern __shared__ char shared[];
+   uint64_t iter1 = threadIdx.x;
+   //uint64_t iter2 = threadIdx.y + block2*blockIdx.x  ;
+   uint64_t iter2 = block2*blockIdx.x  ; 
+   //uint64_t iter2 = blockIdx.x; //slow
+   
+   uint64_t iter3 = blockIdx.y;
+   if ( (iter1 < num1) && (iter2 <num2) && (iter3 <num3) ) {   
+   Lambda(iter1, iter2, iter3, shared);
+   }
+						
+}
+#define accelerator_for3d_shm_test( iter1, num1, iter2, num2, iter3, num3, block2, shm_size, ... ) \
+     {									\
+        if ( num1*num2*num3 ) {							\
+          typedef uint64_t Iterator;					\
+          auto lambda = [=] __device__					\
+    	(Iterator iter1, Iterator iter2, Iterator iter3,char* shared) mutable { \
+    		      __VA_ARGS__;					\
+             };							\
+          dim3 cu_threads(num1,1,1);						\
+          dim3 cu_blocks (num2,num3,1);				\
+          LambdaApply<<<cu_blocks,cu_threads,shm_size,computeStream>>>(num1,num2,num3,1,lambda); \
+        }									\
+        accelerator_barrier(dummy);			\
+      }
 
-
+//A_{ij} X_{..., j, ..., b}  + Y_i
 template<typename FloatType,int Dim>
 Tensor<FloatType,Dim> matrixBatchTensorAxpy_v4(const Matrix<FloatType> &A, const Tensor<FloatType,Dim> &X, const Vector<FloatType> &Y, const int contract_dim){
   int out_dims[Dim];
@@ -273,15 +302,15 @@ Tensor<FloatType,Dim> matrixBatchTensorAxpy_v4(const Matrix<FloatType> &A, const
     int _sizei = A.size(0);
     int _contract_dim = contract_dim;
     size_t _stride = tensorDimensionStride<Dim>(contract_dim, X.sizeArray());
-
+    
     int jblocksz = 64;
     int jblocks = (_sizej + jblocksz -1)/jblocksz;
 
     constexpr int oblocksz = 4;
     int oblocks = (other_size + oblocksz - 1)/oblocksz;
     
-    accelerator_for3d_shm(b, batch_size, i, _sizei, bo, oblocks,    1, (jblocksz*sizeof(FloatType) + 2*oblocksz*sizeof(size_t)  ), {
-	extern __shared__ char shared[];
+    accelerator_for_3d_gen(1,2,shm( jblocksz*sizeof(FloatType) + 2*oblocksz*sizeof(size_t) ), b, batch_size, i, _sizei, bo, oblocks, {
+	//accelerator_for3d_shm_test(b, batch_size, i, _sizei, bo, oblocks, 1, (jblocksz*sizeof(FloatType) + 2*oblocksz*sizeof(size_t)), {
 	size_t* off_X_o = (size_t*)shared;
 	size_t* off_out_o = (size_t*)(shared + oblocksz*sizeof(size_t));
 	FloatType* shared_A = (FloatType*)(shared + 2*oblocksz*sizeof(size_t));
@@ -310,9 +339,12 @@ Tensor<FloatType,Dim> matrixBatchTensorAxpy_v4(const Matrix<FloatType> &A, const
 	  }
 	  acceleratorSynchronizeBlock();
 
-	  for(int oo=0;oo<oblocksz_actual;oo++){	  
-	    FloatType *X_p = X_v.data() + off_X_o[oo] + b + _stride*jbase;
+	  //FloatType *Xpj = X_v.data() + b + _stride*jbase;
 	  
+	  for(int oo=0;oo<oblocksz_actual;oo++){	  
+	    //FloatType *X_p = Xpj + off_X_o[oo];
+	    FloatType *X_p = X_v.data() + off_X_o[oo] + b + _stride*jbase;
+	    
 	    for(int jj=0;jj<jblocksz_actual;jj++){
 	      out_oib[oo] += shared_A[jj] * (*X_p);
 	      X_p += _stride;
@@ -330,10 +362,100 @@ Tensor<FloatType,Dim> matrixBatchTensorAxpy_v4(const Matrix<FloatType> &A, const
 	
       });
   }
-
+    
   return out;
 }
 
+//A_{ij} X_{..., j, ..., b}  + Y_i
+template<typename FloatType,int Dim>
+Tensor<FloatType,Dim> matrixBatchTensorAxpy_v5(const Matrix<FloatType> &A, const Tensor<FloatType,Dim> &X, const Vector<FloatType> &Y, const int contract_dim){
+  int out_dims[Dim];
+  memcpy(out_dims,X.sizeArray(),Dim*sizeof(int));
+  out_dims[contract_dim] = A.size(0);
+
+  assert(X.size(contract_dim) == A.size(1));
+  assert(contract_dim != Dim-1); //not the batch dimension
+
+  size_t other_size = 1;
+  for(int d=0;d<Dim-1;d++)
+    if(d!= contract_dim)
+      other_size *= X.size(d);
+
+  int batch_size = X.size(Dim-1);
+  
+  Tensor<FloatType,Dim> out(out_dims,0.); 
+  {
+    autoView(X_v, X, DeviceRead);
+    autoView(Y_v, Y, DeviceRead);
+    autoView(A_v, A, DeviceRead);
+    autoView(out_v, out, DeviceReadWrite);
+    
+    int _sizej = A.size(1);
+    int _sizei = A.size(0);
+    int _contract_dim = contract_dim;
+    size_t _stride = tensorDimensionStride<Dim>(contract_dim, X.sizeArray());
+    
+    constexpr int iblocksz = 32;
+    int iblocks = (_sizei + iblocksz -1)/iblocksz;
+    
+    int jblocksz = 32;
+    int jblocks = (_sizej + jblocksz -1)/jblocksz;
+
+    constexpr int oblocksz = 4;
+    int oblocks = (other_size + oblocksz - 1)/oblocksz;
+    
+    accelerator_for_4d_gen(1,3,shm( iblocksz*jblocksz*sizeof(FloatType) + 2*oblocksz*sizeof(size_t) ), b, batch_size, bi, iblocks, bj, jblocks, bo, oblocks, {
+	size_t* off_X_o = (size_t*)shared;
+	size_t* off_out_o = (size_t*)(shared + oblocksz*sizeof(size_t));
+	FloatType* shared_A = (FloatType*)(shared + 2*oblocksz*sizeof(size_t));
+	
+	//Compute offsets
+	int oblocksz_actual = other_size - bo*oblocksz < oblocksz ? other_size - bo*oblocksz : oblocksz;
+	int jbase = bj*jblocksz;
+	int jblocksz_actual = _sizej - jbase < jblocksz ? _sizej - jbase : jblocksz;
+	int ibase = bi*iblocksz;
+	int iblocksz_actual = _sizei - ibase < iblocksz ? _sizei - ibase : iblocksz;
+
+	int oo=b;
+	while(oo < oblocksz_actual){
+	  int o = oo + bo*oblocksz;
+	  off_X_o[oo] = batchTensorDimensionBaseLin<Dim>(_contract_dim, 0, o, X_v.sizeArray());
+	  off_out_o[oo] = batchTensorDimensionBaseLin<Dim>(_contract_dim, 0, o, out_v.sizeArray());
+	  oo += batch_size;
+	}
+	
+	//Load A_v(:,:) in parallel
+	for(int ii=0;ii<iblocksz_actual;ii++){
+	  int jj=b;
+	  while(jj<jblocksz_actual){
+	    shared_A[jj + jblocksz * ii] = A_v(ibase+ii,jbase+jj);
+	    jj+= batch_size;
+	  }
+	}
+	  
+	acceleratorSynchronizeBlock();
+
+	for(int oo=0;oo<oblocksz_actual;oo++){	  
+	  FloatType *X_p = X_v.data() + off_X_o[oo] + b + _stride*jbase;
+	  FloatType out_oib[iblocksz] = {0.};
+	  	  
+	  for(int jj=0;jj<jblocksz_actual;jj++){
+	    FloatType X_ojb = *X_p;
+	    X_p += _stride;
+	    for(int ii=0;ii<iblocksz_actual;ii++)
+	      out_oib[ii] += shared_A[jj + jblocksz*ii] * X_ojb;
+	  }
+	  for(int ii=0;ii<iblocksz_actual;ii++){
+	    int i = ibase+ii;
+	    atomicAdd(out_v.data() + off_out_o[oo] + b + i*_stride, out_oib[ii] + (bj==0 ? Y_v(i) : 0.) );
+	  }
+	}
+	
+      });
+  }
+    
+  return out;
+}
 
 
 
@@ -342,15 +464,17 @@ int main(int argc, char** argv){
   initialize(argc,argv);
   std::mt19937 rng(1234);
 
+  int contract_dim_max = 2;
   std::vector<int> matrix_dims = { 2, 5,  8, 16, 64, 256, 512 };
   std::vector<int> batch_sizes = {1, 5, 8 , 16, 32, 64};
   std::vector<int> other_dim_sizes = { 2, 5, 8, 16, 64, 256, 512 };
 
+  // int contract_dim_max = 1;
   // std::vector<int> matrix_dims = { 512 };
   // std::vector<int> batch_sizes = { 64};
   // std::vector<int> other_dim_sizes = { 64 };
   
-  for(int contract_dim=0; contract_dim<2; contract_dim++){
+  for(int contract_dim=0; contract_dim<contract_dim_max; contract_dim++){
     for(auto other_dim_size : other_dim_sizes){
       for(auto matrix_dim : matrix_dims){
 	for(auto batch_size : batch_sizes){
@@ -373,7 +497,7 @@ int main(int argc, char** argv){
 	  Tensor<float,3> c;
 	  benchmark(mu, sigma, 100, 1, [&]{
 	    profileStart();
-	    c = matrixBatchTensorAxpy_v4(a,x,y,contract_dim);
+	    c = matrixBatchTensorAxpy_v5(a,x,y,contract_dim);
 	    profileStop();
 	  }, []{});
 
@@ -383,7 +507,7 @@ int main(int argc, char** argv){
 	  double mu_base, sigma_base;
 	  benchmark(mu_base, sigma_base, 100, 1, [&]{
 	    profileStart();
-	    c = matrixBatchTensorAxpy_v3(a,x,y,contract_dim);
+	    c = matrixBatchTensorAxpyBase(a,x,y,contract_dim);
 	    profileStop();
 	  }, []{});
 

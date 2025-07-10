@@ -62,7 +62,7 @@ void testTensor(){
     
       accelerator_for3d(i,2,j,3,k,4,  1,{
 	  int coord[3] = {(int)i,(int)j,(int)k};
-	  size_t off = tensorOffset<3>(coord,dims);
+	  size_t off = tensorOffset<3>(coord,tens_device_v.sizeArray());
 	  tens_device_v(coord) = tens_device_v(coord) + 0.15 * off * off;
 	});
     }

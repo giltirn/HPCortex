@@ -40,16 +40,18 @@ void benchmarkMatrixDNN(){
 void benchmarkTensorDNN(){
   std::mt19937 rng(1234);
 
-  std::vector<int> matrix_dims = { 2, 5, 8, 16, 64, 256, 512, 1024 };
-  std::vector<int> batch_sizes = {1, 5, 8, 16, 32, 64};
-  std::vector<int> other_dim_sizes = { 2, 5, 8, 64, 128, 256 };
+  // int contract_dim_max = 2;
+  // std::vector<int> matrix_dims = { 2, 5, 8, 16, 64, 256, 512, 1024 };
+  // std::vector<int> batch_sizes = {1, 5, 8, 16, 32, 64};
+  // std::vector<int> other_dim_sizes = { 2, 5, 8, 64, 128, 256 };
 
-  // int contract_dim = 0;
-  // int matrix_dim = 512;
-  // int batch_size = 64;
-  // int other_dim_size= 64;
+  int contract_dim_max = 1;
+  std::vector<int> matrix_dims = { 512 };
+  std::vector<int> batch_sizes = { 64};
+  std::vector<int> other_dim_sizes = { 64 };
+
   
-  for(int contract_dim = 0; contract_dim<2; contract_dim++){
+  for(int contract_dim = 0; contract_dim< contract_dim_max; contract_dim++){
     for(int other_dim_size : other_dim_sizes){
       for(int matrix_dim : matrix_dims){
 	for(int batch_size : batch_sizes){
