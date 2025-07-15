@@ -8,14 +8,13 @@
 #warning "*NOT* Using OpenMP"
 #endif
 
-#ifdef USE_CUDA
+#if defined(USE_CUDA)
 #warning "Compiling with CUDA support"
 cudaStream_t copyStream;
 cudaStream_t computeStream;
 int  acceleratorAbortOnGpuError=1;
 
-void acceleratorInit(void)
-{
+void acceleratorInit(void){
   int nDevices = 1;
   cudaGetDeviceCount(&nDevices);
 
@@ -48,6 +47,28 @@ void acceleratorReport(){
   }
 }
 
+#elif defined(USE_SYCL)
+#warning "Compiling with SYCL support"
+
+sycl::queue *computeQueue;
+sycl::queue *copyQueue;
+
+void acceleratorInit(void){
+  std::vector<sycl::device> gpu_devices = sycl::device::get_devices(sycl::info::device_type::gpu);
+  int nDevices = gpu_devices.size();
+  
+  //Distribute node-local ranks evenly over the number of devices round-robin
+  //Consider this for optimal GPU-rank binding
+  int node_rank = communicators().nodeRank();
+  
+  int device = node_rank % nDevices;
+  
+  computeQueue = new sycl::queue (gpu_devices[device]);
+  copyQueue = new sycl::queue (gpu_devices[device]);
+}
+void acceleratorReport(){
+
+}
 
 #else
 

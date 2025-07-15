@@ -1,7 +1,7 @@
 #include<HPCortex.hpp>
 #include<Testing.hpp>
 
-#ifdef USE_CUDA
+#ifdef USE_GPU
 
 template<int Dim>
 accelerator_inline size_t batchTensorDimensionBaseLinRef(int iter_dim, int batch_idx, size_t other_dim_lin, int const *size){
@@ -82,10 +82,9 @@ void batchTensorContractToMatrix_p_v2(FloatType* out_p, const Tensor<FloatType,D
   size_t shmsize = std::max(2*oblocksz*sizeof(size_t), batch_size*sizeof(FloatType));
 
   accelerator_for_1_3_shm(b,batch_size, j, sizej, k,sizej, bo, oblocks, 1, shmsize,{
-      extern __shared__ char _shared[];
-      size_t* aoff = (size_t*)_shared;
-      size_t* boff = (size_t*)(_shared + oblocksz*sizeof(size_t) );
-      FloatType* sharedp = (FloatType*)_shared;
+      size_t* aoff = (size_t*)shared;
+      size_t* boff = (size_t*)(shared + oblocksz*sizeof(size_t) );
+      FloatType* sharedp = (FloatType*)shared;
       int jk = k+sizek*j;
       
       int oblocksz_actual = other_size - bo*oblocksz < oblocksz ? other_size - bo*oblocksz : oblocksz;
@@ -154,9 +153,8 @@ void batchTensorContractToMatrix_p_v3(FloatType* out_p, const Tensor<FloatType,D
   int oblocks = (other_size + oblocksz - 1)/oblocksz;
 
   accelerator_for3d_shm(jjkk, jkblocksz, bjk, jkblocks, bo, oblocks, 1, (2*oblocksz*sizeof(size_t)),  {
-      extern __shared__ char _shared[];
-      size_t* aoff = (size_t*)_shared;
-      size_t* boff = (size_t*)(_shared + oblocksz*sizeof(size_t) );
+      size_t* aoff = (size_t*)shared;
+      size_t* boff = (size_t*)(shared + oblocksz*sizeof(size_t) );
 
       int oblocksz_actual = other_size - bo*oblocksz < oblocksz ? other_size - bo*oblocksz : oblocksz;
       
@@ -219,9 +217,8 @@ void batchTensorContractToMatrix_p_v4(FloatType* out_p, const Tensor<FloatType,D
   size_t shmsize = std::max(2*oblocksz*sizeof(size_t), bblocksz*jkblocksz*sizeof(FloatType));
 
   accelerator_for_2_3_shm(bb, bblocksz, jjkk, jkblocksz, bblock, bblocks, bjk, jkblocks, bo, oblocks, shmsize,  {
-      extern __shared__ char _shared[];
-      size_t* aoff = (size_t*)_shared;
-      size_t* boff = (size_t*)(_shared + oblocksz*sizeof(size_t) );
+      size_t* aoff = (size_t*)shared;
+      size_t* boff = (size_t*)(shared + oblocksz*sizeof(size_t) );
   
       int oblocksz_actual = other_size - bo*oblocksz < oblocksz ? other_size - bo*oblocksz : oblocksz;
         
@@ -251,7 +248,7 @@ void batchTensorContractToMatrix_p_v4(FloatType* out_p, const Tensor<FloatType,D
       }
       acceleratorSynchronizeBlock();
 
-      FloatType* sharedp = (FloatType*)(_shared + bblocksz*jjkk*sizeof(FloatType)); ;
+      FloatType* sharedp = (FloatType*)(shared + bblocksz*jjkk*sizeof(FloatType)); ;
       
       sharedp[bb] = delta;
       acceleratorSynchronizeBlock();

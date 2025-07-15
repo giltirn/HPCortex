@@ -532,7 +532,7 @@ void batchTensorSplit(Tensor<FloatType,Dim>* const* out, int Ntens, const Tensor
 
 template<int Dim, typename FloatType>
 double norm2(const Tensor<FloatType,Dim> &T){
-#ifndef USE_CUDA
+#ifndef USE_GPU
   double out = 0.;
   autoView(T_v,T,HostRead);
   for(size_t i=0; i<T.data_len(); i++){
@@ -555,7 +555,6 @@ double norm2(const Tensor<FloatType,Dim> &T){
   autoView(T_v,T,DeviceRead);
   accelerator_for3d_shm(bb,blocksize, b, blocks, o, other_dim_lin, 1, (blocksize*sizeof(FloatType)),
 			{
-			  extern __shared__ char shared[];
 			  FloatType* buf = (FloatType*)shared;
 			  int last_dim_idx = bb + blocksize*b;
 			  FloatType v = last_dim_idx < last_dim_sz ? *(T_v.data() + last_dim_idx + last_dim_sz*o) : 0.;

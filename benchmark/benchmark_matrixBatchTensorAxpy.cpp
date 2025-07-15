@@ -1,7 +1,7 @@
 #include<HPCortex.hpp>
 #include<Testing.hpp>
 
-#ifdef USE_CUDA
+#ifdef USE_GPU
 
 //A_{ij} X_{..., j, ..., b}  + Y_i
 template<typename FloatType,int Dim>
@@ -90,7 +90,7 @@ Tensor<FloatType,Dim> matrixBatchTensorAxpy_v2(const Matrix<FloatType> &A, const
     int group_threads = iblocksz * bblocksz;
     
     accelerator_for_1_3_shm(thr, group_threads, bblock, bblocks, iblock, iblocks, o, other_size,    1, ( sizeof(FloatType) + iblocksz*jblocksz*sizeof(FloatType) + jblocksz*bblocksz*sizeof(FloatType) ),  {
-	extern __shared__ FloatType shared_A[];
+	FloatType *shared_A = (FloatType*)shared;
 	FloatType *shared_X = shared_A + iblocksz*jblocksz + 1;
 	
 	int ibase = iblock * iblocksz;
@@ -191,7 +191,6 @@ Tensor<FloatType,Dim> matrixBatchTensorAxpy_v3(const Matrix<FloatType> &A, const
     int oblocks = (other_size + oblocksz - 1)/oblocksz;
     
     accelerator_for3d_shm(b, batch_size, i, _sizei, bo, oblocks,    1, (jblocksz*sizeof(FloatType) + 2*oblocksz*sizeof(size_t)  ), {
-	extern __shared__ char shared[];
 	size_t* off_X_o = (size_t*)shared;
 	size_t* off_out_o = (size_t*)(shared + oblocksz*sizeof(size_t));
 	FloatType* shared_A = (FloatType*)(shared + 2*oblocksz*sizeof(size_t));
@@ -244,6 +243,7 @@ Tensor<FloatType,Dim> matrixBatchTensorAxpy_v3(const Matrix<FloatType> &A, const
   return out;
 }
 
+#ifdef USE_CUDA
 template<typename lambda>  __global__
 void LambdaApply(uint64_t num1, uint64_t num2, uint64_t num3, uint64_t block2, lambda Lambda)
 {
@@ -273,6 +273,7 @@ void LambdaApply(uint64_t num1, uint64_t num2, uint64_t num3, uint64_t block2, l
         }									\
         accelerator_barrier(dummy);			\
       }
+#endif
 
 //A_{ij} X_{..., j, ..., b}  + Y_i
 template<typename FloatType,int Dim>
@@ -437,7 +438,7 @@ Tensor<FloatType,Dim> matrixBatchTensorAxpy_v5(const Matrix<FloatType> &A, const
 
 	for(int oo=0;oo<oblocksz_actual;oo++){	  
 	  FloatType *X_p = X_v.data() + off_X_o[oo] + b + _stride*jbase;
-	  FloatType out_oib[iblocksz] = {0.};
+	  FloatType out_oib[iblocksz] = { FloatType(0.) };
 	  	  
 	  for(int jj=0;jj<jblocksz_actual;jj++){
 	    FloatType X_ojb = *X_p;
@@ -447,7 +448,7 @@ Tensor<FloatType,Dim> matrixBatchTensorAxpy_v5(const Matrix<FloatType> &A, const
 	  }
 	  for(int ii=0;ii<iblocksz_actual;ii++){
 	    int i = ibase+ii;
-	    atomicAdd(out_v.data() + off_out_o[oo] + b + i*_stride, out_oib[ii] + (bj==0 ? Y_v(i) : 0.) );
+	    atomicAdd(out_v.data() + off_out_o[oo] + b + i*_stride, out_oib[ii] + (bj==0 ? Y_v(i) : FloatType(0.)) );
 	  }
 	}
 	

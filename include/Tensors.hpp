@@ -310,13 +310,7 @@ public:
     /**
      * @brief Access the tensor at the provided coordinate
      */
-    accelerator_inline FloatType & operator()(const Coord coord){
-      return this->Base::operator[](tensorOffset<Dim>(coord, _size));
-    }
-    /**
-     * @brief Access the tensor at the provided coordinate
-     */
-    accelerator_inline FloatType operator()(const Coord coord) const{
+    accelerator_inline FloatType & operator()(const Coord coord) const{
       return this->Base::operator[](tensorOffset<Dim>(coord, _size));
     }
     
@@ -324,14 +318,7 @@ public:
      * @brief Access the 1D tensor at the index (i)
      */
     _1D_TENSOR_ONLY
-    accelerator_inline FloatType & operator()(int i){
-      return this->Base::operator[](i);
-    }
-    /**
-     * @brief Access the 1D tensor at the index (i)
-     */
-    _1D_TENSOR_ONLY
-    accelerator_inline FloatType operator()(int i) const{
+    accelerator_inline FloatType & operator()(int i) const{
       return this->Base::operator[](i);
     }
 
@@ -339,14 +326,7 @@ public:
      * @brief Access the 2D tensor at the coordinate (i,j)
      */
     _2D_TENSOR_ONLY
-    accelerator_inline FloatType & operator()(int i,int j){
-      return this->Base::operator[](j+_size[1]*i);
-    }
-    /**
-     * @brief Access the 2D tensor at the coordinate (i,j)
-     */
-    _2D_TENSOR_ONLY
-    accelerator_inline FloatType operator()(int i,int j) const{
+    accelerator_inline FloatType & operator()(int i,int j) const{
       return this->Base::operator[](j+_size[1]*i);
     }
 
@@ -354,15 +334,7 @@ public:
      * @brief Access the 3D tensor at the coordinate (i,j,k)
      */
     _3D_TENSOR_ONLY
-    accelerator_inline FloatType & operator()(int i,int j,int k){
-      return this->Base::operator[](k + _size[2]*(j+_size[1]*i));
-    }
-
-    /**
-     * @brief Access the 3D tensor at the coordinate (i,j,k)
-     */
-    _3D_TENSOR_ONLY
-    accelerator_inline FloatType operator()(int i,int j,int k) const{
+    accelerator_inline FloatType & operator()(int i,int j,int k) const{
       return this->Base::operator[](k + _size[2]*(j+_size[1]*i));
     }
 
@@ -370,25 +342,14 @@ public:
      * @brief Access the 4D tensor at the coordinate (i,j,k,l)
      */
     _4D_TENSOR_ONLY
-    accelerator_inline FloatType & operator()(int i,int j,int k,int l){
-      return this->Base::operator[](l+_size[3]*(k + _size[2]*(j+_size[1]*i)));
-    }
-    /**
-     * @brief Access the 4D tensor at the coordinate (i,j,k,l)
-     */
-    _4D_TENSOR_ONLY
-    accelerator_inline FloatType operator()(int i,int j,int k,int l) const{
+    accelerator_inline FloatType & operator()(int i,int j,int k,int l) const{
       return this->Base::operator[](l+_size[3]*(k + _size[2]*(j+_size[1]*i)));
     }
 
     /**
      * @brief Return a pointer to the underlying array
      */
-    accelerator_inline FloatType const* data() const{ return this->Base::data(); }
-    /**
-     * @brief Return a pointer to the underlying array
-     */
-    accelerator_inline FloatType* data(){ return this->Base::data(); }
+    accelerator_inline FloatType* data() const{ return this->Base::data(); }
 
     /**
      * @brief Return the linear dimension (flattened size) of the tensor, or equivalently, the total number of elements
@@ -412,16 +373,7 @@ public:
      * @param j The index of dimension Dim-2
      * @param k The index of dimension Dim-1
      */
-    accelerator_inline FloatType & compact3(int i,int j,int k){
-      return *( this->Base::data() + k + _size[Dim-1]*( j + _size[Dim-2]*i ) );
-    }
-    /**
-     * @brief Access a tensor element at a coordinate expressed such that the first Dim-2 dimensions are expressed lexicographically
-     * @param i The first Dim-2 dimensions expressed lexicographically in descending order (e.g. z+sizez*(y+sizey*x))
-     * @param j The index of dimension Dim-2
-     * @param k The index of dimension Dim-1
-     */
-    accelerator_inline FloatType compact3(int i,int j,int k) const{
+    accelerator_inline FloatType & compact3(int i,int j,int k) const{
       return *( this->Base::data() + k + _size[Dim-1]*( j + _size[Dim-2]*i ) );
     }
   };

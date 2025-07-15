@@ -1,7 +1,7 @@
 #include<HPCortex.hpp>
 #include<Testing.hpp>
 
-#ifdef USE_CUDA
+#ifdef USE_GPU
 
 //eg  C_{ijb} = \sum_k A_{kib} B_{jkb} * nrm
 
@@ -112,7 +112,6 @@ Tensor<FloatType,3> batch3tensorContract_v2(const Tensor<FloatType,3> &A, const 
     //0..ak-1|*ak..2ak-1|**2ak..3ak-1|
     
     accelerator_for_1_3_shm(bbatch, batchblocksz, batchblock, batchblocks, blocka, ablocks, blockb, bblocks, 1, shm_size,  {
-	extern __shared__ char shared[];
 	FloatType* abuf = (FloatType*)(shared  +            bbatch * kblocksz*ablocksz*sizeof(FloatType) + bbatch*sizeof(FloatType) );  
 	FloatType* bbuf = (FloatType*)(shared  + bufoffb  + bbatch * kblocksz*bblocksz*sizeof(FloatType) + bbatch*sizeof(FloatType) );
 	FloatType* abbuf = (FloatType*)(shared + bufoffab + bbatch*ablocksz*bblocksz*sizeof(FloatType) + bbatch*sizeof(FloatType) );
@@ -235,7 +234,6 @@ Tensor<FloatType,3> batch3tensorContract_v3(const Tensor<FloatType,3> &A, const 
     //0..ak-1|*ak..2ak-1|**2ak..3ak-1|
     
     accelerator_for_1_3_shm(bbatch, batchblocksz, batchblock, batchblocks, blocka, ablocks, blockb, bblocks, 1, shm_size,  {
-	extern __shared__ char shared[];
 	FloatType* abuf = (FloatType*)(shared  +            bbatch * kblocksz*ablocksz*sizeof(FloatType) + bbatch*sizeof(FloatType) );  
 	FloatType* bbuf = (FloatType*)(shared  + bufoffb  + bbatch * kblocksz*bblocksz*sizeof(FloatType) + bbatch*sizeof(FloatType) );
 	
@@ -356,7 +354,6 @@ Tensor<FloatType,3> batch3tensorContract_v4(const Tensor<FloatType,3> &A, const 
     //0..ak-1|*ak..2ak-1|**2ak..3ak-1|
     
     accelerator_for_2_3_shm(bbatch, batchblocksz, kb, 2, batchblock, batchblocks, blocka, ablocks, blockb, bblocks, shm_size,  {
-	extern __shared__ char shared[];
 	int bkb = bbatch + batchblocksz * kb;
 	FloatType* abuf = (FloatType*)(shared  +            bkb * kblocksz*ablocksz*sizeof(FloatType) + bkb*sizeof(FloatType) );  
 	FloatType* bbuf = (FloatType*)(shared  + bufoffb  + bkb * kblocksz*bblocksz*sizeof(FloatType) + bkb*sizeof(FloatType) );
@@ -484,7 +481,6 @@ Tensor<FloatType,3> batch3tensorContract_v5(const Tensor<FloatType,3> &A, const 
     //0..ak-1|*ak..2ak-1|**2ak..3ak-1|
     
     accelerator_for_2_3_shm(bbatch, batchblocksz, aa, ablocksz, batchblock, batchblocks, blocka, ablocks, blockb, bblocks, shm_size,  {
-	extern __shared__ char shared[];
 	int aabbatch = bbatch+batchblocksz*aa;
 	FloatType* abuf = (FloatType*)(shared  +            aabbatch * kblocksz*sizeof(FloatType) + aabbatch*sizeof(FloatType) );  
 	FloatType* bbuf = (FloatType*)(shared  + bufoffb  + aabbatch * kblocksz*bblocksz*sizeof(FloatType) + aabbatch*sizeof(FloatType) );
@@ -592,7 +588,6 @@ Tensor<FloatType,3> batch3tensorContract_v6(const Tensor<FloatType,3> &A, const 
     //0..ak-1|*ak..2ak-1|**2ak..3ak-1|
     
     accelerator_for_1_3_shm(bbatch, batchblocksz, batchblock, batchblocks, a, sizes_out[0], blockb, bblocks, 1, shm_size,  {
-	extern __shared__ char shared[];
 	FloatType* abuf = (FloatType*)(shared  +            bbatch * kblocksz*sizeof(FloatType) + bbatch*sizeof(FloatType) );  
 	FloatType* abbuf = (FloatType*)(shared + bufoffab + bbatch*bblocksz*sizeof(FloatType) + bbatch*sizeof(FloatType) );
 	

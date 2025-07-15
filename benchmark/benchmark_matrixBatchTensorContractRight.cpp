@@ -1,7 +1,7 @@
 #include<HPCortex.hpp>
 #include<Testing.hpp>
 
-#ifdef USE_CUDA
+#ifdef USE_GPU
 
 //X_{..., i, ..., b}A_{ij} 
 template<typename FloatType,int Dim>
@@ -82,7 +82,6 @@ Tensor<FloatType,Dim> matrixBatchTensorContractRight_v2(const Tensor<FloatType,D
     int oblocks = (other_size + oblocksz - 1)/oblocksz;
     
     accelerator_for3d_shm(b, batch_size, j, sizej, bo, oblocks,    1, (iblocksz*sizeof(FloatType) + 2*oblocksz*sizeof(size_t)  ), {
-	extern __shared__ char shared[];
 	size_t* off_X_o = (size_t*)shared;
 	size_t* off_out_o = (size_t*)(shared + oblocksz*sizeof(size_t));
 	FloatType* shared_A = (FloatType*)(shared + 2*oblocksz*sizeof(size_t));

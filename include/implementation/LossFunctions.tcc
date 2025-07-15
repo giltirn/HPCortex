@@ -7,14 +7,13 @@ FloatType MSEcostFunc<Tensor<FloatType,Dim> >::loss(const Tensor<FloatType,Dim> 
   
   int batch_size = dims[y.dimension()-1];
 
-#ifdef USE_CUDA
+#ifdef USE_GPU
   autoView(ypred_v,ypred,DeviceRead);
   autoView(y_v,y,DeviceRead);
   FloatType *out_d = (FloatType*)acceleratorAllocDevice(sizeof(FloatType));
   acceleratorMemSet(out_d,0,sizeof(FloatType));
   
   accelerator_for2d_shm(b,batch_size,i,other_sz, 1,(batch_size*sizeof(FloatType)),{
-      extern __shared__ char shared[];
       FloatType* shared_p = (FloatType*)shared;
       
       size_t off = b + batch_size*i;

@@ -53,6 +53,7 @@ public:
 	handle = MemoryManager::globalPool().allocate(_size * sizeof(FloatType), MemoryManager::Pool::DevicePool);
 	autoView(tv, (*this), DeviceWrite);
 	autoView(rv, r, DeviceRead);
+
 	accelerator_for(i, _size, {
 	    tv[i] = rv[i];
 	  });
@@ -76,11 +77,8 @@ public:
     MemoryManager::HandleIterator handle;
   public:
     accelerator_inline size_t size() const{ return _size; }
-    accelerator_inline FloatType* data(){ return v; }
-    accelerator_inline FloatType const* data() const{ return v; }
-
-    accelerator_inline FloatType & operator[](const size_t i){ return v[i]; }
-    accelerator_inline FloatType operator[](const size_t i) const{ return v[i]; }
+    accelerator_inline FloatType* data() const{ return v; }
+    accelerator_inline FloatType & operator[](const size_t i) const{ return v[i]; }
 
     inline View(ViewMode mode, MemoryManager::HandleIterator handle, size_t _size):
       _size(_size), handle(handle), v(_size == 0 ? nullptr : (FloatType*)MemoryManager::globalPool().openView(mode,handle)) {

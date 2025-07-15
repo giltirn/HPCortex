@@ -12,7 +12,7 @@ void thinMulMatMatTranspose_p(FloatType* out_p, const Matrix<FloatType> &a, cons
   autoView(a_v,a,DeviceRead);
   autoView(b_v,b,DeviceRead);
 
-#ifdef USE_CUDA 
+#ifdef USE_GPU 
   int jblocksize = 8;
   int jblocks = (szj + jblocksize-1)/jblocksize;
 
@@ -26,7 +26,6 @@ void thinMulMatMatTranspose_p(FloatType* out_p, const Matrix<FloatType> &a, cons
   assert(iblocksize == 2*jblocksize);
   
   accelerator_for3d_shm(jk,jblocksize*kblocksize, bk, kblocks,bj,jblocks,   1, (jblocksize + kblocksize) * iblocksize*sizeof(FloatType),  {
-      extern __shared__ char shared[];
       FloatType *abuf = (FloatType*)shared;
       FloatType *bbuf = (FloatType*)shared + jblocksize * iblocksize;
       
@@ -115,7 +114,7 @@ Matrix<FloatType> mulMatTransposeThinMat(const Matrix<FloatType> &a, const Matri
   if(flops != nullptr && !flops->locked())
     flops->add(sizei*sizek*sizej*2);
       
-#ifdef USE_CUDA
+#ifdef USE_GPU
   
   if(sizej < 300){
     Matrix<FloatType> c(sizei,sizek);
@@ -153,7 +152,6 @@ Matrix<FloatType> mulMatTransposeThinMat(const Matrix<FloatType> &a, const Matri
 	int bk = bjk % nkblocks;
 	int bj = bjk / nkblocks;
       
-	extern __shared__ char shared[];
 	FloatType* shared_a = (FloatType*)shared;
 	FloatType* shared_b = (FloatType*)shared + iblocksize*jblocksize;
       
@@ -362,7 +360,7 @@ Tensor<FloatType,Dim> matrixBatchTensorAxpy(const Matrix<FloatType> &A, const Te
     autoView(A_v, A, DeviceRead);
     autoView(out_v, out, DeviceWrite);
   
-#ifdef USE_CUDA
+#ifdef USE_GPU
     int jblocksz = 64;
     int jblocks = (_sizej + jblocksz -1)/jblocksz;
 
@@ -469,7 +467,7 @@ void batchTensorContractToMatrix_p(FloatType* out_p, const Tensor<FloatType,Dim>
   autoView(A_v,A,DeviceRead);
   autoView(B_v,B,DeviceRead);
 
-#ifdef USE_CUDA
+#ifdef USE_GPU
   int oblocksz = 32;
   int oblocks = (other_size + oblocksz - 1)/oblocksz;
 
@@ -482,9 +480,8 @@ void batchTensorContractToMatrix_p(FloatType* out_p, const Tensor<FloatType,Dim>
   size_t shmsize = std::max(2*oblocksz*sizeof(size_t), bblocksz*jkblocksz*sizeof(FloatType));
 
   accelerator_for_5d_gen(2,3,shm(shmsize), bb, bblocksz, jjkk, jkblocksz, bblock, bblocks, bjk, jkblocks, bo, oblocks, {
-      extern __shared__ char _shared[];
-      size_t* aoff = (size_t*)_shared;
-      size_t* boff = (size_t*)(_shared + oblocksz*sizeof(size_t) );
+      size_t* aoff = (size_t*)shared;
+      size_t* boff = (size_t*)(shared + oblocksz*sizeof(size_t) );
   
       int oblocksz_actual = other_size - bo*oblocksz < oblocksz ? other_size - bo*oblocksz : oblocksz;
         
@@ -514,7 +511,7 @@ void batchTensorContractToMatrix_p(FloatType* out_p, const Tensor<FloatType,Dim>
       }
       acceleratorSynchronizeBlock();
 
-      FloatType* sharedp = (FloatType*)(_shared + bblocksz*jjkk*sizeof(FloatType));
+      FloatType* sharedp = (FloatType*)(shared + bblocksz*jjkk*sizeof(FloatType));
       
       sharedp[bb] = delta;
       acceleratorSynchronizeBlock();
@@ -591,7 +588,7 @@ Tensor<FloatType,Dim> matrixBatchTensorContractRight(const Tensor<FloatType,Dim>
     autoView(A_v, A, DeviceRead);
     autoView(out_v, out, DeviceWrite);
 
-#ifdef USE_CUDA
+#ifdef USE_GPU
     
     int iblocksz = 64;
     int iblocks = (sizei + iblocksz -1)/iblocksz;
@@ -600,7 +597,6 @@ Tensor<FloatType,Dim> matrixBatchTensorContractRight(const Tensor<FloatType,Dim>
     int oblocks = (other_size + oblocksz - 1)/oblocksz;
     
     accelerator_for3d_shm(b, batch_size, j, sizej, bo, oblocks,    1, (iblocksz*sizeof(FloatType) + 2*oblocksz*sizeof(size_t)  ), {
-	extern __shared__ char shared[];
 	size_t* off_X_o = (size_t*)shared;
 	size_t* off_out_o = (size_t*)(shared + oblocksz*sizeof(size_t));
 	FloatType* shared_A = (FloatType*)(shared + 2*oblocksz*sizeof(size_t));
@@ -715,7 +711,7 @@ Tensor<FloatType,Dim> matrixBatchTensorContractLeft(const Matrix<FloatType> &A, 
     autoView(A_v, A, DeviceRead);
     autoView(out_v, out, DeviceWrite);
   
-#ifdef USE_CUDA
+#ifdef USE_GPU
     int jblocksz = 64;
     int jblocks = (_sizej + jblocksz -1)/jblocksz;
 
@@ -723,7 +719,6 @@ Tensor<FloatType,Dim> matrixBatchTensorContractLeft(const Matrix<FloatType> &A, 
     int oblocks = (other_size + oblocksz - 1)/oblocksz;
     
     accelerator_for3d_shm(b, batch_size, i, _sizei, bo, oblocks,    1, (jblocksz*sizeof(FloatType) + 2*oblocksz*sizeof(size_t)  ), {
-	extern __shared__ char shared[];
 	size_t* off_X_o = (size_t*)shared;
 	size_t* off_out_o = (size_t*)(shared + oblocksz*sizeof(size_t));
 	FloatType* shared_A = (FloatType*)(shared + 2*oblocksz*sizeof(size_t));

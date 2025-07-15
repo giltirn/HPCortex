@@ -44,7 +44,7 @@ void testManagedArray(){
     ManagedArray<double> v(sz, MemoryManager::Pool::DevicePool);
 
     {
-      autoView(vv, v, DeviceWrite);
+      autoView(vv, v, DeviceWrite);     
       accelerator_for(i, sz, {	  
 	  vv[i] = 0.31;
 	});

@@ -62,5 +62,45 @@ struct CUDAitemPos<5>{
 };
 
 
+#endif //USE_CUDA
 
-#endif
+#ifdef USE_SYCL
+
+template<>
+struct SyclItemPos<0>{
+  static accelerator_inline int value(sycl::nd_item<3> item){
+    return item.get_local_id(2);
+  }
+};
+template<>
+struct SyclItemPos<1>{
+  static accelerator_inline int value(sycl::nd_item<3> item){
+    return item.get_local_id(1);
+  }
+};
+template<>
+struct SyclItemPos<2>{
+  static accelerator_inline int value(sycl::nd_item<3> item){
+    return item.get_local_id(0);	
+  }
+};
+template<>
+struct SyclItemPos<3>{
+  static accelerator_inline int value(sycl::nd_item<3> item){
+    return item.get_group().get_group_id(0);
+  }
+};
+template<>
+struct SyclItemPos<4>{
+  static accelerator_inline int value(sycl::nd_item<3> item){
+    return item.get_group().get_group_id(1);
+  }
+};
+template<>
+struct SyclItemPos<5>{
+  static accelerator_inline int value(sycl::nd_item<3> item){
+    return item.get_group().get_group_id(2);
+  }
+};
+
+#endif //USE_SYCL

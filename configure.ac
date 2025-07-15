@@ -69,6 +69,18 @@ if test "x$enable_cuda" = "xyes"; then
   AC_DEFINE([USE_CUDA],[1],[Use CUDA])
 fi
 
+# Check for the --enable-sycl option
+AC_ARG_ENABLE([sycl],
+  [AS_HELP_STRING([--enable-sycl],
+    [Enable SYCL support for device-side kernels])],
+  [:],
+  [enable_sycl=no])
+
+if test "x$enable_sycl" = "xyes"; then
+  AC_MSG_NOTICE([Enabling SYCL support])
+  AC_DEFINE([USE_SYCL],[1],[Use SYCL])
+fi
+
 
 
 AC_CONFIG_HEADERS([include/HPCortexConfig.h])

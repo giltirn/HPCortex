@@ -1,4 +1,4 @@
-#ifdef USE_CUDA
+#ifdef USE_GPU
 
 #include<HPCortex.hpp>
 #include<Testing.hpp>
