@@ -33,6 +33,7 @@ Tensor<FloatType,Dim> Tensor<FloatType,Dim>::sliceLastDimension(int idx_start, i
 
   int osize_last = osize[Dim-1];
   int isize_last = this->sizeArray()[Dim-1];
+  assert(idx_start < isize_last && idx_end < isize_last && idx_end >= idx_start);
   
   autoView(out_v,out,DeviceWrite);
   autoView(t_v,(*this),DeviceRead);
@@ -40,6 +41,23 @@ Tensor<FloatType,Dim> Tensor<FloatType,Dim>::sliceLastDimension(int idx_start, i
       out_v.data()[jj + osize_last*i] = t_v.data()[jj+idx_start + isize_last*i];
     });
   return out;
+}
+template<typename FloatType, int Dim>
+void Tensor<FloatType,Dim>::insertSliceLastDimension(const Tensor &ins, int idx_start, int idx_end) const{
+  size_t other_size = 1;
+  for(int i=0;i<Dim-1;i++) other_size *= this->size(i);
+
+  int osize_last = this->size(Dim-1);
+  assert(idx_start < osize_last && idx_end < osize_last && idx_end >= idx_start);
+  
+  int isize_last = ins.size(Dim-1);
+  assert(isize_last == idx_end-idx_start+1);
+  
+  autoView(t_v,(*this),DeviceReadWrite);
+  autoView(ins_v,ins,DeviceRead);
+  accelerator_for2d(jj,idx_end-idx_start+1,i,other_size,1,{
+      t_v.data()[jj + idx_start + osize_last*i] = ins_v.data()[jj + isize_last*i];
+    });
 }
 
  //Insert a tensor of Dim-1 such that (*this)(i,j,k,..., idx) = ins(i,j,k,...)

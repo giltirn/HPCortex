@@ -69,7 +69,10 @@ bool abs_near(FloatType a, FloatType b, FloatType abs_tol, FloatType *absdiff_p 
 
 template<typename FloatType>
 bool abs_near(const Matrix<FloatType> &a,const Matrix<FloatType> &b, FloatType abs_tol, bool verbose=false){
-  if(a.size(0) != b.size(0) || a.size(1) != b.size(1)) return false;
+  if(a.size(0) != b.size(0) || a.size(1) != b.size(1)){
+    if(verbose) std::cout << "Size mismatch " << a.size(0) << ":" << b.size(0) << "  " << a.size(1) << ":" << b.size(1) << std::endl;
+    return false;
+  }
   autoView(a_v,a,HostRead);
   autoView(b_v,b,HostRead);
   for(size_t i=0;i<a.size(0);i++){

@@ -171,6 +171,40 @@ void testTensor(){
       assert(equal(r2,topoke2));
     }
 
+    { //test sliceLastDimension
+      int sz[3] = {2,3,6};
+      Tensor<FloatType,3> orig(sz);
+      uniformRandom(orig,rng);
+
+      Tensor<FloatType,3> slice = orig.sliceLastDimension(1,4);
+      assert(slice.size(2) == 4);
+      int slice_sz[3] = {2,3,4};
+      Tensor<FloatType,3> slice_expect(slice_sz);
+      doHost2(slice_expect,orig,{
+	  for(int i=0;i<2;i++)
+	    for(int j=0;j<3;j++)
+	      for(int k=1; k<=4; k++)
+		slice_expect_v(i,j,k-1) = orig_v(i,j,k);
+	});
+      assert(equal(slice_expect,slice,true));
+
+      Tensor<FloatType,3> orig2(sz);
+      uniformRandom(orig2,rng);
+
+      Tensor<FloatType,3> ins = orig2;
+      ins.insertSliceLastDimension(slice, 1,4);
+
+      Tensor<FloatType,3> ins_expect = orig2;
+      doHost2(ins_expect,slice,{
+	  for(int i=0;i<2;i++)
+	    for(int j=0;j<3;j++)
+	      for(int k=1; k<=4; k++)
+		ins_expect_v(i,j,k) = slice_v(i,j,k-1);
+	});
+      assert(equal(ins_expect,ins,true));
+    }
+
+    
   }
 
   //Test norm2
@@ -199,7 +233,6 @@ void testTensor(){
 
 void testMatrix(){
   typedef float FloatType;
-  FloatType delta = 1e-4;
   
   typedef std::vector<FloatType> vecD;
 

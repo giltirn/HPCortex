@@ -401,6 +401,11 @@ public:
   Tensor sliceLastDimension(int idx_start, int idx_end) const;
 
   /**
+   * @brief Insert a tensor for which the last dimension contains a slice inserted between idx_start and idx_end (inclusive). E.g., for a 3D tensor T,  T(:,:,idx_start:idx_end+1) = ins(:,:,:)
+   */
+  void insertSliceLastDimension(const Tensor &ins, int idx_start, int idx_end) const;
+  
+  /**
    * @brief Insert a tensor of Dim-1 such that (*this)(i,j,k,..., idx) = ins(i,j,k,...). E.g., for a 3D tensor T and 2D input I, set T[:,:,idx] = I[:,:]
    * @param ins The Dim-1 dimensional tensor to insert
    * @param idx The index in the last dimension on which to insert the tensor
