@@ -185,10 +185,787 @@ void testPipeline(){
   }
   std::cout << "testPipeline passed" << std::endl;
 }
+
+
+struct PostCommActionCallback{
+  virtual void performAction() = 0;
+  virtual ~PostCommActionCallback(){}
+};
+
+struct CommsRequest{
+  MPI_Request req;
+  std::unique_ptr<LockControlWrapper> lockctl;
+  std::unique_ptr<PostCommActionCallback> post;  
+};
+template<typename T>
+struct LockControlWrapperGen: public LockControlWrapper{ //for any class T with direct lock, unlock methods
+  T const* v;
+  LockControlWrapperGen(T const* v): v(v){}
+  void lock() override{ v->lock(); }
+  void unlock() override{ v->unlock(); }
+};
+struct LockControlWrapperNone: public LockControlWrapper{ 
+  void lock() override{}
+  void unlock() override{}
+};
   
+void waitAll(std::vector<CommsRequest> &reqs){
+  std::vector<MPI_Request> rm(reqs.size());
+  for(int i=0;i<reqs.size();i++)
+    rm[i] = reqs[i].req;
+  assert( MPI_Waitall(rm.size(), rm.data(), MPI_STATUSES_IGNORE) == MPI_SUCCESS );
+  for(int i=0;i<reqs.size();i++){
+    if(reqs[i].lockctl) reqs[i].lockctl->unlock();
+    if(reqs[i].post) reqs[i].post->performAction();
+  }
+  reqs.clear();
+}
+
+
+class PipelineLayerIOcontainerBase{
+public:
+  virtual CommsRequest send(int to) = 0;
+  virtual CommsRequest recv(int from) = 0;
+  virtual CommsRequest sendInitializer(int to) = 0;
+  virtual CommsRequest recvInitializer(int from) = 0;
+
+  virtual PipelineLayerIOcontainerBase* copy() const = 0;
+  virtual PipelineLayerIOcontainerBase * getMicroBatch(int ubatch_idx, int ubatch_size) const = 0;
+  virtual void insertMicroBatch(int ubatch_idx, int ubatch_size, PipelineLayerIOcontainerBase *from) = 0;
+  virtual void insertFirstMicroBatch(int ubatch_size, PipelineLayerIOcontainerBase *from, int nubatch) = 0;
+  virtual int batchDimSize() const = 0;
+  virtual ~PipelineLayerIOcontainerBase(){}
+};
+ 
+template<typename T>
+class PipelineLayerIOcontainer: public PipelineLayerIOcontainerBase{};
+
+template<typename FloatType, int Dim>
+struct PostCommActionCallbackTensorInitialize: public PostCommActionCallback{
+  std::unique_ptr<Tensor<FloatType,Dim> > &tens;
+  int size[Dim];
+  PostCommActionCallbackTensorInitialize(std::unique_ptr<Tensor<FloatType,Dim> > &tens): tens(tens){}
+  
+  void performAction() override{
+    tens.reset(new Tensor<FloatType,Dim>(size));
+  }
+};
+
+template<typename FloatType, int Dim>
+class PipelineLayerIOcontainer<Tensor<FloatType,Dim> >: public PipelineLayerIOcontainerBase{
+  std::unique_ptr<Tensor<FloatType,Dim> > tens;
+public:
+  PipelineLayerIOcontainer(){}
+  PipelineLayerIOcontainer(const Tensor<FloatType,Dim> &t): tens(new Tensor<FloatType,Dim>(t)){}
+  PipelineLayerIOcontainer(Tensor<FloatType,Dim> &&t): tens(new Tensor<FloatType,Dim>(std::move(t))){}
+  
+  CommsRequest send(int to) override{
+    assert(tens);
+    tens->lock();
+    CommsRequest out;
+    autoView(tens_v,(*tens),HostRead);   
+    assert( MPI_Isend(tens_v.data(), tens_v.data_len(), getMPIdataType<FloatType>(), to, 0, communicators().pipelineCommunicator(), &out.req) == MPI_SUCCESS );
+    out.lockctl.reset(new LockControlWrapperGen(tens.get()));    
+    return out;
+  }
+  CommsRequest recv(int from) override{
+    assert(tens);
+    tens->lock();
+    CommsRequest out;
+    autoView(tens_v,(*tens),HostWrite);	
+    assert( MPI_Irecv(tens_v.data(), tens_v.data_len(), getMPIdataType<FloatType>(), from, 0, communicators().pipelineCommunicator(), &out.req) == MPI_SUCCESS );
+    out.lockctl.reset(new LockControlWrapperGen(tens.get()));    
+    return out;
+  }
+  CommsRequest sendInitializer(int to) override{
+    assert(tens);
+    CommsRequest out;
+    assert( MPI_Isend(tens->sizeArray(), Dim, getMPIdataType<int>(), to, 0, communicators().pipelineCommunicator(), &out.req) == MPI_SUCCESS );
+    return out;
+  }
+  
+  CommsRequest recvInitializer(int from) override{
+    CommsRequest out;
+    PostCommActionCallbackTensorInitialize<FloatType,Dim> *callback = new PostCommActionCallbackTensorInitialize<FloatType,Dim>(tens);
+  
+    assert( MPI_Irecv(callback->size, Dim, getMPIdataType<int>(), from, 0, communicators().pipelineCommunicator(), &out.req) == MPI_SUCCESS );
+    out.post.reset(callback);
+    return out;
+  }
+
+  PipelineLayerIOcontainerBase* copy() const override{
+    if(tens) return new PipelineLayerIOcontainer<Tensor<FloatType,Dim> >(*tens);
+    else return new PipelineLayerIOcontainer<Tensor<FloatType,Dim> >();      
+  }
+  
+  Tensor<FloatType,Dim>& get(){
+    assert(tens);
+    return *tens;
+  }
+  const Tensor<FloatType,Dim>& get() const{
+    assert(tens);
+    return *tens;
+  }
+
+  Tensor<FloatType,Dim> remove(){
+    assert(tens);
+    Tensor<FloatType,Dim>* p = tens.release();
+    Tensor<FloatType,Dim> out(std::move(*p));
+    delete p;
+    return out;
+  }   
+
+  PipelineLayerIOcontainerBase * getMicroBatch(int ubatch_idx, int ubatch_size) const override{
+    assert(tens);
+    Tensor<FloatType,Dim> slice = tens->sliceLastDimension(ubatch_idx*ubatch_size, (ubatch_idx+1)*ubatch_size - 1);
+    return new PipelineLayerIOcontainer<Tensor<FloatType,Dim> >(std::move(slice));
+  }
+  void insertMicroBatch(int ubatch_idx, int ubatch_size, PipelineLayerIOcontainerBase *from) override{
+    assert(tens);
+    Tensor<FloatType,Dim> &slice = *(dynamic_cast<PipelineLayerIOcontainer<Tensor<FloatType,Dim> >* >(from)->tens);
+    tens->insertSliceLastDimension(slice, ubatch_idx*ubatch_size, (ubatch_idx+1)*ubatch_size - 1);
+  }
+  void insertFirstMicroBatch(int ubatch_size, PipelineLayerIOcontainerBase *from, int nubatch) override{
+    Tensor<FloatType,Dim> &slice = *(dynamic_cast<PipelineLayerIOcontainer<Tensor<FloatType,Dim> >* >(from)->tens);
+    int size[Dim]; memcpy(size,slice.sizeArray(),Dim*sizeof(int));
+    size[Dim-1] = nubatch*ubatch_size;
+    tens.reset(new Tensor<FloatType,Dim>(size));
+    tens->insertSliceLastDimension(slice, 0, ubatch_size - 1);
+  }
+  int batchDimSize() const override{
+    assert(tens);
+    return tens->size(Dim-1);
+  }
+};
+
+struct PipelineLayerIOcontainer_p{
+  std::unique_ptr<PipelineLayerIOcontainerBase> p;
+
+  PipelineLayerIOcontainer_p(){}
+  PipelineLayerIOcontainer_p(PipelineLayerIOcontainerBase *pin): p(pin){} //takes ownership
+  
+  template<typename T, typename std::enable_if<!std::is_same<typename std::decay<T>::type,PipelineLayerIOcontainer_p>::value, int>::type = 0>
+  PipelineLayerIOcontainer_p(T &&v): p(new PipelineLayerIOcontainer<typename std::decay<T>::type>(std::forward<T>(v))){}
+
+  PipelineLayerIOcontainer_p(const PipelineLayerIOcontainer_p &to_copy): p(to_copy.p->copy()){}
+  PipelineLayerIOcontainer_p(PipelineLayerIOcontainer_p &&to_move): p(std::move(to_move.p)){}  
+
+  PipelineLayerIOcontainer_p & operator=(PipelineLayerIOcontainer_p &&to_move){
+    p.reset(to_move.p.release());
+    return *this;
+  }
+  template<typename T, typename std::enable_if<!std::is_same<typename std::decay<T>::type,PipelineLayerIOcontainer_p>::value, int>::type = 0>
+  PipelineLayerIOcontainer_p & operator=(T &&v){
+    p.reset(new PipelineLayerIOcontainer<typename std::decay<T>::type>(std::forward<T>(v)));
+    return *this;
+  }  
+  
+  template<typename T>
+  void setType(){ p.reset(new PipelineLayerIOcontainer<T>()); }
+  
+  template<typename T>
+  void insert(T &&v){
+    p.reset(new PipelineLayerIOcontainer<typename std::decay<T>::type>(std::forward<T>(v)));
+  }
+  
+  template<typename T>
+  T & as(){  assert(p); return dynamic_cast<PipelineLayerIOcontainer<T> *>(p.get())->get(); }
+
+  template<typename T>
+  const T & as() const{ assert(p); return dynamic_cast<PipelineLayerIOcontainer<T> const*>(p.get())->get(); }
+
+  template<typename T>
+  T remove(){
+    assert(p);
+    PipelineLayerIOcontainerBase *pp = p.release();
+    auto out = dynamic_cast<PipelineLayerIOcontainer<T> *>(pp)->remove();
+    delete pp;
+    return out;
+  }
+    
+  CommsRequest send(int to){ return p->send(to); }
+  CommsRequest recv(int from){ return p->recv(from); }
+  CommsRequest sendInitializer(int to){ return p->sendInitializer(to); }
+  CommsRequest recvInitializer(int from){ return p->recvInitializer(from); }
+
+  PipelineLayerIOcontainer_p getMicroBatch(int ubatch_idx, int ubatch_size) const{
+    assert(p);
+    return PipelineLayerIOcontainer_p(p->getMicroBatch(ubatch_idx,ubatch_size));
+  }
+  void insertMicroBatch(int ubatch_idx, int ubatch_size, PipelineLayerIOcontainer_p &from){
+    assert(p);
+    p->insertMicroBatch(ubatch_idx,ubatch_size,from.p.get());
+  }
+  void insertFirstMicroBatch(int ubatch_size, PipelineLayerIOcontainer_p &from, int nubatch){
+    assert(p);
+    p->insertFirstMicroBatch(ubatch_size,from.p.get(),nubatch);
+  }
+  int batchDimSize() const{
+    assert(p);
+    return p->batchDimSize();
+  }
+  
+};
+
+void sendRecv(std::vector<CommsRequest> &reqs,
+	      PipelineLayerIOcontainer_p &to, PipelineLayerIOcontainer_p &from,
+	      int rank_to, int rank_from){
+    int me = communicators().pipelineRank();
+    if(me == rank_from) reqs.push_back(from.send(rank_to));
+    else if(me == rank_to) reqs.push_back(to.recv(rank_from));
+  }
+template<typename Cond>
+void passRightConditional(std::vector<CommsRequest> &reqs,
+	       PipelineLayerIOcontainer_p &to, PipelineLayerIOcontainer_p &from, const Cond &send_rank_cond){
+  int me = communicators().pipelineRank();
+  if(me != communicators().pipelineNrank()-1 && send_rank_cond(me))
+    reqs.push_back(from.send(me+1));
+  
+  if(me != 0 && send_rank_cond(me-1))
+    reqs.push_back(to.recv(me-1));
+}
+void passRight(std::vector<CommsRequest> &reqs,
+	       PipelineLayerIOcontainer_p &to, PipelineLayerIOcontainer_p &from){
+  int me = communicators().pipelineRank();
+  if(me != communicators().pipelineNrank()-1)
+    reqs.push_back(from.send(me+1));
+  
+  if(me != 0)
+    reqs.push_back(to.recv(me-1));
+}
+template<typename Cond>
+void passLeftConditional(std::vector<CommsRequest> &reqs,
+	       PipelineLayerIOcontainer_p &to, PipelineLayerIOcontainer_p &from, const Cond &send_rank_cond){
+  int me = communicators().pipelineRank();
+  if(me != 0 && send_rank_cond(me))
+    reqs.push_back(from.send(me-1));
+  
+  if(me != communicators().pipelineNrank()-1 && send_rank_cond(me+1))
+    reqs.push_back(to.recv(me+1));
+}
+void passLeft(std::vector<CommsRequest> &reqs,
+	       PipelineLayerIOcontainer_p &to, PipelineLayerIOcontainer_p &from){
+  int me = communicators().pipelineRank();
+  if(me != 0)
+    reqs.push_back(from.send(me-1));
+  
+  if(me != communicators().pipelineNrank()-1)
+    reqs.push_back(to.recv(me+1));
+}
+
+void sendRecvInitializer(std::vector<CommsRequest> &reqs,
+			 PipelineLayerIOcontainer_p &to, PipelineLayerIOcontainer_p &from,
+			 int rank_to, int rank_from){
+  int me = communicators().pipelineRank();
+  if(me == rank_from) reqs.push_back(from.sendInitializer(rank_to));
+  else if(me == rank_to) reqs.push_back(to.recvInitializer(rank_from));
+}
+
+
+
+template<typename FloatType>
+class PipelineBlockContainerBase{
+public:
+  virtual PipelineLayerIOcontainer_p blockValue(const PipelineLayerIOcontainer_p &block_input) = 0;
+  virtual void blockDeriv(Vector<FloatType> &cost_deriv, const PipelineLayerIOcontainer_p &_above_deriv, PipelineLayerIOcontainer_p &layer_input_deriv) = 0;
+  virtual void resizeInputBuffer(int to) = 0;
+  virtual void setInputType(PipelineLayerIOcontainer_p &con) const = 0;
+  virtual void setOutputType(PipelineLayerIOcontainer_p &con) const = 0;
+  virtual int nparams() const = 0;
+  virtual ~PipelineBlockContainerBase(){}
+};
+
+template<typename BlockStore>
+class PipelineBlockContainer: public PipelineBlockContainerBase<typename BlockStore::type::FloatType>{
+  BlockStore block;
+  typedef typename BlockStore::type BlockType;
+  typedef typename BlockType::InputType BlockInputType;
+  typedef typename BlockType::FloatType FloatType;
+  typedef LAYEROUTPUTTYPE(BlockType) BlockOutputType;
+public:
+  PipelineBlockContainer(BlockStore &&block): block(std::move(block)){}
+  
+  PipelineLayerIOcontainer_p blockValue(const PipelineLayerIOcontainer_p &block_input) override{
+    const BlockInputType &block_input_tens = block_input.as<BlockInputType>();
+    return PipelineLayerIOcontainer_p(block.v.value(block_input_tens));
+  }
+  void blockDeriv(Vector<FloatType> &cost_deriv, const PipelineLayerIOcontainer_p &_above_deriv, PipelineLayerIOcontainer_p &_layer_input_deriv) override{
+    BlockOutputType above_deriv(_above_deriv.as<BlockOutputType>());
+    BlockInputType layer_input_deriv_tmp;
+    block.v.deriv(cost_deriv, 0, std::move(above_deriv), &layer_input_deriv_tmp);
+    _layer_input_deriv = std::move(layer_input_deriv_tmp);
+  }
+  void resizeInputBuffer(int to) override{
+    block.v.resizeInputBuffer(to);
+  }
+  void setInputType(PipelineLayerIOcontainer_p &con) const override{
+    con.setType<BlockInputType>();
+  }
+  void setOutputType(PipelineLayerIOcontainer_p &con) const override{
+    con.setType<BlockOutputType>();
+  }
+  int nparams() const override{
+    return block.v.nparams();
+  }
+};
+
+//Note: the pipeline starts with rank 0!
+template<typename LayerOutputType, typename BelowStore>
+class PipelineBlockLayer{
+private: 
+  BelowStore below;
+  typedef typename BelowStore::type BelowType;
+  typedef FLOATTYPE(BelowType) FloatType; 
+  typedef LAYEROUTPUTTYPE(BelowType) LayerInputType;
+  typedef typename BelowType::InputType ModelInputType;
+  int ubatch_size;
+  std::unique_ptr<PipelineBlockContainerBase<FloatType> > rank_block;
+  bool initialized;
+
+  int nparam;
+  std::vector<int> rank_block_nparam;
+
+  void initialize(){
+    if(initialized) return;
+    assert(rank_block);
+    int rank = communicators().pipelineRank();
+    rank_block_nparam[rank] = rank_block->nparams();
+    commsReduce(rank_block_nparam.data(),rank_block_nparam.size(), communicators().pipelineCommunicator());
+    
+    for(int r=0;r<rank_block_nparam.size();r++){
+      if(!rank) std::cout << "Rank params " << r << " : " << rank_block_nparam[r] << std::endl;
+      nparam += rank_block_nparam[r];
+    }
+    if(!rank) std::cout << "Total params : " << nparam << std::endl;
+    
+    initialized = true;
+  }
+  
+public:
+  PipelineBlockLayer(BelowStore &&below, int ubatch_size): below(std::move(below)), ubatch_size(ubatch_size), initialized(false), nparam(0),
+							   rank_block_nparam(communicators().pipelineNrank(),0){}
+
+  template<typename Block>
+  void setRankBlock(Block &&block){
+    if(initialized) throw std::runtime_error("Cannot change model once initialized");
+    rank_block.reset(new PipelineBlockContainer<DDST(block)>(std::forward<Block>(block)));
+  }
+
+  int nparams(){
+    initialize();
+    return nparam;
+  }
+  
+  LayerOutputType value(const ModelInputType &x){
+    initialize();
+    int rank = communicators().pipelineRank();
+    int pipeline_depth = communicators().pipelineNrank();
+    bool is_first = rank == 0;
+    bool is_last = rank == pipeline_depth -1;
+    
+    PipelineLayerIOcontainer_p below_in;
+    int input_batch_dim_size;
+    if(is_first){
+      below_in.insert(below.v.value(x));
+      input_batch_dim_size = below_in.batchDimSize();
+    }
+    commsBroadcast(&input_batch_dim_size, 1, 0, communicators().pipelineCommunicator());
+    
+    assert(input_batch_dim_size % ubatch_size == 0);
+    
+    int nubatch = input_batch_dim_size/ubatch_size;    
+    rank_block->resizeInputBuffer(nubatch);
+    
+    assert(nubatch >= pipeline_depth);
+
+    std::vector<CommsRequest> reqs;
+
+    PipelineLayerIOcontainer_p rank_block_in, rank_block_out, pipeline_out;
+    if(!is_first) rank_block->setInputType(rank_block_in);
+    if(is_last) pipeline_out.setType<LayerOutputType>();
+    
+    int ubatch_idx_in=0;
+    //"prime" the pipeline
+    for(int prime=0; prime < pipeline_depth; prime++){
+      if(is_first)
+	rank_block_in = below_in.getMicroBatch(ubatch_idx_in, ubatch_size);
+      ++ubatch_idx_in;
+      
+      //Which rank has data depends on the iteration
+      //eg for 4 ranks
+      //0  :   0 <--from below
+      //1  :   0,1
+      //2  :   0,1,2
+      //3  :   0,1,2,3
+      if(rank <= prime) rank_block_out = rank_block->blockValue(rank_block_in);
+
+      //Ranks that were just called for the first time need to send their output initializers to the right
+      if(prime != pipeline_depth-1){
+	sendRecvInitializer(reqs, rank_block_in, rank_block_out, prime+1, prime);
+	waitAll(reqs);
+      }
+
+      //All active ranks need to send their output to the right
+      passRightConditional(reqs, rank_block_in, rank_block_out, [=](int send_rank){ return send_rank <= prime; });
+      waitAll(reqs);
+    }
+    //after priming, rank_block_out on the last rank should be the first pipeline output
+    if(is_last) pipeline_out.insertFirstMicroBatch(ubatch_size, rank_block_out, nubatch);    
+    
+    //steady state
+    int ubatch_idx_out = 1;
+    for(int iter = pipeline_depth; iter < nubatch; iter++){
+      if(is_first)
+	rank_block_in = below_in.getMicroBatch(ubatch_idx_in, ubatch_size);
+      ++ubatch_idx_in;
+      
+      rank_block_out = rank_block->blockValue(rank_block_in);
+      passRight(reqs, rank_block_in, rank_block_out);
+      waitAll(reqs);
+      if(is_last) pipeline_out.insertMicroBatch(ubatch_idx_out, ubatch_size, rank_block_out);
+      ++ubatch_idx_out;
+    }
+
+    //at this point we should have no further input batches
+    assert(ubatch_idx_in == nubatch);
+    
+    //"drain" the pipeline
+    for(int drain=0;drain < pipeline_depth-1; drain++){
+      if(rank > drain) rank_block_out = rank_block->blockValue(rank_block_in);
+      passRightConditional(reqs, rank_block_in, rank_block_out, [=](int send_rank){ return send_rank > drain; }  );
+      waitAll(reqs);
+      if(is_last) pipeline_out.insertMicroBatch(ubatch_idx_out, ubatch_size, rank_block_out);
+      ++ubatch_idx_out;
+    }
+    //should now be done
+    assert(ubatch_idx_out == nubatch);
+
+    //Communicate result back to pipeline leader and return
+    if(is_first) pipeline_out.setType<LayerOutputType>();
+    sendRecvInitializer(reqs, pipeline_out, pipeline_out, 0, pipeline_depth-1);
+    waitAll(reqs);
+    sendRecv(reqs, pipeline_out, pipeline_out, 0, pipeline_depth-1);
+    waitAll(reqs);
+    return is_first ? pipeline_out.remove<LayerOutputType>() : LayerOutputType();
+  }
+  int deriv(Vector<FloatType> &cost_deriv, int off, LayerOutputType &&_above_deriv, ModelInputType* input_above_deriv_return = nullptr) const{    
+    PipelineLayerIOcontainer_p pipeline_above_deriv(std::move(_above_deriv));  //all ranks store the rvalue but only the pipeline leader is required to have valid input
+    Vector<FloatType> rank_block_cost_derivs(rank_block->nparams(), 0.); //accumulate
+    
+    int rank = communicators().pipelineRank();
+    int pipeline_depth = communicators().pipelineNrank();
+    bool is_first = rank == 0;
+    bool is_last = rank == pipeline_depth -1;
+
+    int batch_dim_size = pipeline_above_deriv.batchDimSize();
+    assert(batch_dim_size % ubatch_size == 0);
+    
+    int nubatch = batch_dim_size/ubatch_size;
+    
+    //communicate above deriv to top of pipeline
+    std::vector<CommsRequest> reqs;
+    sendRecvInitializer(reqs, pipeline_above_deriv, pipeline_above_deriv, pipeline_depth-1, 0);
+    waitAll(reqs);
+    sendRecv(reqs, pipeline_above_deriv, pipeline_above_deriv, pipeline_depth-1, 0);
+    waitAll(reqs);
+
+    PipelineLayerIOcontainer_p rank_above_deriv, rank_input_deriv, pipeline_input_deriv;
+    pipeline_input_deriv.setType<LayerInputType>();
+    rank_block->setOutputType(rank_above_deriv);
+    
+    //prime the backwards pass
+    int ubatch_idx_in = 0;
+    for(int prime=0; prime < pipeline_depth; prime++){
+      if(is_last) rank_above_deriv = pipeline_above_deriv.getMicroBatch(ubatch_idx_in, ubatch_size);
+      ++ubatch_idx_in;
+      if(rank >= pipeline_depth - prime -1){
+	Vector<FloatType> cd(rank_block->nparams(),0.);
+	rank_block->blockDeriv(cd, rank_above_deriv, rank_input_deriv);
+	rank_block_cost_derivs += cd;
+      }
+      //Ranks that were just called for the first time need to send their output initializers to the left
+      if(prime != pipeline_depth-1){
+	sendRecvInitializer(reqs, rank_above_deriv, rank_input_deriv, pipeline_depth-prime-2, pipeline_depth-prime-1);
+	waitAll(reqs);
+      }
+      //All active ranks need to send their output to the left
+      passLeftConditional(reqs, rank_above_deriv, rank_input_deriv, [=](int send_rank){ return send_rank >= pipeline_depth - prime -1; });
+      waitAll(reqs);
+    }
+
+    //At this point the first batch of input derivs should have reached rank 0
+    if(is_first)
+      pipeline_input_deriv.insertFirstMicroBatch(ubatch_size, rank_input_deriv, nubatch);      
+    
+    //steady state
+    int ubatch_idx_out = 1;
+    for(int iter = pipeline_depth; iter < nubatch; iter++){
+      if(is_last) rank_above_deriv = pipeline_above_deriv.getMicroBatch(ubatch_idx_in, ubatch_size);
+      ++ubatch_idx_in;
+      Vector<FloatType> cd(rank_block->nparams(),0.);
+      rank_block->blockDeriv(cd, rank_above_deriv, rank_input_deriv);
+      rank_block_cost_derivs += cd;
+      
+      passLeft(reqs, rank_above_deriv, rank_input_deriv);
+      waitAll(reqs);
+      if(is_first) pipeline_input_deriv.insertMicroBatch(ubatch_idx_out, ubatch_size, rank_input_deriv);
+      ++ubatch_idx_out;
+    }
+
+    //at this point we should have no further input batches
+    assert(ubatch_idx_in == nubatch);
+
+    //"drain" the pipeline
+    for(int drain=0;drain < pipeline_depth-1; drain++){
+      if(rank < pipeline_depth-1-drain){
+	Vector<FloatType> cd(rank_block->nparams(),0.);
+	rank_block->blockDeriv(cd, rank_above_deriv, rank_input_deriv);
+	rank_block_cost_derivs += cd;
+      }
+      passLeftConditional(reqs, rank_above_deriv, rank_input_deriv, [=](int send_rank){ return send_rank < pipeline_depth-1-drain; });
+      waitAll(reqs);
+      
+      if(is_first) pipeline_input_deriv.insertMicroBatch(ubatch_idx_out, ubatch_size, rank_input_deriv);
+      ++ubatch_idx_out;
+    }
+    //should now be done
+    assert(ubatch_idx_out == nubatch);
+
+    //gather the cost derivs to rank 0
+    if(rank != 0){
+      autoView(rank_block_cost_derivs_v, rank_block_cost_derivs, HostRead);
+      MPI_Request req;
+      assert( MPI_Isend(rank_block_cost_derivs_v.data(), rank_block_cost_derivs_v.data_len(), getMPIdataType<FloatType>(),
+			0, 0, communicators().pipelineCommunicator(), &req) == MPI_SUCCESS );
+      assert(MPI_Wait(&req, MPI_STATUS_IGNORE) == MPI_SUCCESS);
+    }else{
+      //note: the ordering of parameters is *top-down*, so for the pipeline we need to put the last rank first in the output      
+      autoView(cost_deriv_v, cost_deriv, HostReadWrite);
+      std::vector<MPI_Request> mr(pipeline_depth-1);
+      FloatType* cdp = cost_deriv_v.data() + off;
+      for(int r=1;r<pipeline_depth;r++){
+	int from_rank = pipeline_depth-r;
+	assert( MPI_Irecv(cdp , rank_block_nparam[from_rank],
+			  getMPIdataType<FloatType>(), from_rank, 0, communicators().pipelineCommunicator(), &mr[r-1]) == MPI_SUCCESS );
+	cdp += rank_block_nparam[from_rank];
+      }
+      assert(MPI_Waitall(pipeline_depth-1, mr.data(), MPI_STATUSES_IGNORE) == MPI_SUCCESS);
+
+      autoView(rank_block_cost_derivs_v, rank_block_cost_derivs, HostRead);
+      memcpy(cdp, rank_block_cost_derivs_v.data(), rank_block_cost_derivs_v.data_len()*sizeof(FloatType));
+    }
+
+    //while only rank 0 needs the right values for the pipeline input deriv, all ranks need to pass something valid down
+    for(int r=1;r<pipeline_depth;r++)
+      sendRecvInitializer(reqs, pipeline_input_deriv, pipeline_input_deriv, r, 0);
+    waitAll(reqs);
+    
+    return below.v.deriv(cost_deriv, off + nparam, pipeline_input_deriv.remove<LayerInputType>(), input_above_deriv_return);
+  }
+};
+
+
+//This buffer has n slots. It is expected that it will be used in a cycle where all n slots will first be filled then all n drained
+template<typename T>
+class FillEmptyRingBuffer{
+  std::vector<T> ring;
+  size_t push_off;
+  size_t pop_off;
+  int cycle; //0 fill, 1 empty
+    
+public:
+  FillEmptyRingBuffer(size_t size): ring(size), push_off(0), pop_off(0), cycle(0){}
+  FillEmptyRingBuffer(): FillEmptyRingBuffer(1){} 
+
+  void resize(size_t size){
+    ring.resize(size);
+    push_off = pop_off=0;
+    cycle=0;
+  }
+  
+  inline void push(T&& v){
+    if(cycle == 1) throw std::runtime_error("Cannot push to FillEmptyRingBuffer when in a drain cycle");    
+    ring[push_off] = std::move(v);
+    push_off = (push_off + 1) % ring.size();
+
+    //when it cycles back to 0 we switch to the drain cycle
+    if(!push_off) cycle = 1;
+  }
+  inline T pop(){
+    if(cycle == 0) throw std::runtime_error("Cannot pop FillEmptyRingBuffer when in a fill cycle");    
+    T ret(std::move(ring[pop_off]));
+    pop_off =  (pop_off + 1) % ring.size();
+
+    //when it cycles back to 1 we switch to the fill cycle
+    if(!pop_off) cycle = 0;    
+    return ret;
+  }
+  //Return whether the we are on the drain cycle
+  bool isFilled() const{ return cycle == 1; }
+  
+  size_t size() const{ return ring.size(); }
+
+  //This function is used to provide a valid object even if the buffer is not completely filled
+  const T &latest() const{    
+    return ring[  (push_off - 1 + ring.size()) % ring.size() ];
+  }
+    
+};
+
+  
+void testPipelineLayer(){
+  std::mt19937 rng(1234);
+
+  typedef ModelConfiguration<float, FillEmptyRingBuffer> pconfSingle;
+  typedef ModelConfiguration<double, FillEmptyRingBuffer> pconfDouble;
+  
+  communicators().enableGlobalPipelining(); //put all the ranks into a single pipeline
+  assert(communicators().pipelineNrank() > 1);
+  int rank = communicators().pipelineRank();
+  int nrank = communicators().pipelineNrank();
+  
+  //Check we can wrap a layer and correctly call value
+  {
+    int dim[2] = {2,3};
+    Tensor<float,2> tens(dim);
+    uniformRandom(tens,rng);    
+    
+    PipelineLayerIOcontainer_p tc(tens);
+
+    auto layer = dnn_layer(4,2,			 
+			   input_layer<confSingle>()
+			   );
+    PipelineBlockContainer<LeafRef<decltype(layer)> > con(layer);
+  
+    PipelineLayerIOcontainer_p got = con.blockValue(tc);
+    auto expect = layer.value(tens);
+    assert(equal(got.as<Tensor<float,2> >(), expect,true));
+  }
+  //Check comms of io container wrapper
+  {
+    std::cout << "Checking comms of io container wrapper" << std::endl;
+    PipelineLayerIOcontainer_p tc;
+    if(rank == 0){
+      int dim[2] = {2,3};
+      Tensor<float,2> tens(dim);
+      doHost(tens,{
+	  for(int i=0;i<2;i++)
+	    for(int j=0;j<3;j++)
+	      tens_v(i,j) = j+3*i;
+	});
+      tc.insert(std::move(tens));
+    }else if(rank == 1){
+      tc.setType< Tensor<float,2> >();
+    }
+    std::vector<CommsRequest> reqs;
+    sendRecvInitializer(reqs, tc, tc, 1, 0);
+    waitAll(reqs);
+    if(rank == 1){
+      int const* sizes = tc.as< Tensor<float,2> >().sizeArray();
+      assert(sizes[0] == 2 && sizes[1] == 3);
+    }
+    sendRecv(reqs, tc, tc, 1, 0);
+    waitAll(reqs);
+    if(rank == 1){
+      int dim[2] = {2,3};
+      Tensor<float,2> expect(dim);
+      doHost(expect,{
+	  for(int i=0;i<2;i++)
+	    for(int j=0;j<3;j++)
+	      expect_v(i,j) = j+3*i;
+	});
+      assert(equal(expect, tc.as< Tensor<float,2> >(), true));
+
+      //check copy, move
+      {
+	PipelineLayerIOcontainer_p tc_cp(tc);
+	assert(equal(tc.as<Tensor<float,2>>(), tc_cp.as<Tensor<float,2>>(), true));
+
+	PipelineLayerIOcontainer_p tc_mv(std::move(tc_cp));
+	assert(equal(tc.as<Tensor<float,2>>(), tc_mv.as<Tensor<float,2>>(), true));
+
+	PipelineLayerIOcontainer_p tc_mv2;
+	tc_mv2 = std::move(tc_mv);
+	assert(equal(tc.as<Tensor<float,2>>(), tc_mv2.as<Tensor<float,2>>(), true));
+      }	
+      
+      //check remove
+      Tensor<float,2> rm = tc.remove< Tensor<float,2> >();
+      assert(equal(expect, rm, true));
+      
+    }
+    //Check value and deriv
+    {
+      std::cout << "Checking value and deriv" << std::endl;
+      int ubatch_size = 2;
+      int batch_size = nrank * ubatch_size * 3;
+      
+      auto below = input_layer<pconfDouble>();      
+      PipelineBlockLayer< Matrix<double>, LeafRef<decltype(below)> > player(below, ubatch_size);
+
+      //For covenience use a uniform fan_in, fan_out
+      int fan_in = 3;
+      int fan_out = 3;
+      std::vector<Matrix<double> > weights(nrank, Matrix<double>(fan_out,fan_in));
+      std::vector<Vector<double> > biases(nrank, Vector<double>(fan_out));
+      for(int r=0;r<nrank;r++){ 
+	uniformRandom(weights[r],rng);
+	uniformRandom(biases[r],rng);
+      }
+      
+      player.setRankBlock(dnn_layer(weights[rank],biases[rank], input_layer<pconfDouble>()));
+      assert(player.nparams() == nrank * (fan_out*fan_in + fan_out));
+      
+      auto expect_model = enwrap(input_layer<confDouble>());
+      for(int r=0;r<nrank;r++)
+	expect_model = enwrap(dnn_layer(weights[r],biases[r], std::move(expect_model)));
+      
+      Matrix<double> input(fan_in, batch_size);
+      uniformRandom(input, rng);
+
+      Matrix<double> expect = expect_model.value(input);
+      Matrix<double> got = player.value(input);
+      if(rank == 0) assert(abs_near(expect,got,1e-6,true));
+
+      Matrix<double> above_deriv(fan_out, batch_size);
+      uniformRandom(above_deriv,rng);
+
+      
+      Vector<double> got_der(player.nparams(),0.);
+      Matrix<double> got_in_der(fan_in, batch_size);
+      int dout_got = player.deriv(got_der, 0, Matrix<double>(above_deriv), &got_in_der);
+
+      Vector<double> expect_der(expect_model.nparams(),0.);
+      Matrix<double> expect_in_der(fan_in, batch_size);
+      
+      int dout_expect = expect_model.deriv(expect_der, 0, Matrix<double>(above_deriv), &expect_in_der);
+      std::cout << "Offset got " << dout_got << " expect " << dout_expect << std::endl;
+      assert(dout_got == dout_expect);
+
+      if(rank == 0){
+	std::cout << "Got der:\n" << got_der << "\nExpect der:\n" << expect_der << std::endl;
+	std::cout << "Got input der:\n" << got_in_der << "\nExpect in der:\n" << expect_in_der << std::endl;
+
+	assert(near(got_der,expect_der,1e-6,true));
+	assert(near(got_in_der,expect_in_der,1e-6,true));
+      }
+      
+    }
+
+    
+  }
+
+}
+
+
+
+
+
+
 int main(int argc, char** argv){
   initialize(argc, argv);
 
-  testPipeline();
+  //testPipeline();
+  testPipelineLayer();
   return 0;
 }
