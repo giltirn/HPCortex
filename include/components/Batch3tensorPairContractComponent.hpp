@@ -1,17 +1,18 @@
 #pragma once
 #include <type_traits>
 #include <sstream>
+#include <ModelConfig.hpp>
 #include <Tensors.hpp>
-#include <RingBuffer.hpp>
+#include <Buffers.hpp>
 #include <Linalg.hpp>
 
 //A component implementing the contraction of batched 3-tensors (those for whom the last dimension is the batch index) over some dimension \in [0,1]
 //eg  C_{ijb} = \sum_k A_{kib} B_{jkb} * nrm
 //it has no trainable parameters
-template<typename _FloatType>
+template<typename Config>
 class Batch3tensorPairContractComponent{
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
 private:
   FloatType nrm;
   int contract_dim_A;
@@ -19,8 +20,8 @@ private:
   mutable FLOPScounter value_FLOPS;
   mutable FLOPScounter deriv_FLOPS;
   
-  mutable RingBuffer<Tensor<FloatType,3> > A_buf;
-  mutable RingBuffer<Tensor<FloatType,3> > B_buf;
+  mutable BufferType<Tensor<FloatType,3> > A_buf;
+  mutable BufferType<Tensor<FloatType,3> > B_buf;
 public:
   
   Batch3tensorPairContractComponent(int contract_dim_A, int contract_dim_B, FloatType nrm = 1.0): contract_dim_A(contract_dim_A), contract_dim_B(contract_dim_B), nrm(nrm){}

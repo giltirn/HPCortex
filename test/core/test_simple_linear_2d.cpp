@@ -3,7 +3,8 @@
 
 void testSimpleLinear2D(){  
   //Test f(x,y) = { 0.2*x + 0.3, -0.1*y - 0.3 }   using a Tensor<2> data type
-  typedef float FloatType;
+  typedef confSingle Config;
+  typedef typename Config::FloatType FloatType;
   typedef std::vector<FloatType> vec;
   std::mt19937 rng(1234);
   std::uniform_real_distribution<FloatType> udist(0.0,1.0);
@@ -43,7 +44,7 @@ void testSimpleLinear2D(){
 			unflatten_layer<3>(tens_sz_batch,
 					   dnn_layer(winit, binit,
 						     flatten_layer(
-								   input_layer<FloatType, Tensor<FloatType,3> >()
+								   input_layer<Config, Tensor<FloatType,3> >()
 								   )
 						     )					
 					   )

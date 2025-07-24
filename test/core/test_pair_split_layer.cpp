@@ -1,7 +1,9 @@
 #include <HPCortex.hpp>
 #include <Testing.hpp>
 #include <layers/PairSplitLayer.hpp>
-typedef double FloatType;
+
+typedef confDouble Config;
+typedef typename Config::FloatType FloatType;
 
 //To test the layer by itself, this wrapper concetates the matrix output of two chains
 template<typename ChainType1, typename ChainType2>
@@ -96,7 +98,7 @@ void testPairSplitLayer(){
 
   typedef std::pair< Matrix<FloatType>, Matrix<FloatType> > InputType;
 
-  auto splt = pair_split_layer(input_layer<FloatType,InputType>());
+  auto splt = pair_split_layer(input_layer<Config,InputType>());
 
   int B = 4;
   int in_sz1 = 3;
@@ -189,8 +191,8 @@ void testPairSplitLayer(){
     uniformRandom(x.first,rng);
     uniformRandom(x.second,rng);
     
-    auto chain1_solo = dnn_layer(w1,b1,input_layer<FloatType,Matrix<FloatType>>());
-    auto chain2_solo = dnn_layer(w2,b2,input_layer<FloatType,Matrix<FloatType>>());
+    auto chain1_solo = dnn_layer(w1,b1,input_layer<Config,Matrix<FloatType>>());
+    auto chain2_solo = dnn_layer(w2,b2,input_layer<Config,Matrix<FloatType>>());
 
     auto expect1 = chain1_solo.value(x.first);
     auto expect2 = chain2_solo.value(x.second);
@@ -298,7 +300,7 @@ void testDivergingConverging(){
 
   typedef std::pair< Matrix<FloatType>, Matrix<FloatType> > InputType;
 
-  auto splt = pair_split_layer(input_layer<FloatType,InputType>());
+  auto splt = pair_split_layer(input_layer<Config,InputType>());
 
   int B = 4;
   int in_sz1 = 3;
@@ -384,8 +386,8 @@ void testDivergingConverging(){
     uniformRandom(x.first,rng);
     uniformRandom(x.second,rng);
     
-    auto chain1_solo = dnn_layer(w1,b1, input_layer<FloatType,Matrix<FloatType>>() );
-    auto chain2_solo = dnn_layer(w2,b2, input_layer<FloatType,Matrix<FloatType>>() );
+    auto chain1_solo = dnn_layer(w1,b1, input_layer<Config,Matrix<FloatType>>() );
+    auto chain2_solo = dnn_layer(w2,b2, input_layer<Config,Matrix<FloatType>>() );
 
     auto expect1 = chain1_solo.value(x.first);
     auto expect2 = chain2_solo.value(x.second);

@@ -66,7 +66,9 @@ struct testActivationFunc<noActivation<FloatType> >{
 
 template<template<typename> class ActivationFunc>
 void testActivation(){
-  typedef double FloatType; //more precise derivatives
+  typedef confDouble Config;
+  typedef typename Config::FloatType FloatType;
+  
   FloatType delta = 1e-6;
   typedef std::vector<FloatType> vecD;
  
@@ -75,7 +77,7 @@ void testActivation(){
 			              0.7,0.7}));
   Vector<FloatType> b1_init( vecD({-0.5,0.7,-0.9}));		    
  
-  auto f = mse_cost( dnn_layer(w1_init, b1_init, ActivationFunc<FloatType>(), input_layer<FloatType>()) );
+  auto f = mse_cost( dnn_layer(w1_init, b1_init, ActivationFunc<FloatType>(), input_layer<Config>()) );
 
   //NB batch size 2, batches in different *columns*
   Matrix<FloatType> x1(2,2,vecD({1.3, 0.6,
@@ -113,14 +115,14 @@ void testActivation(){
       for(int j=0;j<2;j++){
 	Matrix<FloatType> w1_p = w1_init;
 	doHost(w1_p, { w1_p_v(i,j) += delta; });
-	auto f2 = mse_cost( dnn_layer(w1_p, b1_init, ActivationFunc<FloatType>(), input_layer<FloatType>()) );
+	auto f2 = mse_cost( dnn_layer(w1_p, b1_init, ActivationFunc<FloatType>(), input_layer<Config>()) );
 	dexpect_v(p++) = (f2.loss(x1,y1) - got)/delta;
       }
     }
     for(int i=0;i<3;i++){
       Vector<FloatType> b1_p = b1_init;
       doHost(b1_p, { b1_p_v(i) += delta; });      
-      auto f2 = mse_cost( dnn_layer(w1_init, b1_p, ActivationFunc<FloatType>(), input_layer<FloatType>()) );
+      auto f2 = mse_cost( dnn_layer(w1_init, b1_p, ActivationFunc<FloatType>(), input_layer<Config>()) );
       dexpect_v(p++) = (f2.loss(x1,y1) - got)/delta;    
     }
   }

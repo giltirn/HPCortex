@@ -1,5 +1,5 @@
-template<typename FloatType, int TensDim>
-Tensor<FloatType,TensDim> ScaleComponent<FloatType,TensDim>::value(const Tensor<FloatType,TensDim> &in){
+template<typename Config, int TensDim>
+Tensor<typename Config::FloatType,TensDim> ScaleComponent<Config,TensDim>::value(const Tensor<FloatType,TensDim> &in){
   if(!setup){
     assert(in.size(scale_dim) == beta.size(0));
     
@@ -45,8 +45,8 @@ Tensor<FloatType,TensDim> ScaleComponent<FloatType,TensDim>::value(const Tensor<
   return out;		  
 }
 
-template<typename FloatType, int TensDim>
-void ScaleComponent<FloatType,TensDim>::deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,TensDim> &&_dcost_by_dOut, Tensor<FloatType,TensDim> &dcost_by_dIn) const{
+template<typename Config, int TensDim>
+void ScaleComponent<Config,TensDim>::deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,TensDim> &&_dcost_by_dOut, Tensor<FloatType,TensDim> &dcost_by_dIn) const{
   Tensor<FloatType,TensDim> dcost_by_dOut(std::move(_dcost_by_dOut));
   dcost_by_dIn = Tensor<FloatType,TensDim>(in_size);
   int batch_size = in_size[TensDim-1];
@@ -119,8 +119,8 @@ void ScaleComponent<FloatType,TensDim>::deriv(Vector<FloatType> &cost_deriv, int
   deriv_FLOPS.lock();
 }
 
-template<typename FloatType, int TensDim>
-void ScaleComponent<FloatType,TensDim>::update(int off, const Vector<FloatType> &new_params){
+template<typename Config, int TensDim>
+void ScaleComponent<Config,TensDim>::update(int off, const Vector<FloatType> &new_params){
   if(!use_affine && !use_bias) return;
   bool _use_affine = use_affine;
   bool _use_bias = use_bias;
@@ -137,8 +137,8 @@ void ScaleComponent<FloatType,TensDim>::update(int off, const Vector<FloatType> 
 }
   
   
-template<typename FloatType, int TensDim>
-void ScaleComponent<FloatType,TensDim>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
+template<typename Config, int TensDim>
+void ScaleComponent<Config,TensDim>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
   if(!use_affine && !use_bias) return;
   bool _use_affine = use_affine;
   bool _use_bias = use_bias;
@@ -155,8 +155,8 @@ void ScaleComponent<FloatType,TensDim>::step(int off, const Vector<FloatType> &d
 
 }
   
-template<typename FloatType, int TensDim>
-void ScaleComponent<FloatType,TensDim>::getParams(Vector<FloatType> &into, int off) const{
+template<typename Config, int TensDim>
+void ScaleComponent<Config,TensDim>::getParams(Vector<FloatType> &into, int off) const{
   if(!use_affine && !use_bias) return;
   bool _use_affine = use_affine;
   bool _use_bias = use_bias;

@@ -26,11 +26,12 @@ std::vector<XYpair<float,1,1> > generate_data(int ndata){
 
 int main(int argc, char** argv){
   initialize(argc, argv);
-
+  typedef confSingle Config;
+  
   //Model specification 
   auto model = dnn_layer(n_out, n_hidden,
 			 dnn_layer(n_hidden, n_in, ReLU<float>(),
-				   input_layer<float>()				   
+				   input_layer<Config>()				   
 				   )
 			 ); 
 

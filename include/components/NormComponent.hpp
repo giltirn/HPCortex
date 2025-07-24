@@ -2,15 +2,16 @@
 #include <cmath>
 #include <type_traits>
 #include <sstream>
+#include <ModelConfig.hpp>
 #include <Tensors.hpp>
-#include <RingBuffer.hpp>
+#include <Buffers.hpp>
 #include <Linalg.hpp>
 
 //A component implementing the norm operation on a batch tensor (one for which the last dimension is the batch dimension) along an arbitrary dimension other than the batch dimension
-template<typename _FloatType, int TensDim>
+template<typename Config, int TensDim>
 class NormComponent{
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
 private:
   int norm_dim;
   FloatType epsilon;
@@ -23,8 +24,8 @@ private:
   
   bool setup;
 
-  mutable RingBuffer<Tensor<FloatType,TensDim> > out_buf;
-  mutable RingBuffer<Matrix<FloatType> > std_buf;
+  mutable BufferType<Tensor<FloatType,TensDim> > out_buf;
+  mutable BufferType<Matrix<FloatType> > std_buf;
 public:
   
   NormComponent(int norm_dim,FloatType epsilon = 1e-5): norm_dim(norm_dim), epsilon(epsilon), setup(false){

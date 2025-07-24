@@ -3,7 +3,8 @@
 
 void testSimpleLinear(){  
   //Test f(x) = 0.2*x + 0.3;
-  typedef float FloatType;
+  typedef confSingle Config;
+  typedef typename Config::FloatType FloatType;
 
   int nepoch = 20;
   
@@ -20,7 +21,7 @@ void testSimpleLinear(){
     data[i].y = Vector<FloatType>(1,0.2*x + 0.3);
   }
     
-  auto model = mse_cost( dnn_layer(winit, binit,input_layer<FloatType>()) );
+  auto model = mse_cost( dnn_layer(winit, binit,input_layer<Config>()) );
   DecayScheduler<FloatType> lr(0.01, 0.1);
   GradientDescentOptimizer<FloatType, DecayScheduler<FloatType> > opt(lr);
   

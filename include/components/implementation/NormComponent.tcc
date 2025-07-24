@@ -1,5 +1,5 @@
-template<typename FloatType, int TensDim>
-Tensor<FloatType,TensDim> NormComponent<FloatType,TensDim>::value(const Tensor<FloatType,TensDim> &in){
+template<typename Config, int TensDim>
+Tensor<typename Config::FloatType,TensDim> NormComponent<Config,TensDim>::value(const Tensor<FloatType,TensDim> &in){
   if(!setup){
     memcpy(in_size, in.sizeArray(), TensDim*sizeof(int));
     other_dim_vol = 1;
@@ -68,8 +68,8 @@ Tensor<FloatType,TensDim> NormComponent<FloatType,TensDim>::value(const Tensor<F
   return out;		  
 }
 
-template<typename FloatType, int TensDim>
-void NormComponent<FloatType,TensDim>::deriv(Tensor<FloatType,TensDim> &&_dcost_by_dOut, Tensor<FloatType,TensDim> &dcost_by_dIn) const{
+template<typename Config, int TensDim>
+void NormComponent<Config,TensDim>::deriv(Tensor<FloatType,TensDim> &&_dcost_by_dOut, Tensor<FloatType,TensDim> &dcost_by_dIn) const{
   Tensor<FloatType,TensDim> dcost_by_dOut(std::move(_dcost_by_dOut));
   dcost_by_dIn = Tensor<FloatType,TensDim>(in_size);
   int batch_size = in_size[TensDim-1];

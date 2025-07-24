@@ -10,13 +10,14 @@ namespace TransformerEncoderDecoderBlock{
 			    int nheads,  //define  d_qkv = E/nheads     E must divide exactly by nheads
 			    bool use_mask //encoder: false, decoder: true
 			    ){
+    typedef CONFIGTYPE(Below) Config;
     typedef FLOATTYPE(Below) FloatType;
     typedef Tensor<FloatType,3> LayerInputType;
 
     return skip_connection(
 			   multihead_self_attention_layer(nheads, E, use_mask,
 							  norm_layer<3>(embedding_dim, E, true, true,
-									input_layer<FloatType, LayerInputType>()
+									input_layer<Config, LayerInputType>()
 									)							  
 							  ),
 			   std::move(below)
@@ -36,12 +37,13 @@ namespace TransformerEncoderDecoderBlock{
 			    int d_act, //neurons in hidden layer			    
 			    const ActivationFunc &activation,
 			    Below && below){
+    typedef CONFIGTYPE(Below) Config;
     typedef FLOATTYPE(Below) FloatType;
     typedef Tensor<FloatType,3> LayerInputType;
     return skip_connection(
 			   batch_tensor_dnn_layer<3>(embedding_dim, E, d_act, noActivation<FloatType>(), //linear layer with no activation, size E x d_act
 						     batch_tensor_dnn_layer<3>(embedding_dim, d_act, E, activation,
-									       input_layer<FloatType,LayerInputType>()									       
+									       input_layer<Config,LayerInputType>()									       
 									       ) //linear layer with activation size d_act x E
 						     
 						     ),
@@ -62,8 +64,6 @@ namespace TransformerEncoderDecoderBlock{
   template<typename EncoderInput, typename DecoderInput>
   auto declare_cross_attention_block(EncoderInput &&encoder_in, DecoderInput &&decoder_in,
 				     int E, int nheads){
-    typedef FLOATTYPE(EncoderInput) FloatType;
-    typedef Tensor<FloatType,3> LayerInputType;
 
     auto repl = replicate_layer(2, std::move(decoder_in));
     auto xlayer = multihead_cross_attention_layer(nheads, E, false,  //don't use mask as we need to consider the whole context on the QK side

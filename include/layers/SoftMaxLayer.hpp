@@ -3,15 +3,15 @@
 #include <components/SoftMaxComponent.hpp>
 
 //A layer implementing the softmax operation on a batch tensor (one for which the last dimension is the batch dimension) along an arbitrary dimension other than the batch dimension
-template<typename _FloatType, int TensDim, typename _InputType, typename Store >
+template<typename Config, int TensDim, typename _InputType, typename Store >
 class SoftMaxLayer{  
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
   typedef _InputType InputType;
   typedef LeafTag tag;
 private:
   Store leaf;
-  SoftMaxComponent<FloatType,TensDim> cpt;
+  SoftMaxComponent<Config,TensDim> cpt;
 public:
   
   inline SoftMaxLayer(Store &&leaf, int softmax_dim, FloatType beta = 1.0): leaf(std::move(leaf)), cpt(softmax_dim,beta){}
@@ -42,7 +42,7 @@ public:
   inline void setBeta(FloatType beta){ cpt.setBeta(beta); }
 };
 
-#define LAYER_TYPE SoftMaxLayer<FLOATTYPE(U),TensDim,INPUTTYPE(U),DDST(u)>
+#define LAYER_TYPE SoftMaxLayer<CONFIGTYPE(U),TensDim,INPUTTYPE(U),DDST(u)>
 template<int TensDim, typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
 auto softmax_layer(int softmax_dim, FLOATTYPE(U) beta, U &&u)->LAYER_TYPE{
   return LAYER_TYPE(std::forward<U>(u), softmax_dim, beta);

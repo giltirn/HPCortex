@@ -3,7 +3,7 @@
 
 void testSimpleLinearDDP(){
   //Test f(x) = 0.2*x + 0.3;
-
+  typedef confSingle Config;
   typedef float FloatType;
   
   Matrix<FloatType> winit(1,1,0.0);
@@ -29,7 +29,7 @@ void testSimpleLinearDDP(){
 
     ddp_eff_batch_size = communicators().ddpNrank();
     
-    auto model = mse_cost( dnn_layer(winit, binit,input_layer<FloatType>()) );
+    auto model = mse_cost( dnn_layer(winit, binit,input_layer<Config>()) );
     DecayScheduler<FloatType> lr(0.01, 0.1);
     GradientDescentOptimizer<FloatType, DecayScheduler<FloatType> > opt(lr);
     
@@ -42,7 +42,7 @@ void testSimpleLinearDDP(){
     communicators().disableParallelism();
     communicators().reportSetup();
     
-    auto model = mse_cost( dnn_layer(winit, binit,input_layer<FloatType>()) );
+    auto model = mse_cost( dnn_layer(winit, binit,input_layer<Config>()) );
     DecayScheduler<FloatType> lr(0.01, 0.1);
     GradientDescentOptimizer<FloatType, DecayScheduler<FloatType> > opt(lr);
     

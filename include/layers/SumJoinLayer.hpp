@@ -2,7 +2,7 @@
 #include "LayerCommon.hpp"
 
 //A layer that joins the outputs of two chains by summation
-template<typename _FloatType, typename _InputType, typename Store1, typename Store2>
+template<typename Config, typename _InputType, typename Store1, typename Store2>
 class SumJoinLayer{
   typedef typename Store1::type StoredType1;
   typedef typename Store2::type StoredType2;
@@ -11,7 +11,7 @@ class SumJoinLayer{
   typedef LAYERTYPEOUTPUTTYPE(StoredType2) LayerInputType2;
   static_assert( std::is_same<LayerInputType1, LayerInputType2>::value );  
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
   typedef _InputType InputType;
   
   typedef LayerInputType1 LayerInputOutputType;
@@ -63,7 +63,7 @@ public:
 
 };
 
-template<typename U, typename V, typename std::enable_if<ISLEAF(U) && ISLEAF(V) && std::is_same<INPUTTYPE(U),INPUTTYPE(V)>::value , int>::type = 0>
+template<typename U, typename V, typename std::enable_if<ISLEAF(U) && ISLEAF(V) && std::is_same<CONFIGTYPE(U),CONFIGTYPE(V)>::value && std::is_same<INPUTTYPE(U),INPUTTYPE(V)>::value , int>::type = 0>
 auto sum_join_layer(U &&u, V &&v){
-  return SumJoinLayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u),DDST(v)>(std::forward<U>(u),std::forward<V>(v));
+  return SumJoinLayer<CONFIGTYPE(U),INPUTTYPE(U),DDST(u),DDST(v)>(std::forward<U>(u),std::forward<V>(v));
 }

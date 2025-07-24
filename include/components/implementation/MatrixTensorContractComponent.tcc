@@ -1,5 +1,5 @@
-template<typename FloatType, int TensDim>
-Tensor<FloatType,TensDim> MatrixTensorContractComponent<FloatType,TensDim>::value(const Tensor<FloatType,TensDim> &in){
+template<typename Config, int TensDim>
+Tensor<typename Config::FloatType,TensDim> MatrixTensorContractComponent<Config,TensDim>::value(const Tensor<FloatType,TensDim> &in){
   if(!setup){
     batch_size = in.size(TensDim-1);  
     memcpy(in_dims,in.sizeArray(),TensDim*sizeof(int));
@@ -22,8 +22,8 @@ Tensor<FloatType,TensDim> MatrixTensorContractComponent<FloatType,TensDim>::valu
   return out;    
 }
 
-template<typename FloatType, int TensDim>
-void MatrixTensorContractComponent<FloatType,TensDim>::deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,TensDim> &&_above_deriv, Tensor<FloatType,TensDim> &layer_deriv) const{
+template<typename Config, int TensDim>
+void MatrixTensorContractComponent<Config,TensDim>::deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,TensDim> &&_above_deriv, Tensor<FloatType,TensDim> &layer_deriv) const{
   assert(_above_deriv.size(TensDim-2) == size0);
   assert(_above_deriv.size(TensDim-1) == batch_size);
 
@@ -55,8 +55,8 @@ void MatrixTensorContractComponent<FloatType,TensDim>::deriv(Vector<FloatType> &
   deriv_FLOPS.lock();
 }
 
-template<typename FloatType, int TensDim>
-void MatrixTensorContractComponent<FloatType,TensDim>::update(int off, const Vector<FloatType> &new_params){
+template<typename Config, int TensDim>
+void MatrixTensorContractComponent<Config,TensDim>::update(int off, const Vector<FloatType> &new_params){
   autoView(new_params_v,new_params,DeviceRead);
   autoView(weights_v,weights,DeviceWrite);
   size_t sz1=size1;
@@ -66,8 +66,8 @@ void MatrixTensorContractComponent<FloatType,TensDim>::update(int off, const Vec
     });
 }
 
-template<typename FloatType, int TensDim>
-void MatrixTensorContractComponent<FloatType,TensDim>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
+template<typename Config, int TensDim>
+void MatrixTensorContractComponent<Config,TensDim>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
   autoView(derivs_v,derivs,DeviceRead);
   autoView(weights_v,weights,DeviceReadWrite);
   size_t sz1 = size1;
@@ -79,8 +79,8 @@ void MatrixTensorContractComponent<FloatType,TensDim>::step(int off, const Vecto
 }
 
 
-template<typename FloatType, int TensDim>
-void MatrixTensorContractComponent<FloatType,TensDim>::getParams(Vector<FloatType> &into, int off) const{
+template<typename Config, int TensDim>
+void MatrixTensorContractComponent<Config,TensDim>::getParams(Vector<FloatType> &into, int off) const{
   autoView(into_v,into,DeviceReadWrite);
   autoView(weights_v,weights,DeviceRead);
   size_t sz1 = size1;

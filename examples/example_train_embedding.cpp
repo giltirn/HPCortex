@@ -94,7 +94,7 @@ std::vector<std::string> predictNext(const std::vector<std::string> &sentence, i
   
 int main(int argc, char** argv){
   initialize(argc, argv);
-
+  typedef confDouble Config;
   bool save_model = false;
   bool load_model = false;
   std::string model_file;
@@ -188,7 +188,7 @@ int main(int argc, char** argv){
     int nheads = 4;
     int d_act = 40;
     int d_model = d_model_in;
-    auto pos_embed = embed_positions_sinusoidal_layer(input_layer<double,Tensor<double,3> >());
+    auto pos_embed = embed_positions_sinusoidal_layer(input_layer<Config,Tensor<double,3> >());
     
     auto decoder1 = transformer_decoder_block(d_model, nheads, d_act, GeLU<double>(),
 					      pos_embed
@@ -234,7 +234,7 @@ int main(int argc, char** argv){
     int d_hidden = 50;
     auto embedding = batch_tensor_dnn_layer<3>(embedding_dim, d_model, d_hidden, GeLU<double>(),
 					       batch_tensor_dnn_layer<3>(embedding_dim, d_hidden, d_model_in, GeLU<double>(),
-									 input_layer<double,Tensor<double,3> >()									  
+									 input_layer<Config,Tensor<double,3> >()									  
 									 )						
 					       );
 

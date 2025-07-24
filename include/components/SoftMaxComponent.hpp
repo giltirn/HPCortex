@@ -2,21 +2,22 @@
 #include <cmath>
 #include <type_traits>
 #include <sstream>
+#include <ModelConfig.hpp>
 #include <Tensors.hpp>
-#include <RingBuffer.hpp>
+#include <Buffers.hpp>
 #include <Linalg.hpp>
 
 //A component implementing the softmax operation on a batch tensor (one for which the last dimension is the batch dimension) along an arbitrary dimension other than the batch dimension
-template<typename _FloatType, int TensDim>
+template<typename Config, int TensDim>
 class SoftMaxComponent{
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
 private:
   int softmax_dim;
   FloatType beta;
   mutable FLOPScounter value_FLOPS;
   mutable FLOPScounter deriv_FLOPS;
-  mutable RingBuffer<Tensor<FloatType,TensDim> > out_buf;
+  mutable BufferType<Tensor<FloatType,TensDim> > out_buf;
 public:
   
   SoftMaxComponent(int softmax_dim, FloatType beta = 1.0): softmax_dim(softmax_dim), beta(beta){

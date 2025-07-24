@@ -2,10 +2,10 @@
 #include "LayerCommon.hpp"
 
 //Flatten the input tensor on all dimensions but the last (batch) dimension
-template<typename _FloatType, typename _InputType, typename Store>
+template<typename Config, typename _InputType, typename Store>
 class FlattenLayer{
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
   typedef _InputType InputType;
   typedef LAYEROUTPUTTYPE(typename Store::type) LayerInputTensorType; //expect a Tensor
   static_assert(std::is_same<LayerInputTensorType, Tensor<FloatType, LayerInputTensorType::dimension()> >::value == true );
@@ -46,8 +46,8 @@ public:
 };
 
 template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto flatten_layer(U &&u)->FlattenLayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u)>{
-  return FlattenLayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u)>(std::forward<U>(u));
+auto flatten_layer(U &&u)->FlattenLayer<CONFIGTYPE(U),INPUTTYPE(U),DDST(u)>{
+  return FlattenLayer<CONFIGTYPE(U),INPUTTYPE(U),DDST(u)>(std::forward<U>(u));
 }
 
 #include "implementation/FlattenLayer.tcc"

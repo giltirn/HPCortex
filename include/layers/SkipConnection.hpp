@@ -1,10 +1,10 @@
 #pragma once
 #include "LayerCommon.hpp"
 
-template<typename _FloatType, typename _InputType, typename ChainInternal, typename ChainBelow>
+template<typename Config, typename _InputType, typename ChainInternal, typename ChainBelow>
 class SkipConnection{
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
   typedef _InputType InputType;
   typedef typename ChainBelow::type ChainBelowInternalType;
   typedef LAYERTYPEOUTPUTTYPE(ChainBelowInternalType) LayerInputOutputType;
@@ -43,7 +43,7 @@ public:
   }
 };
 
-#define LAYER_TYPE SkipConnection<FLOATTYPE(Internal),INPUTTYPE(Below),DDST(internal),DDST(below)>
+#define LAYER_TYPE SkipConnection<CONFIGTYPE(Internal),INPUTTYPE(Below),DDST(internal),DDST(below)>
 
 template<typename Internal, typename Below, typename std::enable_if<ISLEAF(Internal) && ISLEAF(Below), int>::type = 0>
 auto skip_connection(Internal &&internal, Below &&below)-> LAYER_TYPE{

@@ -3,14 +3,14 @@
 #include <components/MatrixTensorContractComponent.hpp>
 
 //A layer implementing    W_{ij} X_{..., j, b}   where W is a weight matrix and X is a tensor of at least dimension 2. The last dimension is always assumed to be the batch dimension
-template<typename _FloatType, int TensDim, typename _InputType, typename Store>
+template<typename Config, int TensDim, typename _InputType, typename Store>
 class MatrixTensorContractLayer{
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
   typedef _InputType InputType;
 private:
   Store leaf;
-  MatrixTensorContractComponent<FloatType,TensDim> cpt;
+  MatrixTensorContractComponent<Config,TensDim> cpt;
 public:
   typedef LeafTag tag;
   
@@ -44,7 +44,7 @@ public:
 
 };
 
-#define LAYER_TYPE MatrixTensorContractLayer<FLOATTYPE(U),TensDim,INPUTTYPE(U),DDST(u)>
+#define LAYER_TYPE MatrixTensorContractLayer<CONFIGTYPE(U),TensDim,INPUTTYPE(U),DDST(u)>
 template<int TensDim, typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
 auto matrix_tensor_contract_layer(const Matrix<FLOATTYPE(U)> &weights, U &&u)-> LAYER_TYPE{
   return LAYER_TYPE(std::forward<U>(u), weights);

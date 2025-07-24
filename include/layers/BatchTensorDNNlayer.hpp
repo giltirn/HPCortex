@@ -3,14 +3,14 @@
 #include <components/BatchTensorDNNcomponent.hpp>
 
 //A layer implementing    W_{ij} X_{..., j, ...,  b} + B_j    where W is a weight matrix and X is a tensor of at least dimension 2. The last dimension is always assumed to be the batch dimension
-template<typename _FloatType, int TensDim, typename _InputType, typename Store, typename ActivationFunc>
+template<typename Config, int TensDim, typename _InputType, typename Store, typename ActivationFunc>
 class BatchTensorDNNlayer{
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
   typedef _InputType InputType;
 private:
   Store leaf;
-  BatchTensorDNNcomponent<FloatType,TensDim,ActivationFunc> cpt;
+  BatchTensorDNNcomponent<Config,TensDim,ActivationFunc> cpt;
 public:
   typedef LeafTag tag;
 
@@ -49,7 +49,7 @@ public:
 
 };
 
-#define LAYER_TYPE BatchTensorDNNlayer<FLOATTYPE(U),TensDim,INPUTTYPE(U),DDST(u),ActivationFunc>
+#define LAYER_TYPE BatchTensorDNNlayer<CONFIGTYPE(U),TensDim,INPUTTYPE(U),DDST(u),ActivationFunc>
 template<int TensDim, typename U, typename ActivationFunc, typename std::enable_if<ISLEAF(U), int>::type = 0>
 auto batch_tensor_dnn_layer(const Matrix<FLOATTYPE(U)> &weights, const Vector<FLOATTYPE(U)> &bias, int contract_dim, const ActivationFunc &activation, U &&u)-> LAYER_TYPE{
   return LAYER_TYPE(std::forward<U>(u), weights, bias, contract_dim, activation);
@@ -79,7 +79,7 @@ auto batch_tensor_unbiased_dnn_layer(int contract_dim, int fan_out, int fan_in, 
 #undef LAYER_TYPE
 
 
-#define LAYER_TYPE BatchTensorDNNlayer<FLOATTYPE(U),2,INPUTTYPE(U),DDST(u),ActivationFunc>
+#define LAYER_TYPE BatchTensorDNNlayer<CONFIGTYPE(U),2,INPUTTYPE(U),DDST(u),ActivationFunc>
 template<typename U, typename ActivationFunc, typename std::enable_if<ISLEAF(U), int>::type = 0>
 auto dnn_layer(const Matrix<FLOATTYPE(U)> &weights,const Vector<FLOATTYPE(U)> &bias, const ActivationFunc &activation, U &&u){
   return LAYER_TYPE(std::forward<U>(u), weights, bias, 0, activation);

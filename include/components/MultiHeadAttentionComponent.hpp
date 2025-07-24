@@ -3,10 +3,10 @@
 #include <components/BatchTensorConcatenateComponent.hpp>
 
 //A layer implementing multi-head scaled dot-product attention. The input 3-tensor X is expected to have dimension C * E * B  in this order, where C is the size of the context, E the size of the embedding and B the batch size
-template<typename _FloatType>
+template<typename Config>
 class MultiHeadAttentionComponent{
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
 private:
   typedef Tensor<FloatType,3> TensorType;
 
@@ -16,10 +16,10 @@ private:
   int Nparams_layer;
   bool setup;
 
-  std::vector< std::unique_ptr<ScaledDotProductAttentionHeadComponent<FloatType> > > heads; //Y^h = attention(X,X,X)
-  BatchTensorConcatenateComponent<FloatType,3> concatY; //Yconcat_{c,:,b} = concat_h( Y^h_{c,:,b} )
+  std::vector< std::unique_ptr<ScaledDotProductAttentionHeadComponent<Config> > > heads; //Y^h = attention(X,X,X)
+  BatchTensorConcatenateComponent<Config,3> concatY; //Yconcat_{c,:,b} = concat_h( Y^h_{c,:,b} )
   
-  MatrixTensorContractComponent<FloatType,3> multW_O; //W_O{oy} Yconcat_{c, y, b}
+  MatrixTensorContractComponent<Config,3> multW_O; //W_O{oy} Yconcat_{c, y, b}
 
 public:
   

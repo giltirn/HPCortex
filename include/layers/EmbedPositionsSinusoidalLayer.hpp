@@ -3,10 +3,10 @@
 #include <Embeddings.hpp>
 
 //A layer than embeds positions into the input using the sinusoidal method. Expects a tensor of size CxExB where C is the context size, E the embedding size and B the batch size
-template<typename _FloatType, typename _InputType, typename Store>
+template<typename Config, typename _InputType, typename Store>
 class EmbedPositionsSinusoidalLayer{
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
   typedef _InputType InputType;
 private:
   Store leaf;
@@ -54,5 +54,5 @@ public:
 
 template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
 auto embed_positions_sinusoidal_layer(U &&u){
-  return EmbedPositionsSinusoidalLayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u)>(std::forward<U>(u));
+  return EmbedPositionsSinusoidalLayer<CONFIGTYPE(U),INPUTTYPE(U),DDST(u)>(std::forward<U>(u));
 }

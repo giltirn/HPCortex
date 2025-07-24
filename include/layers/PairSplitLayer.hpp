@@ -1,10 +1,10 @@
 #pragma once
 #include "LayerCommon.hpp"
 
-template<typename _FloatType, typename _InputType, typename Store>
+template<typename Config, typename _InputType, typename Store>
 class PairSplitLayerLeader{
-  public:
-  typedef _FloatType FloatType;
+public:
+  EXTRACT_CONFIG_TYPES;
   typedef _InputType InputType;
   typedef typename Store::type StoredType;
   typedef LAYERTYPEOUTPUTTYPE(StoredType) LayerInputType;
@@ -88,20 +88,20 @@ class PairSplitLayerLeader{
 
 
 
-template<typename _FloatType, typename _InputType, typename Store>
+template<typename Config, typename _InputType, typename Store>
 class PairSplitLayer1{
   typedef typename Store::type StoredType;
 public:
+  EXTRACT_CONFIG_TYPES;
   typedef LAYERTYPEOUTPUTTYPE(StoredType) LayerInputType;
   typedef typename LayerInputType::first_type LayerOutputType;
-  typedef _FloatType FloatType;
   typedef _InputType InputType;
 private:
-  PairSplitLayerLeader<FloatType,InputType,Store> *leader;
+  PairSplitLayerLeader<Config,InputType,Store> *leader;
 public:
   typedef LeafTag tag;
   
-  PairSplitLayer1(PairSplitLayerLeader<FloatType,InputType,Store> *leader): leader(leader){}
+  PairSplitLayer1(PairSplitLayerLeader<Config,InputType,Store> *leader): leader(leader){}
   PairSplitLayer1(const PairSplitLayer1 &r) = delete;
   PairSplitLayer1(PairSplitLayer1 &&r): leader(r.leader){
     r.leader = nullptr;
@@ -141,20 +141,20 @@ public:
 };
 
 
-template<typename _FloatType, typename _InputType, typename Store>
+template<typename Config, typename _InputType, typename Store>
 class PairSplitLayer2{
   typedef typename Store::type StoredType;
 public:
+  EXTRACT_CONFIG_TYPES;
   typedef LAYERTYPEOUTPUTTYPE(StoredType) LayerInputType;
   typedef typename LayerInputType::second_type LayerOutputType;
-  typedef _FloatType FloatType;
   typedef _InputType InputType;
 private:
-  PairSplitLayerLeader<FloatType,InputType,Store> *leader;
+  PairSplitLayerLeader<Config,InputType,Store> *leader;
 public:
   typedef LeafTag tag;
   
-  PairSplitLayer2(PairSplitLayerLeader<FloatType,InputType,Store> *leader): leader(leader){}
+  PairSplitLayer2(PairSplitLayerLeader<Config,InputType,Store> *leader): leader(leader){}
   PairSplitLayer2(const PairSplitLayer2 &r) = delete;
   PairSplitLayer2(PairSplitLayer2 &&r) = default;
   
@@ -190,9 +190,9 @@ public:
 
 template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
 auto pair_split_layer(U &&u){
-  typedef PairSplitLayer1<FLOATTYPE(U),INPUTTYPE(U),DDST(u)> Branch1;
-  typedef PairSplitLayer2<FLOATTYPE(U),INPUTTYPE(U),DDST(u)> Branch2;
-  typedef PairSplitLayerLeader<FLOATTYPE(U),INPUTTYPE(U),DDST(u)> Leader;
+  typedef PairSplitLayer1<CONFIGTYPE(U),INPUTTYPE(U),DDST(u)> Branch1;
+  typedef PairSplitLayer2<CONFIGTYPE(U),INPUTTYPE(U),DDST(u)> Branch2;
+  typedef PairSplitLayerLeader<CONFIGTYPE(U),INPUTTYPE(U),DDST(u)> Leader;
 
   Leader* leader = new Leader(std::forward<U>(u));
   std::pair<std::unique_ptr<Branch1>, std::unique_ptr<Branch2> > out;

@@ -3,10 +3,10 @@
 
 //The input layer
 //This is always the lowest layer in the model
-template<typename _FloatType, typename _InputType = Matrix<_FloatType> >
+template<typename Config, typename _InputType = Matrix<typename Config::FloatType> >
 class InputLayer{  
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
   typedef _InputType InputType;
   typedef LeafTag tag;
   
@@ -40,5 +40,5 @@ public:
   inline void resizeInputBuffer(size_t to){}
 };
 
-template<typename FloatType, typename InputType = Matrix<FloatType> >
-inline InputLayer<FloatType,InputType> input_layer(){ return InputLayer<FloatType,InputType>(); }
+template<typename Config, typename InputType = Matrix<typename Config::FloatType> >
+inline InputLayer<Config,InputType> input_layer(){ return InputLayer<Config,InputType>(); }

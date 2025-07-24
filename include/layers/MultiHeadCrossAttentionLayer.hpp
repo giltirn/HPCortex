@@ -4,10 +4,10 @@
 
 //Implementation of multi-head cross-attention where keys and values are produced from one input chain and queries from another
 //Require W_Q[i], W_K[i] :  d_qkv^(i) x E,     W_V[i] : d_qkv^(i) x E      W_O :  E x sum_i d_qkv^(i)
-template<typename _FloatType, typename _InputType, typename StoreKV, typename StoreQ>
+template<typename Config, typename _InputType, typename StoreKV, typename StoreQ>
 class MultiHeadCrossAttentionLayer{
-  public:
-  typedef _FloatType FloatType;
+public:
+  EXTRACT_CONFIG_TYPES;
   typedef _InputType InputType; //fundamental model input
 
   typedef Tensor<FloatType,3> TensorType;
@@ -15,7 +15,7 @@ class MultiHeadCrossAttentionLayer{
 private:
   StoreKV leaf_KV;
   StoreQ leaf_Q;
-  MultiHeadAttentionComponent<FloatType> attention;
+  MultiHeadAttentionComponent<Config> attention;
 public:
   typedef LeafTag tag;
   
@@ -95,12 +95,12 @@ public:
   }
 };
 
-#define LAYER_TYPE MultiHeadCrossAttentionLayer<FLOATTYPE(ChainKV), \
+#define LAYER_TYPE MultiHeadCrossAttentionLayer<CONFIGTYPE(ChainKV), \
 						INPUTTYPE(ChainKV), \
 						DDST(chain_KV),DDST(chain_Q)>
 #define TEMPL \
 template<typename ChainKV, typename ChainQ, \
-	 typename std::enable_if<ISLEAF(ChainKV) && ISLEAF(ChainQ) && std::is_same<FLOATTYPE(ChainKV),FLOATTYPE(ChainQ)>::value && std::is_same<INPUTTYPE(ChainKV),INPUTTYPE(ChainQ)>::value , int>::type = 0 \
+	 typename std::enable_if<ISLEAF(ChainKV) && ISLEAF(ChainQ) && std::is_same<CONFIGTYPE(ChainKV),CONFIGTYPE(ChainQ)>::value && std::is_same<INPUTTYPE(ChainKV),INPUTTYPE(ChainQ)>::value , int>::type = 0 \
 	 >
 
 TEMPL

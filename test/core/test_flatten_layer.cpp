@@ -2,7 +2,8 @@
 #include <Testing.hpp>
 
 void testFlattenLayer(){
-  typedef double FloatType; //more precise derivatives
+  typedef confDouble Config;
+  typedef typename Config::FloatType FloatType;
 
   int dims[3] = {2,3,4};
   typedef std::vector<FloatType> vecD;
@@ -16,7 +17,7 @@ void testFlattenLayer(){
   Matrix<FloatType> expect(2*3, 4, in_lin); //will use z as batch_size  
   TensType in(dims, in_lin);
 
-  auto m = flatten_layer( input_layer<FloatType, TensType>() );
+  auto m = flatten_layer( input_layer<Config, TensType>() );
   
   Matrix<FloatType> got = m.value(in);
   std::cout << got << std::endl;
@@ -41,7 +42,8 @@ void testFlattenLayer(){
 }
 
 void testUnflattenLayer(){
-  typedef double FloatType; //more precise derivatives
+  typedef confDouble Config;
+  typedef typename Config::FloatType FloatType;
 
   int dims[3] = {2,3,4};
   typedef std::vector<FloatType> vecD;
@@ -55,7 +57,7 @@ void testUnflattenLayer(){
   TensType expect(dims, in_lin);
   Matrix<FloatType> in(2*3, 4, in_lin); 
 
-  auto m = unflatten_layer<3>(dims, input_layer<FloatType, Matrix<FloatType> >());
+  auto m = unflatten_layer<3>(dims, input_layer<Config, Matrix<FloatType> >());
   
   TensType got = m.value(in);
   

@@ -1,5 +1,5 @@
-template<typename FloatType, typename InputType, typename Store, typename ActivationFunc, typename PaddingFunc>
-Tensor<FloatType,3> ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::value(const InputType &x){
+template<typename Config, typename InputType, typename Store, typename ActivationFunc, typename PaddingFunc>
+Tensor<typename Config::FloatType,3> ConvolutionLayer1D<Config,InputType,Store,ActivationFunc,PaddingFunc>::value(const InputType &x){
   LayerInputTensorType in = leaf.v.value(x);
 
   //std::cout << "Conv1d input tensor of size " << in.sizeArrayString() << std::endl;
@@ -65,8 +65,8 @@ Tensor<FloatType,3> ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,
   return out;
 }
 
-template<typename FloatType, typename InputType, typename Store, typename ActivationFunc, typename PaddingFunc>
-int ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,3> &&_above_deriv, InputType* input_above_deriv_return) const{
+template<typename Config, typename InputType, typename Store, typename ActivationFunc, typename PaddingFunc>
+int ConvolutionLayer1D<Config,InputType,Store,ActivationFunc,PaddingFunc>::deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,3> &&_above_deriv, InputType* input_above_deriv_return) const{
   assert(init);
 
   //Out channel index = d
@@ -199,8 +199,8 @@ int ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::de
   return leaf.v.deriv(cost_deriv, p, std::move(layer_deriv), input_above_deriv_return);
 }
 
-template<typename FloatType, typename InputType, typename Store, typename ActivationFunc, typename PaddingFunc>
-int ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::update(int off, const Vector<FloatType> &new_params){
+template<typename Config, typename InputType, typename Store, typename ActivationFunc, typename PaddingFunc>
+int ConvolutionLayer1D<Config,InputType,Store,ActivationFunc,PaddingFunc>::update(int off, const Vector<FloatType> &new_params){
   int p=off;
   {
     autoView(new_params_v,new_params,DeviceRead);
@@ -218,8 +218,8 @@ int ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::up
   return leaf.v.update(p, new_params);
 }
 
-template<typename FloatType, typename InputType, typename Store, typename ActivationFunc, typename PaddingFunc>
-int ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
+template<typename Config, typename InputType, typename Store, typename ActivationFunc, typename PaddingFunc>
+int ConvolutionLayer1D<Config,InputType,Store,ActivationFunc,PaddingFunc>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
   int p=off;
   {
     autoView(derivs_v,derivs,DeviceRead);
@@ -239,8 +239,8 @@ int ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::st
 
 
 
-template<typename FloatType, typename InputType, typename Store, typename ActivationFunc, typename PaddingFunc>
-int ConvolutionLayer1D<FloatType,InputType,Store,ActivationFunc,PaddingFunc>::getParams(Vector<FloatType> &into, int off) const{
+template<typename Config, typename InputType, typename Store, typename ActivationFunc, typename PaddingFunc>
+int ConvolutionLayer1D<Config,InputType,Store,ActivationFunc,PaddingFunc>::getParams(Vector<FloatType> &into, int off) const{
   int p = off;
   {
     autoView(into_v, into, DeviceReadWrite);

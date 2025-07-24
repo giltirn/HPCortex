@@ -3,9 +3,10 @@
 #include<Layers.hpp>
 
 //This functionality allows dynamic rather than compile time composition of layers
-template<typename FloatType, typename InputType, typename LayerOutputType>
-class LayerWrapperInternalBase{
+template<typename Config, typename InputType, typename LayerOutputType>
+class LayerWrapperInternalBase{  
 public:
+  EXTRACT_CONFIG_TYPES;
   virtual LayerOutputType value(const InputType &x) = 0;
   virtual int deriv(Vector<FloatType> &cost_deriv, int off, LayerOutputType &&above_deriv, InputType* input_above_deriv_return = nullptr) const = 0;
   virtual int nparams() const = 0;
@@ -16,7 +17,7 @@ public:
   virtual ~LayerWrapperInternalBase(){}
 };
 template<typename Store, typename std::enable_if<ISSTORAGE(Store), int>::type = 0 >
-class LayerWrapperInternal: public LayerWrapperInternalBase<typename Store::type::FloatType,
+class LayerWrapperInternal: public LayerWrapperInternalBase<typename Store::type::ModelConfig,
 							    typename Store::type::InputType,
 							    LAYEROUTPUTTYPE(typename Store::type)>{
 public:
@@ -44,14 +45,14 @@ public:
   
   void resizeInputBuffer(size_t to) override{ layer.v.resizeInputBuffer(to); }
 };
-template<typename _FloatType, typename _InputType, typename _LayerOutputType>
+template<typename Config, typename _InputType, typename _LayerOutputType>
 class LayerWrapper{
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
   typedef _InputType InputType;
   typedef _LayerOutputType LayerOutputType;
 private:
-  std::unique_ptr<LayerWrapperInternalBase<FloatType,InputType,LayerOutputType> > layer;
+  std::unique_ptr<LayerWrapperInternalBase<Config,InputType,LayerOutputType> > layer;
 public:
   typedef LeafTag tag;
 
@@ -79,6 +80,6 @@ public:
 };
 
 template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
-LayerWrapper<FLOATTYPE(U),INPUTTYPE(U),LAYEROUTPUTTYPE(U)> enwrap(U &&u){
-  return LayerWrapper<FLOATTYPE(U),INPUTTYPE(U),LAYEROUTPUTTYPE(U)>(DDST(u)(std::forward<U>(u)));
+LayerWrapper<CONFIGTYPE(U),INPUTTYPE(U),LAYEROUTPUTTYPE(U)> enwrap(U &&u){
+  return LayerWrapper<CONFIGTYPE(U),INPUTTYPE(U),LAYEROUTPUTTYPE(U)>(DDST(u)(std::forward<U>(u)));
 }

@@ -2,20 +2,21 @@
 #include <cmath>
 #include <type_traits>
 #include <sstream>
+#include <ModelConfig.hpp>
 #include <Tensors.hpp>
-#include <RingBuffer.hpp>
+#include <Buffers.hpp>
 #include <Linalg.hpp>
 
 //A component implementing the softmax operation over the rows of a batched matrix ( Tensor<FloatType,3> with the last dimension the batch dimension ) with optional masking
 //softmax(In + M)  where M is zero (no masking) or is *strictly* upper triangular (diagonal elements also zero) with nonzero elements =-inf
 //If masking, the input must be a square
-template<typename _FloatType>
+template<typename Config>
 class BatchedMatrixRowSoftMaxComponent{
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
 private:
   FloatType beta;
-  mutable RingBuffer<Tensor<FloatType,3> > out_buf;
+  mutable BufferType<Tensor<FloatType,3> > out_buf;
   mutable FLOPScounter value_FLOPS;
   mutable FLOPScounter deriv_FLOPS;
   bool use_mask;

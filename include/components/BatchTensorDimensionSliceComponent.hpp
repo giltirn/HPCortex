@@ -2,15 +2,16 @@
 #include <cmath>
 #include <type_traits>
 #include <sstream>
+#include <ModelConfig.hpp>
 #include <Tensors.hpp>
 #include <Linalg.hpp>
 
 //A component implementing single element slice for batch tensors along a specific dimension, reducing the tensor dimension by 1
 //eg  B_{ijk} = C_{ijlk}
-template<typename _FloatType, int TensDim>
+template<typename Config, int TensDim>
 class BatchTensorDimensionSliceComponent{
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
 private:
   int slice_dim;
   int slice_idx;

@@ -2,7 +2,9 @@
 #include <Testing.hpp>
 
 void testDynamicModel(){
-  typedef double FloatType;
+  typedef confDouble Config;
+  typedef typename Config::FloatType FloatType;
+
   std::mt19937 rng(1234);
   
   {
@@ -15,12 +17,12 @@ void testDynamicModel(){
     auto model = dnn_layer(winit,binit,
 			   dnn_layer(winit, binit,
 				     dnn_layer(winit,binit,
-					       input_layer<FloatType>()
+					       input_layer<Config>()
 					       )
 				     )
 			   );
  
-    auto composed = enwrap( input_layer<FloatType>() );
+    auto composed = enwrap( input_layer<Config>() );
     for(int i=0;i<3;i++)
       composed = enwrap( dnn_layer(winit,binit, std::move(composed) ) );
  
@@ -48,7 +50,7 @@ void testDynamicModel(){
     int conv_out_len = padding.layerOutputLength(input_size,kernel_size,stride);
 
     auto conv_layer_w = enwrap( conv1d_layer(filter, ReLU<FloatType>(), padding, stride,
-					     input_layer<FloatType,Tens3 >()
+					     input_layer<Config,Tens3 >()
 					     )
 				);
     auto flatten_layer_w = enwrap(flatten_layer(conv_layer_w));
@@ -69,7 +71,7 @@ void testDynamicModel(){
     auto full_model = dnn_layer(weights, bias,
 				flatten_layer(
 					      conv1d_layer(filter, ReLU<FloatType>(), padding, stride,
-							   input_layer<FloatType,Tens3>()							   
+							   input_layer<Config,Tens3>()							   
 							   )
 					      )
 				);

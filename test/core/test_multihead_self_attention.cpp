@@ -1,7 +1,7 @@
 #include <HPCortex.hpp>
 #include <Testing.hpp>
 
-template<typename FloatType>
+template<typename Config, typename FloatType>
 Tensor<FloatType,3> naiveImpl(const Tensor<FloatType,3> &X,
 			      const std::vector< Matrix<FloatType> > &W_Q,
 			      const std::vector< Matrix<FloatType> > &W_K,
@@ -20,7 +20,7 @@ Tensor<FloatType,3> naiveImpl(const Tensor<FloatType,3> &X,
   //We assume the attention head is correct as it is tested elsewhere
   int off =0;
   for(int h=0;h<Nheads;h++){
-    ScaledDotProductAttentionHeadComponent<FloatType> head(W_Q[h],W_K[h],W_V[h],use_mask);
+    ScaledDotProductAttentionHeadComponent<Config> head(W_Q[h],W_K[h],W_V[h],use_mask);
     Tensor<FloatType,3> Yh = head.value(X,X,X);
     doHost2(Yh,Yconcat, {    
 	for(int c=0;c<C;c++)
@@ -31,14 +31,16 @@ Tensor<FloatType,3> naiveImpl(const Tensor<FloatType,3> &X,
     off += Yh.size(1);
   }
   assert(off == sdv);
-  MatrixTensorContractComponent<FloatType,3> mulWO(W_O);
+  MatrixTensorContractComponent<Config,3> mulWO(W_O);
   Tensor<FloatType,3> out = mulWO.value(Yconcat);
   assert(out.size(0) == C && out.size(1) == d_o && out.size(2) == B);
   return out;
 }
 
 void testMultiHeadSelfAttention(){
-  typedef double FloatType;
+  typedef confDouble Config;
+  typedef typename Config::FloatType FloatType;
+
   std::mt19937 rng(1234);
    
   typedef std::vector<FloatType> vecD;
@@ -78,13 +80,13 @@ void testMultiHeadSelfAttention(){
   uniformRandom(in_W_O,rng);
 
   for(int use_mask=0;use_mask<2;use_mask++){
-    auto model = multihead_self_attention_layer(Nheads, in_W_Q_p.data(), in_W_K_p.data(), in_W_V_p.data(), in_W_O, use_mask, input_layer<FloatType, Tensor<FloatType,3> >());
+    auto model = multihead_self_attention_layer(Nheads, in_W_Q_p.data(), in_W_K_p.data(), in_W_V_p.data(), in_W_O, use_mask, input_layer<Config, Tensor<FloatType,3> >());
 
     Tensor<FloatType,3> X(C,E,B);
     uniformRandom(X,rng);
   
     Tensor<FloatType,3> got = model.value(X);
-    Tensor<FloatType,3> expect = naiveImpl(X,in_W_Q,in_W_K,in_W_V,in_W_O,C,E,B,use_mask);
+    Tensor<FloatType,3> expect = naiveImpl<Config,FloatType>(X,in_W_Q,in_W_K,in_W_V,in_W_O,C,E,B,use_mask);
 
     assert(abs_near(got,expect,FloatType(1e-4),true));
 

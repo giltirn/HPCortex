@@ -3,16 +3,16 @@
 #include <components/NormComponent.hpp>
 #include <components/ScaleComponent.hpp>
 
-template<typename _FloatType, int TensDim, typename _InputType, typename Store>
+template<typename Config, int TensDim, typename _InputType, typename Store>
 class NormLayer{
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
   typedef _InputType InputType;
 private:
   typedef Tensor<FloatType,TensDim> LayerInputType;
 
-  NormComponent<FloatType,TensDim> nrm;
-  ScaleComponent<FloatType,TensDim> scale;
+  NormComponent<Config,TensDim> nrm;
+  ScaleComponent<Config,TensDim> scale;
   Store leaf;
 
 public:
@@ -63,7 +63,7 @@ public:
 
 };
 
-#define LAYER_TYPE NormLayer<FLOATTYPE(U),TensDim,INPUTTYPE(U),DDST(u)>
+#define LAYER_TYPE NormLayer<CONFIGTYPE(U),TensDim,INPUTTYPE(U),DDST(u)>
 template<int TensDim, typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
 auto norm_layer(int norm_dim, int norm_dim_size,
 		bool use_affine, bool use_bias,

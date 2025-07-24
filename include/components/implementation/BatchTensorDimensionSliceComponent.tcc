@@ -1,5 +1,5 @@
-template<typename FloatType, int TensDim>
-Tensor<FloatType,TensDim-1> BatchTensorDimensionSliceComponent<FloatType,TensDim>::value(const Tensor<FloatType,TensDim> &in){
+template<typename Config, int TensDim>
+Tensor<typename Config::FloatType,TensDim-1> BatchTensorDimensionSliceComponent<Config,TensDim>::value(const Tensor<FloatType,TensDim> &in){
   if(!setup){
     memcpy(in_size, in.sizeArray(), TensDim*sizeof(int));
     int dd=0;
@@ -37,8 +37,8 @@ Tensor<FloatType,TensDim-1> BatchTensorDimensionSliceComponent<FloatType,TensDim
   return out;		  
 }
 
-template<typename FloatType, int TensDim>
-void BatchTensorDimensionSliceComponent<FloatType,TensDim>::deriv(Tensor<FloatType,TensDim-1> &&_dcost_by_dOut, Tensor<FloatType,TensDim> &dcost_by_dIn) const{
+template<typename Config, int TensDim>
+void BatchTensorDimensionSliceComponent<Config,TensDim>::deriv(Tensor<FloatType,TensDim-1> &&_dcost_by_dOut, Tensor<FloatType,TensDim> &dcost_by_dIn) const{
   Tensor<FloatType,TensDim-1> dcost_by_dOut(std::move(_dcost_by_dOut));
   dcost_by_dIn = Tensor<FloatType,TensDim>(in_size, 0.);
   int batch_size = in_size[TensDim-1]; 

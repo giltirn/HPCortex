@@ -127,7 +127,7 @@ int main(int argc, char** argv){
   initialize(argc, argv);
 
   std::mt19937 rng(1234);
-
+  typedef confDouble Config;
   typedef Tensor<double,3> TensorType;
   constexpr int embedding_dim = 1;
   typedef std::pair<TensorType,TensorType> InputType; //paired encoder and decoder inputs
@@ -191,7 +191,7 @@ int main(int argc, char** argv){
   int d_act = 40; //neurons in activation layer
   
   //split the input into two subchains
-  auto splt = pair_split_layer(input_layer<double,InputType>()); 
+  auto splt = pair_split_layer(input_layer<Config,InputType>()); 
   
   //for simplicity, as in https://arxiv.org/pdf/1706.03762, we will use a consistent embedding size. This means we need initial learned embedding layers to embed the differing vocabularies
   int d_model = 6;

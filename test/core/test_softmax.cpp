@@ -1,15 +1,15 @@
 #include <HPCortex.hpp>
 #include <Testing.hpp>
 
-template<typename _FloatType, int Dim>
+template<typename Config, int Dim>
 struct SoftMaxComponentWrapper{
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
   
-  SoftMaxComponent<FloatType,Dim> &cpt;
+  SoftMaxComponent<Config,Dim> &cpt;
   int size[Dim];
   size_t size_lin;
 
-  SoftMaxComponentWrapper(SoftMaxComponent<FloatType,Dim> &cpt, int const *sz): cpt(cpt){
+  SoftMaxComponentWrapper(SoftMaxComponent<Config,Dim> &cpt, int const *sz): cpt(cpt){
     memcpy(size,sz,Dim*sizeof(int));
     size_lin = 1;
     for(int d=0;d<Dim;d++) size_lin *= sz[d];
@@ -50,7 +50,9 @@ struct SoftMaxComponentWrapper{
 };
 
 void testSoftMaxComponent(){
-  typedef double FloatType;
+  typedef confDouble Config;
+  typedef typename Config::FloatType FloatType;
+
   std::mt19937 rng(1234);
    
   typedef std::vector<FloatType> vecD;
@@ -62,7 +64,7 @@ void testSoftMaxComponent(){
     Matrix<FloatType> logp(size);
     uniformRandom(logp,rng);
 
-    SoftMaxComponent<FloatType,2> cpt(0, beta);
+    SoftMaxComponent<Config,2> cpt(0, beta);
 
     Matrix<FloatType> vgot = cpt.value(logp);
     Matrix<FloatType> vexpect(size);
@@ -88,7 +90,7 @@ void testSoftMaxComponent(){
     uniformRandom(logp,rng);
 
     {//dim 0
-      SoftMaxComponent<FloatType,3> cpt(0, beta);
+      SoftMaxComponent<Config,3> cpt(0, beta);
 
       Tensor<FloatType,3> vgot = cpt.value(logp);
       Tensor<FloatType,3> vexpect(size);
@@ -113,7 +115,7 @@ void testSoftMaxComponent(){
       assert(abs_near(vgot,vexpect,FloatType(1e-4),true));
     }
     {//dim 1
-      SoftMaxComponent<FloatType,3> cpt(1, beta);
+      SoftMaxComponent<Config,3> cpt(1, beta);
 
       Tensor<FloatType,3> vgot = cpt.value(logp);
       Tensor<FloatType,3> vexpect(size);
@@ -145,8 +147,8 @@ void testSoftMaxComponent(){
   for(int d=0;d<3;d++){
     std::cout << "Testing derivs for softmax on dim " << d << std::endl;
     int size[4] = {2,3,4,5};
-    SoftMaxComponent<FloatType,4> cpt(d, beta);
-    SoftMaxComponentWrapper<FloatType,4> wrp(cpt,size);
+    SoftMaxComponent<Config,4> cpt(d, beta);
+    SoftMaxComponentWrapper<Config,4> wrp(cpt,size);
     testComponentDeriv(wrp);
   }
   std::cout << "testSoftMaxComponent passed" << std::endl;
@@ -154,14 +156,16 @@ void testSoftMaxComponent(){
 
 
 void testSoftMaxLayer(){
-  typedef float FloatType;
+  typedef confSingle Config;
+  typedef typename Config::FloatType FloatType;
+
   FloatType delta = 1e-4;
   std::mt19937 rng(1234);
    
   typedef std::vector<FloatType> vecD;
 
   FloatType beta = 0.3;
-  auto m = softmax_layer<2>(0, beta,input_layer<FloatType>());
+  auto m = softmax_layer<2>(0, beta,input_layer<Config>());
 
   int np = 20;
   int batch_size = 5;
@@ -233,15 +237,15 @@ void testSoftMaxLayer(){
 }
 
 
-template<typename _FloatType>
+template<typename Config>
 struct BatchedMatrixRowSoftMaxComponentWrapper{
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
   
-  BatchedMatrixRowSoftMaxComponent<FloatType> &cpt;
+  BatchedMatrixRowSoftMaxComponent<Config> &cpt;
   int size[3];
   size_t size_lin;
 
-  BatchedMatrixRowSoftMaxComponentWrapper(BatchedMatrixRowSoftMaxComponent<FloatType> &cpt, int const *sz): cpt(cpt){
+  BatchedMatrixRowSoftMaxComponentWrapper(BatchedMatrixRowSoftMaxComponent<Config> &cpt, int const *sz): cpt(cpt){
     memcpy(size,sz,3*sizeof(int));
     size_lin = 1;
     for(int d=0;d<3;d++) size_lin *= sz[d];
@@ -282,7 +286,9 @@ struct BatchedMatrixRowSoftMaxComponentWrapper{
 };
 
 void testBatchedMatrixRowSoftMaxComponent(){
-  typedef double FloatType;
+  typedef confDouble Config;
+  typedef typename Config::FloatType FloatType;
+
   std::mt19937 rng(1234);
    
   typedef std::vector<FloatType> vecD;
@@ -296,8 +302,8 @@ void testBatchedMatrixRowSoftMaxComponent(){
   for(int use_mask = 0; use_mask < 2; use_mask++){
     std::cout << "Testing " << (use_mask ? "WITH" : "WITHOUT") << " mask" << std::endl;
     
-    BatchedMatrixRowSoftMaxComponent<FloatType> cpt((bool)use_mask, beta);
-    SoftMaxComponent<FloatType,3> compare(1, beta); //tested above
+    BatchedMatrixRowSoftMaxComponent<Config> cpt((bool)use_mask, beta);
+    SoftMaxComponent<Config,3> compare(1, beta); //tested above
 
     Tensor<FloatType,3> vgot = cpt.value(logp);
 
@@ -316,7 +322,7 @@ void testBatchedMatrixRowSoftMaxComponent(){
     
     assert(abs_near(vgot,vexpect,FloatType(1e-4),true));
  
-    BatchedMatrixRowSoftMaxComponentWrapper<FloatType> wrp(cpt,size);
+    BatchedMatrixRowSoftMaxComponentWrapper<Config> wrp(cpt,size);
     testComponentDeriv(wrp);
   }
   std::cout << "testBatchedMatrixRowSoftMaxComponent passed" << std::endl;

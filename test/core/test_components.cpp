@@ -1,11 +1,11 @@
 #include <HPCortex.hpp>
 #include <Testing.hpp>
 
-template<typename _FloatType>
+template<typename Config>
 struct Batch3tensorPairContractComponentWrapper{
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
   
-  Batch3tensorPairContractComponent<FloatType> &cpt;
+  Batch3tensorPairContractComponent<Config> &cpt;
   int C_size[3];
   int A_size[3];
   int B_size[3];
@@ -14,7 +14,7 @@ struct Batch3tensorPairContractComponentWrapper{
   size_t B_lin;
   size_t C_lin;
 
-  Batch3tensorPairContractComponentWrapper(Batch3tensorPairContractComponent<FloatType> &cpt, int const *A_sz, int const* B_sz, int const *C_sz): cpt(cpt){
+  Batch3tensorPairContractComponentWrapper(Batch3tensorPairContractComponent<Config> &cpt, int const *A_sz, int const* B_sz, int const *C_sz): cpt(cpt){
     memcpy(A_size,A_sz,3*sizeof(int));
     memcpy(B_size,B_sz,3*sizeof(int));
     memcpy(C_size,C_sz,3*sizeof(int));
@@ -68,7 +68,9 @@ struct Batch3tensorPairContractComponentWrapper{
 
 
 void testBatch3tensorPairContractComponent(){
-  typedef double FloatType;
+  typedef confDouble Config;
+  typedef typename Config::FloatType FloatType;
+  
   FloatType nrm = 1./3.141;
   
   //0 0
@@ -78,8 +80,8 @@ void testBatch3tensorPairContractComponent(){
     int B_sz[3] = {3,5,6};
     int C_sz[3] = {4,5,6};
 
-    Batch3tensorPairContractComponent<FloatType> cpt(0,0,nrm);
-    Batch3tensorPairContractComponentWrapper<FloatType> wrp(cpt, A_sz,B_sz,C_sz);
+    Batch3tensorPairContractComponent<Config> cpt(0,0,nrm);
+    Batch3tensorPairContractComponentWrapper<Config> wrp(cpt, A_sz,B_sz,C_sz);
     testComponentDeriv(wrp);
   }
   //0 1
@@ -89,8 +91,8 @@ void testBatch3tensorPairContractComponent(){
     int B_sz[3] = {5,3,6};
     int C_sz[3] = {4,5,6};
 
-    Batch3tensorPairContractComponent<FloatType> cpt(0,1,nrm);
-    Batch3tensorPairContractComponentWrapper<FloatType> wrp(cpt, A_sz,B_sz,C_sz);
+    Batch3tensorPairContractComponent<Config> cpt(0,1,nrm);
+    Batch3tensorPairContractComponentWrapper<Config> wrp(cpt, A_sz,B_sz,C_sz);
     testComponentDeriv(wrp);
   }
   //1 0
@@ -100,8 +102,8 @@ void testBatch3tensorPairContractComponent(){
     int B_sz[3] = {3,5,6};
     int C_sz[3] = {4,5,6};
 
-    Batch3tensorPairContractComponent<FloatType> cpt(1,0,nrm);
-    Batch3tensorPairContractComponentWrapper<FloatType> wrp(cpt, A_sz,B_sz,C_sz);
+    Batch3tensorPairContractComponent<Config> cpt(1,0,nrm);
+    Batch3tensorPairContractComponentWrapper<Config> wrp(cpt, A_sz,B_sz,C_sz);
     testComponentDeriv(wrp);
   }
   //1 1
@@ -111,8 +113,8 @@ void testBatch3tensorPairContractComponent(){
     int C_sz[3] = {4,5,6};
 
     std::cout << "Contract 1 1" << std::endl;
-    Batch3tensorPairContractComponent<FloatType> cpt(1,1,nrm);
-    Batch3tensorPairContractComponentWrapper<FloatType> wrp(cpt, A_sz,B_sz,C_sz);
+    Batch3tensorPairContractComponent<Config> cpt(1,1,nrm);
+    Batch3tensorPairContractComponentWrapper<Config> wrp(cpt, A_sz,B_sz,C_sz);
     testComponentDeriv(wrp);
   }
   std::cout << "testBatch3tensorPairContractComponent passed" << std::endl;
@@ -121,18 +123,18 @@ void testBatch3tensorPairContractComponent(){
 
 
 
-template<typename _FloatType, int TensDim>
+template<typename Config, int TensDim>
 struct BatchTensorConcatenateComponentWrapper{
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
   
-  BatchTensorConcatenateComponent<FloatType,TensDim> &cpt;
+  BatchTensorConcatenateComponent<Config,TensDim> &cpt;
   std::vector< std::array<int,TensDim> > in_sz;
   size_t lin_sz;
   int N;
   int out_sz[TensDim];
   std::vector<Tensor<FloatType,TensDim>* > tmp;
     
-  BatchTensorConcatenateComponentWrapper(BatchTensorConcatenateComponent<FloatType,TensDim> &cpt, const std::vector< std::array<int,TensDim> > &in_sz, int concat_dim): cpt(cpt), in_sz(in_sz), N(in_sz.size()), tmp(N){
+  BatchTensorConcatenateComponentWrapper(BatchTensorConcatenateComponent<Config,TensDim> &cpt, const std::vector< std::array<int,TensDim> > &in_sz, int concat_dim): cpt(cpt), in_sz(in_sz), N(in_sz.size()), tmp(N){
     for(int d=0;d<TensDim;d++)      
       out_sz[d] = in_sz[0][d];
     for(int t=1;t<N;t++)
@@ -178,7 +180,9 @@ struct BatchTensorConcatenateComponentWrapper{
 
 
 void testBatchTensorConcatenateComponent(){
-  typedef double FloatType;
+  typedef confDouble Config;
+  typedef typename Config::FloatType FloatType;
+
   //4-tensor
   
   { //contract dim 2
@@ -187,8 +191,8 @@ void testBatchTensorConcatenateComponent(){
 	  {2,3,3,5},
 	  {2,3,6,5} });
         
-    BatchTensorConcatenateComponent<FloatType,4> cpt(2,  3);
-    BatchTensorConcatenateComponentWrapper<FloatType,4> wrp(cpt, in_sz, 2);
+    BatchTensorConcatenateComponent<Config,4> cpt(2,  3);
+    BatchTensorConcatenateComponentWrapper<Config,4> wrp(cpt, in_sz, 2);
     testComponentDeriv(wrp);
   }
 
@@ -198,8 +202,8 @@ void testBatchTensorConcatenateComponent(){
 	{2,3,3,5},
 	{2,6,3,5} });
         
-    BatchTensorConcatenateComponent<FloatType,4> cpt(1,  3);
-    BatchTensorConcatenateComponentWrapper<FloatType,4> wrp(cpt, in_sz, 1);
+    BatchTensorConcatenateComponent<Config,4> cpt(1,  3);
+    BatchTensorConcatenateComponentWrapper<Config,4> wrp(cpt, in_sz, 1);
     testComponentDeriv(wrp);
   }
 
@@ -209,8 +213,8 @@ void testBatchTensorConcatenateComponent(){
 	{3,2,3,5},
 	{6,2,3,5} });
         
-    BatchTensorConcatenateComponent<FloatType,4> cpt(0,  3);
-    BatchTensorConcatenateComponentWrapper<FloatType,4> wrp(cpt, in_sz, 0);
+    BatchTensorConcatenateComponent<Config,4> cpt(0,  3);
+    BatchTensorConcatenateComponentWrapper<Config,4> wrp(cpt, in_sz, 0);
     testComponentDeriv(wrp);
   }
 
@@ -223,8 +227,8 @@ void testBatchTensorConcatenateComponent(){
 	{2,3,5},
 	{2,6,5} });
         
-    BatchTensorConcatenateComponent<FloatType,3> cpt(1,  3);
-    BatchTensorConcatenateComponentWrapper<FloatType,3> wrp(cpt, in_sz, 1);
+    BatchTensorConcatenateComponent<Config,3> cpt(1,  3);
+    BatchTensorConcatenateComponentWrapper<Config,3> wrp(cpt, in_sz, 1);
     testComponentDeriv(wrp);
   }
 
@@ -234,8 +238,8 @@ void testBatchTensorConcatenateComponent(){
 	{3,2,5},
 	{6,2,5} });
         
-    BatchTensorConcatenateComponent<FloatType,3> cpt(0,  3);
-    BatchTensorConcatenateComponentWrapper<FloatType,3> wrp(cpt, in_sz, 0);
+    BatchTensorConcatenateComponent<Config,3> cpt(0,  3);
+    BatchTensorConcatenateComponentWrapper<Config,3> wrp(cpt, in_sz, 0);
     testComponentDeriv(wrp);
   }
   
@@ -243,15 +247,15 @@ void testBatchTensorConcatenateComponent(){
 }
 
 
-template<typename _FloatType, int TensDim>
+template<typename Config, int TensDim>
 struct ScaleComponentWrapper{
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
   
-  ScaleComponent<FloatType,TensDim> &cpt;
+  ScaleComponent<Config,TensDim> &cpt;
   int size[TensDim];
   size_t size_lin;
 
-  ScaleComponentWrapper(ScaleComponent<FloatType,TensDim> &cpt, int const *sz): cpt(cpt){
+  ScaleComponentWrapper(ScaleComponent<Config,TensDim> &cpt, int const *sz): cpt(cpt){
     memcpy(size,sz,TensDim*sizeof(int));
     size_lin = 1;
     for(int i=0;i<TensDim;i++)
@@ -312,7 +316,9 @@ std::vector<FloatType> scale_lin(const std::vector<FloatType> &v, const Vector<F
 }
 
 void testScaleComponent(){
-  typedef double FloatType;
+  typedef confDouble Config;
+  typedef typename Config::FloatType FloatType;
+  
   std::mt19937 rng(1234);
 
   int size[4] = {2,3,4,5};
@@ -325,7 +331,7 @@ void testScaleComponent(){
     Vector<FloatType> gamma(size[0]), beta(size[0]);
     uniformRandom(gamma,rng); uniformRandom(beta,rng);
     
-    ScaleComponent<FloatType,4> cpt(0,size[0],true,true,gamma,beta);
+    ScaleComponent<Config,4> cpt(0,size[0],true,true,gamma,beta);
     Tensor<FloatType,4> got = cpt.value(v);
     Tensor<FloatType,4> expect(size);
 
@@ -346,10 +352,10 @@ void testScaleComponent(){
     for(int use_gamma=0; use_gamma<2; use_gamma++){
       for(int use_beta=0; use_beta<2; use_beta++){
 	std::cout << "use_gamma: " << use_gamma << " use_beta: " << use_beta << std::endl;
-	ScaleComponent<FloatType,4> cpta(0,size[0],bool(use_gamma),bool(use_beta),gamma,beta);
+	ScaleComponent<Config,4> cpta(0,size[0],bool(use_gamma),bool(use_beta),gamma,beta);
 	assert(cpta.nparams() == (use_gamma + use_beta) * size[0]);
 	
-	ScaleComponentWrapper<FloatType,4> wrp(cpta,size);
+	ScaleComponentWrapper<Config,4> wrp(cpta,size);
 	testComponentDeriv(wrp, FloatType(1e-7));
       }
     }
@@ -361,7 +367,7 @@ void testScaleComponent(){
     Vector<FloatType> gamma(size[1]), beta(size[1]);
     uniformRandom(gamma,rng); uniformRandom(beta,rng);
     
-    ScaleComponent<FloatType,4> cpt(1,size[1],true,true,gamma,beta);
+    ScaleComponent<Config,4> cpt(1,size[1],true,true,gamma,beta);
     Tensor<FloatType,4> got = cpt.value(v);
     Tensor<FloatType,4> expect(size);
 
@@ -382,10 +388,10 @@ void testScaleComponent(){
     for(int use_gamma=0; use_gamma<2; use_gamma++){
       for(int use_beta=0; use_beta<2; use_beta++){
 	std::cout << "use_gamma: " << use_gamma << " use_beta: " << use_beta << std::endl;
-	ScaleComponent<FloatType,4> cpta(1,size[1],bool(use_gamma),bool(use_beta),gamma,beta);
+	ScaleComponent<Config,4> cpta(1,size[1],bool(use_gamma),bool(use_beta),gamma,beta);
 	assert(cpta.nparams() == (use_gamma + use_beta) * size[1]);
 	
-	ScaleComponentWrapper<FloatType,4> wrp(cpta,size);
+	ScaleComponentWrapper<Config,4> wrp(cpta,size);
 	testComponentDeriv(wrp, FloatType(1e-7));
       }
     }
@@ -397,7 +403,7 @@ void testScaleComponent(){
     Vector<FloatType> gamma(size[2]), beta(size[2]);
     uniformRandom(gamma,rng); uniformRandom(beta,rng);
     
-    ScaleComponent<FloatType,4> cpt(2,size[2],true,true,gamma,beta);
+    ScaleComponent<Config,4> cpt(2,size[2],true,true,gamma,beta);
     Tensor<FloatType,4> got = cpt.value(v);
     Tensor<FloatType,4> expect(size);
 
@@ -418,10 +424,10 @@ void testScaleComponent(){
     for(int use_gamma=0; use_gamma<2; use_gamma++){
       for(int use_beta=0; use_beta<2; use_beta++){
 	std::cout << "use_gamma: " << use_gamma << " use_beta: " << use_beta << std::endl;
-	ScaleComponent<FloatType,4> cpta(2,size[2],bool(use_gamma),bool(use_beta),gamma,beta);
+	ScaleComponent<Config,4> cpta(2,size[2],bool(use_gamma),bool(use_beta),gamma,beta);
 	assert(cpta.nparams() == (use_gamma + use_beta) * size[2]);
 	
-	ScaleComponentWrapper<FloatType,4> wrp(cpta,size);
+	ScaleComponentWrapper<Config,4> wrp(cpta,size);
 	testComponentDeriv(wrp, FloatType(1e-7));
       }
     }
@@ -432,18 +438,18 @@ void testScaleComponent(){
 }
 
 
-template<typename _FloatType, int TensDim>
+template<typename Config, int TensDim>
 struct BatchTensorDimensionSliceComponentWrapper{
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
   
-  BatchTensorDimensionSliceComponent<FloatType,TensDim> &cpt;
+  BatchTensorDimensionSliceComponent<Config,TensDim> &cpt;
   int in_sz[TensDim];
   int out_sz[TensDim-1];
   size_t in_lin_sz;
   size_t out_lin_sz;
 
     
-  BatchTensorDimensionSliceComponentWrapper(BatchTensorDimensionSliceComponent<FloatType,TensDim> &cpt, int const* _in_sz, int const* _out_sz): cpt(cpt){
+  BatchTensorDimensionSliceComponentWrapper(BatchTensorDimensionSliceComponent<Config,TensDim> &cpt, int const* _in_sz, int const* _out_sz): cpt(cpt){
     memcpy(in_sz,_in_sz,TensDim*sizeof(int));
     memcpy(out_sz,_out_sz,(TensDim-1)*sizeof(int));
     in_lin_sz = 1;
@@ -487,7 +493,9 @@ struct BatchTensorDimensionSliceComponentWrapper{
 
 
 void testBatchTensorDimensionSliceComponent(){
-  typedef double FloatType;
+  typedef confDouble Config;
+  typedef typename Config::FloatType FloatType;
+  
   std::mt19937 rng(1234);
 
   int size[4] = {2,3,4,5};
@@ -499,7 +507,7 @@ void testBatchTensorDimensionSliceComponent(){
     //dim 0
     int size_out[3] = {size[1],size[2],size[3]};
     for(int slice_idx=0;slice_idx<size[0];slice_idx++){
-      BatchTensorDimensionSliceComponent<FloatType,4> cpt(0,slice_idx);      
+      BatchTensorDimensionSliceComponent<Config,4> cpt(0,slice_idx);      
       Tensor<FloatType,3> got = cpt.value(v);
       Tensor<FloatType,3> expect(size_out);
       doHost2(expect,v,{     
@@ -509,7 +517,7 @@ void testBatchTensorDimensionSliceComponent(){
 		expect_v(j,k,b) = v_v(slice_idx,j,k,b);
 	});
       assert(equal(got,expect,true));
-      BatchTensorDimensionSliceComponentWrapper<FloatType,4> wrp(cpt, v.sizeArray(),expect.sizeArray());
+      BatchTensorDimensionSliceComponentWrapper<Config,4> wrp(cpt, v.sizeArray(),expect.sizeArray());
       testComponentDeriv(wrp);
     }
     
@@ -518,7 +526,7 @@ void testBatchTensorDimensionSliceComponent(){
     //dim 1
     int size_out[3] = {size[0],size[2],size[3]};
     for(int slice_idx=0;slice_idx<size[1];slice_idx++){
-      BatchTensorDimensionSliceComponent<FloatType,4> cpt(1,slice_idx);      
+      BatchTensorDimensionSliceComponent<Config,4> cpt(1,slice_idx);      
       Tensor<FloatType,3> got = cpt.value(v);     
       Tensor<FloatType,3> expect(size_out);
       doHost2(expect,v,{
@@ -528,7 +536,7 @@ void testBatchTensorDimensionSliceComponent(){
 		expect_v(i,k,b) = v_v(i,slice_idx,k,b);
 	});
       assert(equal(got,expect,true));
-      BatchTensorDimensionSliceComponentWrapper<FloatType,4> wrp(cpt, v.sizeArray(),expect.sizeArray());
+      BatchTensorDimensionSliceComponentWrapper<Config,4> wrp(cpt, v.sizeArray(),expect.sizeArray());
       testComponentDeriv(wrp);
     }
     
@@ -538,7 +546,7 @@ void testBatchTensorDimensionSliceComponent(){
     //dim 2
     int size_out[3] = {size[0],size[1],size[3]};
     for(int slice_idx=0;slice_idx<size[2];slice_idx++){
-      BatchTensorDimensionSliceComponent<FloatType,4> cpt(2,slice_idx);      
+      BatchTensorDimensionSliceComponent<Config,4> cpt(2,slice_idx);      
       Tensor<FloatType,3> got = cpt.value(v);
       Tensor<FloatType,3> expect(size_out);
       doHost2(expect,v,{     
@@ -548,7 +556,7 @@ void testBatchTensorDimensionSliceComponent(){
 	    expect_v(i,j,b) = v_v(i,j,slice_idx,b);
 	});
       assert(equal(got,expect,true));
-      BatchTensorDimensionSliceComponentWrapper<FloatType,4> wrp(cpt, v.sizeArray(),expect.sizeArray());
+      BatchTensorDimensionSliceComponentWrapper<Config,4> wrp(cpt, v.sizeArray(),expect.sizeArray());
       testComponentDeriv(wrp);
     }
     
@@ -584,18 +592,18 @@ Tensor<FloatType,4> MatrixTensorContractComponentExpect(const Matrix<FloatType> 
 }
 
 
-template<typename _FloatType, int Dim>
+template<typename Config, int Dim>
 struct MatrixTensorContractComponentWrapper{
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
   
-  MatrixTensorContractComponent<FloatType,Dim> &cpt;
+  MatrixTensorContractComponent<Config,Dim> &cpt;
   int in_size[Dim];
   size_t in_size_lin;
   int out_size[Dim];
   size_t out_size_lin;
   
 
-  MatrixTensorContractComponentWrapper(MatrixTensorContractComponent<FloatType,Dim> &cpt, int const *in_sz, int const *out_sz): cpt(cpt){
+  MatrixTensorContractComponentWrapper(MatrixTensorContractComponent<Config,Dim> &cpt, int const *in_sz, int const *out_sz): cpt(cpt){
     memcpy(in_size,in_sz,Dim*sizeof(int));
     memcpy(out_size,out_sz,Dim*sizeof(int));
     in_size_lin = out_size_lin = 1;
@@ -640,7 +648,8 @@ struct MatrixTensorContractComponentWrapper{
 };
 
 void testMatrixTensorContractComponent(){
-  typedef double FloatType;
+  typedef confDouble Config;
+  typedef typename Config::FloatType FloatType;
   std::mt19937 rng(1234);
     
   int tens_sizes[4] = {2,3,4,5};
@@ -654,7 +663,7 @@ void testMatrixTensorContractComponent(){
   Matrix<FloatType> weights(out_size,tens_sizes[contract_dim]);
   uniformRandom(weights,rng);
 
-  MatrixTensorContractComponent<FloatType,4> cpt(weights);
+  MatrixTensorContractComponent<Config,4> cpt(weights);
     
   int nparam_expect =  out_size*tens_sizes[contract_dim];
   std::cout << "Nparam " << cpt.nparams() << " expect " << nparam_expect << std::endl;
@@ -664,7 +673,7 @@ void testMatrixTensorContractComponent(){
   Tensor<FloatType,4> expect = MatrixTensorContractComponentExpect(weights,x);
   assert(abs_near(got,expect, 1e-6, true));
 
-  MatrixTensorContractComponentWrapper<FloatType,4> wrp(cpt, x.sizeArray(),expect.sizeArray());
+  MatrixTensorContractComponentWrapper<Config,4> wrp(cpt, x.sizeArray(),expect.sizeArray());
   std::cout << "Test component deriv" << std::endl;
   testComponentDeriv(wrp);
 

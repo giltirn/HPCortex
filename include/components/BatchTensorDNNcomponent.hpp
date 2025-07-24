@@ -1,15 +1,16 @@
 #pragma once
 #include <type_traits>
 #include <sstream>
+#include <ModelConfig.hpp>
 #include <Tensors.hpp>
-#include <RingBuffer.hpp>
+#include <Buffers.hpp>
 #include <Linalg.hpp>
 
 //A component implementing    W_{ij} X_{..., j, ...,  b} + B_j    where W is a weight matrix and X is a tensor of at least dimension 2. The last dimension is always assumed to be the batch dimension
-template<typename _FloatType, int TensDim, typename ActivationFunc>
+template<typename Config, int TensDim, typename ActivationFunc>
 class BatchTensorDNNcomponent{
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
 private:
   Matrix<FloatType> weights;
   Vector<FloatType> bias;
@@ -30,8 +31,8 @@ private:
   
   //Storage from last call to "value"
   //Buffer size > 1 depending on rank if doing pipelining
-  mutable RingBuffer<Tensor<FloatType,TensDim> > in_buf;
-  mutable RingBuffer<Tensor<FloatType,TensDim> > activation_deriv_buf;
+  mutable BufferType<Tensor<FloatType,TensDim> > in_buf;
+  mutable BufferType<Tensor<FloatType,TensDim> > activation_deriv_buf;
 public:
 
   

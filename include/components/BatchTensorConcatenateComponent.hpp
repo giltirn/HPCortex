@@ -2,15 +2,15 @@
 #include <type_traits>
 #include <sstream>
 #include <array>
+#include <ModelConfig.hpp>
 #include <Tensors.hpp>
-#include <RingBuffer.hpp>
 #include <Linalg.hpp>
 
 //Concatenate Ntens tensors along a dimension concat_dim < Dim-1  (last dim is the batch index)
-template<typename _FloatType, int TensDim>
+template<typename Config, int TensDim>
 class BatchTensorConcatenateComponent{
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
 private:
   int concat_dim;
   int Ntens;

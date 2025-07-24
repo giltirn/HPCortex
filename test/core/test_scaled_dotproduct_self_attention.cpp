@@ -89,7 +89,8 @@ Tensor<FloatType,3> naiveImpl(const Tensor<FloatType,3> &X,
 }
 
 void testScaledDotProductSelfAttention(){
-  typedef double FloatType;
+  typedef confDouble Config;
+  typedef typename Config::FloatType FloatType;
   std::mt19937 rng(1234);
    
   typedef std::vector<FloatType> vecD;
@@ -107,7 +108,7 @@ void testScaledDotProductSelfAttention(){
   uniformRandom(in_W_V,rng);
 
   for(int use_mask = 0; use_mask < 2; use_mask++){
-    auto model = scaled_dotproduct_self_attention_layer(in_W_Q, in_W_K, in_W_V, use_mask, input_layer<FloatType, Tensor<FloatType,3> >());
+    auto model = scaled_dotproduct_self_attention_layer(in_W_Q, in_W_K, in_W_V, use_mask, input_layer<Config, Tensor<FloatType,3> >());
 
     Tensor<FloatType,3> X(C,E,B);
     uniformRandom(X,rng);

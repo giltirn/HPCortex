@@ -2,10 +2,10 @@
 #include "LayerCommon.hpp"
 #include <Padding.hpp>
 
-template<typename _FloatType, typename _InputType, typename Store, typename ActivationFunc, typename PaddingFunc>
+template<typename Config, typename _InputType, typename Store, typename ActivationFunc, typename PaddingFunc>
 class ConvolutionLayer1D{
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
   typedef _InputType InputType;
   typedef LAYEROUTPUTTYPE(typename Store::type) LayerInputTensorType; //expect a Tensor
   static_assert(LayerInputTensorType::dimension() == 3); //[channel][1d data idx][batch_idx]
@@ -32,8 +32,8 @@ private:
   
   //Storage from last call to "value"
   //Buffer size > 1 depending on rank if doing pipelining
-  mutable RingBuffer<Tensor<FloatType,3> > leaf_buf;
-  mutable RingBuffer<Tensor<FloatType,3> > activation_deriv_buf;
+  mutable BufferType<Tensor<FloatType,3> > leaf_buf;
+  mutable BufferType<Tensor<FloatType,3> > activation_deriv_buf;
   //size_t calls;
 
   //bool pipeline_mode;
@@ -78,17 +78,19 @@ public:
   }
 
 };
+#define LAYER_TYPE ConvolutionLayer1D<CONFIGTYPE(U),INPUTTYPE(U),DDST(u),ActivationFunc,PaddingFunc>
 
 template<typename U, typename ActivationFunc, typename PaddingFunc, typename std::enable_if<ISLEAF(U), int>::type = 0>
 auto conv1d_layer(const Tensor<FLOATTYPE(U),3> &filter, const ActivationFunc &activation_func, const PaddingFunc &padding_func, int stride, U &&u)
-  ->ConvolutionLayer1D<FLOATTYPE(U),INPUTTYPE(U),DDST(u),ActivationFunc,PaddingFunc>{
-  return ConvolutionLayer1D<FLOATTYPE(U),INPUTTYPE(U),DDST(u),ActivationFunc,PaddingFunc>(std::forward<U>(u),filter,activation_func,padding_func,stride);
+  ->LAYER_TYPE{
+  return LAYER_TYPE(std::forward<U>(u),filter,activation_func,padding_func,stride);
 }
 
 template<typename U, typename ActivationFunc, typename PaddingFunc, typename std::enable_if<ISLEAF(U), int>::type = 0>
 auto conv1d_layer(const Tensor<FLOATTYPE(U),3> &filter, const ActivationFunc &activation_func, const PaddingFunc &padding_func, U &&u)
-  ->ConvolutionLayer1D<FLOATTYPE(U),INPUTTYPE(U),DDST(u),ActivationFunc,PaddingFunc>{
-  return ConvolutionLayer1D<FLOATTYPE(U),INPUTTYPE(U),DDST(u),ActivationFunc,PaddingFunc>(std::forward<U>(u),filter,activation_func,padding_func,1);
+  ->LAYER_TYPE{
+  return LAYER_TYPE(std::forward<U>(u),filter,activation_func,padding_func,1);
 }
+#undef LAYER_TYPE
 
 #include "implementation/ConvolutionLayer1D.tcc"

@@ -2,17 +2,18 @@
 #include <cmath>
 #include <type_traits>
 #include <sstream>
+#include <ModelConfig.hpp>
 #include <Tensors.hpp>
-#include <RingBuffer.hpp>
+#include <Buffers.hpp>
 #include <Linalg.hpp>
 
 //A component implementing the element-wise scale operation on a batch tensor (one for which the last dimension is the batch dimension) along an arbitrary dimension other than the batch dimension
 //e.g. for dim 2:  out_{ijk} = gamma_j in_ijk + bias_j      (no sum)
 //gamma_j and beta_j are learnable parameters
-template<typename _FloatType, int TensDim>
+template<typename Config, int TensDim>
 class ScaleComponent{
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
 private:
   int scale_dim;
   bool use_affine;
@@ -30,7 +31,7 @@ private:
   Vector<FloatType> gamma;
   Vector<FloatType> beta;
   
-  mutable RingBuffer<Tensor<FloatType,TensDim> > in_buf;
+  mutable BufferType<Tensor<FloatType,TensDim> > in_buf;
 public:
 
   //if(use_affine),  affine_init.size(0) must equal dimension_size

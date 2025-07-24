@@ -2,12 +2,12 @@
 #include "LayerCommon.hpp"
 
 //A layer that joins the outputs of two chains into an std::pair. Both chains must ultimately consume the same input
-template<typename _FloatType, typename _InputType, typename Store1, typename Store2>
+template<typename Config, typename _InputType, typename Store1, typename Store2>
 class PairJoinLayer{
   typedef typename Store1::type StoredType1;
   typedef typename Store2::type StoredType2;
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
   typedef _InputType InputType;
   typedef LAYERTYPEOUTPUTTYPE(StoredType1) LayerInputType1;
   typedef LAYERTYPEOUTPUTTYPE(StoredType2) LayerInputType2;
@@ -59,5 +59,5 @@ public:
 
 template<typename U, typename V, typename std::enable_if<ISLEAF(U) && ISLEAF(V) && std::is_same<INPUTTYPE(U),INPUTTYPE(V)>::value , int>::type = 0>
 auto pair_join_layer(U &&u, V &&v){
-  return PairJoinLayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u),DDST(v)>(std::forward<U>(u),std::forward<V>(v));
+  return PairJoinLayer<CONFIGTYPE(U),INPUTTYPE(U),DDST(u),DDST(v)>(std::forward<U>(u),std::forward<V>(v));
 }

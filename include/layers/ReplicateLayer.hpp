@@ -1,10 +1,10 @@
 #pragma once
 #include "LayerCommon.hpp"
 
-template<typename _FloatType, typename _InputType, typename Store>
+template<typename Config, typename _InputType, typename Store>
 class ReplicateLayerLeader{
   public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
   typedef _InputType InputType;
   typedef typename Store::type StoredType;
   typedef LAYERTYPEOUTPUTTYPE(StoredType) LayerInputOutputType;
@@ -73,21 +73,21 @@ class ReplicateLayerLeader{
 
 
 
-template<typename _FloatType, typename _InputType, typename Store>
+template<typename Config, typename _InputType, typename Store>
 class ReplicateLayer{
   typedef typename Store::type StoredType;
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
   typedef _InputType InputType;
   typedef LAYERTYPEOUTPUTTYPE(StoredType) LayerInputOutputType;
 private:
   int instance;
   int N;
-  ReplicateLayerLeader<FloatType,InputType,Store> *leader;
+  ReplicateLayerLeader<Config,InputType,Store> *leader;
 public:
   typedef LeafTag tag;
   
-  ReplicateLayer(ReplicateLayerLeader<FloatType,InputType,Store> *leader, int instance, int N): leader(leader), instance(instance), N(N){}
+  ReplicateLayer(ReplicateLayerLeader<Config,InputType,Store> *leader, int instance, int N): leader(leader), instance(instance), N(N){}
   ReplicateLayer(const ReplicateLayer &r) = delete;
   ReplicateLayer(ReplicateLayer &&r): instance(r.instance), N(r.N), leader(r.leader){
     r.leader = nullptr;
@@ -129,8 +129,8 @@ public:
 template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
 auto replicate_layer(int N,
 		     U &&u){
-  typedef ReplicateLayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u)> Branch;
-  typedef ReplicateLayerLeader<FLOATTYPE(U),INPUTTYPE(U),DDST(u)> Leader;
+  typedef ReplicateLayer<CONFIGTYPE(U),INPUTTYPE(U),DDST(u)> Branch;
+  typedef ReplicateLayerLeader<CONFIGTYPE(U),INPUTTYPE(U),DDST(u)> Leader;
 
   Leader* leader = new Leader(std::forward<U>(u), N);
   std::vector<std::unique_ptr<Branch> > out(N);

@@ -2,7 +2,8 @@
 #include <Testing.hpp>
 
 void testMatrixTensorContract(){
-  typedef double FloatType;
+  typedef confDouble Config;
+  typedef typename Config::FloatType FloatType;
   std::mt19937 rng(1234);
    
   typedef std::vector<FloatType> vecD;
@@ -18,7 +19,7 @@ void testMatrixTensorContract(){
   int in_sizes[4] = {2,3,size1,batch_size};
   int out_sizes[4] = {2,3,size0,batch_size};
   
-  auto m = matrix_tensor_contract_layer<4>(winit, input_layer<FloatType, Tens>());
+  auto m = matrix_tensor_contract_layer<4>(winit, input_layer<Config, Tens>());
 
   Tens in(in_sizes);
   uniformRandom(in, rng);

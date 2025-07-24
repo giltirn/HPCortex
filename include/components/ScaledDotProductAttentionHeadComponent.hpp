@@ -3,10 +3,10 @@
 
 //An attention head is scaled dot-product attention with optional masking but with the inputs multiplied by learnable weight matrics
 //Expects input tensors Q(C,E,B) ,  K(C,E,B)  and V(C,E,B)   where C is the context window size, B the batch size and E the embedding size (assumed equal)
-template<typename _FloatType>
+template<typename Config>
 class ScaledDotProductAttentionHeadComponent{
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
 private:
   // 1)  Q'_{ckb} = \sum_e (W_Q)_{k e} Q_{c e b}     k \in {1.. d_k}
   // 2)  K'_{ckb} = \sum_e (W_K)_{k e} K_{c e b}
@@ -22,12 +22,12 @@ private:
   int d_v;
   bool setup;
 
-  typedef MatrixTensorContractComponent<FloatType,3> MatTensMulCptType;
+  typedef MatrixTensorContractComponent<Config,3> MatTensMulCptType;
   MatTensMulCptType multWQ; //d_k * E  matrix  W_Q   operates on Q   as  \sum_e (W_Q)_{d e} Q_{ c e b }   -> 1)
   MatTensMulCptType multWK; //d_k * E  matrix  W_K   operates on K   as  \sum_e (W_K)_{d e} K_{ c e b }   -> 2)
   MatTensMulCptType multWV; //d_v * E  matrix  W_V   operates on V   as  \sum_e (W_V)_{v e} V_{ c e b }   -> 4)
 
-  ScaledDotProductAttentionComponent<FloatType> attention;
+  ScaledDotProductAttentionComponent<Config> attention;
 
 public:
   ScaledDotProductAttentionHeadComponent(const Matrix<FloatType> &W_Q, const Matrix<FloatType> &W_K, const Matrix<FloatType> &W_V, bool use_mask = false):

@@ -1,5 +1,5 @@
-template<typename FloatType>
-Tensor<FloatType,3> ScaledDotProductAttentionHeadComponent<FloatType>::value(const Tensor<FloatType,3> &Q, const Tensor<FloatType,3> &K, const Tensor<FloatType,3> &V){
+template<typename Config>
+Tensor<typename Config::FloatType,3> ScaledDotProductAttentionHeadComponent<Config>::value(const Tensor<FloatType,3> &Q, const Tensor<FloatType,3> &K, const Tensor<FloatType,3> &V){
   //Q(C,E,B) ,  K(C,E,B)  and V(C,E,B)
   assert(Q.size(1) == E && K.size(1) == E && V.size(1) == E);
 
@@ -17,8 +17,8 @@ Tensor<FloatType,3> ScaledDotProductAttentionHeadComponent<FloatType>::value(con
   Tensor<FloatType,3> Vp = multWV.value(V);
   return attention.value(Qp,Kp,Vp);
 }
-template<typename FloatType>
-void ScaledDotProductAttentionHeadComponent<FloatType>::deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,3> &&_dCost_by_dOut, Tensor<FloatType,3> &dCost_by_dQ, Tensor<FloatType,3> &dCost_by_dK, Tensor<FloatType,3> &dCost_by_dV) const{ 
+template<typename Config>
+void ScaledDotProductAttentionHeadComponent<Config>::deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,3> &&_dCost_by_dOut, Tensor<FloatType,3> &dCost_by_dQ, Tensor<FloatType,3> &dCost_by_dK, Tensor<FloatType,3> &dCost_by_dV) const{ 
   Tensor<FloatType,3> dCost_by_dOut = std::move(_dCost_by_dOut);
   assert(dCost_by_dOut.size(0) == C && dCost_by_dOut.size(1) == d_v && dCost_by_dOut.size(2) == B);
 
@@ -36,8 +36,8 @@ void ScaledDotProductAttentionHeadComponent<FloatType>::deriv(Vector<FloatType> 
   multWV.deriv(cost_deriv, p, std::move(above_deriv_Vp), dCost_by_dV);
 }
 
-template<typename FloatType>
-void ScaledDotProductAttentionHeadComponent<FloatType>::update(int off, const Vector<FloatType> &new_params){
+template<typename Config>
+void ScaledDotProductAttentionHeadComponent<Config>::update(int off, const Vector<FloatType> &new_params){
   int p = off;
   multWQ.update(p,new_params);
   p += multWQ.nparams();
@@ -46,8 +46,8 @@ void ScaledDotProductAttentionHeadComponent<FloatType>::update(int off, const Ve
   multWV.update(p,new_params);
 }
   
-template<typename FloatType>
-void ScaledDotProductAttentionHeadComponent<FloatType>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
+template<typename Config>
+void ScaledDotProductAttentionHeadComponent<Config>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
   int p = off;
   multWQ.step(p,derivs,eps);
   p += multWQ.nparams();
@@ -57,8 +57,8 @@ void ScaledDotProductAttentionHeadComponent<FloatType>::step(int off, const Vect
 }
 
 //off measured from *end*, return new off
-template<typename FloatType>
-void ScaledDotProductAttentionHeadComponent<FloatType>::getParams(Vector<FloatType> &into, int off) const{
+template<typename Config>
+void ScaledDotProductAttentionHeadComponent<Config>::getParams(Vector<FloatType> &into, int off) const{
   int p = off;
   multWQ.getParams(into,p);
   p += multWQ.nparams();

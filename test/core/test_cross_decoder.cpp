@@ -1,6 +1,8 @@
 #include <HPCortex.hpp>
 #include <Testing.hpp>
-typedef double FloatType;
+
+typedef confDouble Config;
+typedef typename Config::FloatType FloatType;
 
 template<typename ChainType>
 struct CrossDecoderWrapper{
@@ -85,7 +87,7 @@ void testCrossDecoder(){
   typedef Tensor<FloatType,3> TensorType;
   typedef std::pair<TensorType,TensorType> InputType;
 
-  auto splt = pair_split_layer(input_layer<FloatType,InputType>());
+  auto splt = pair_split_layer(input_layer<Config,InputType>());
 
   int C = 3;
   int E = 4;
@@ -112,13 +114,13 @@ void testCrossDecoder(){
   reseedGlobalRNG(9876);
   auto xdecoder = transformer_cross_decoder_block(E, nheads, d_act, GeLU<FloatType>(), encoder_in, decoder_in );
 
-  auto xdecoder_solo_in = pair_split_layer(input_layer<FloatType,InputType>());
+  auto xdecoder_solo_in = pair_split_layer(input_layer<Config,InputType>());
   reseedGlobalRNG(9876); //ensure it gets the same initial params as the above
   auto xdecoder_solo = transformer_cross_decoder_block(E, nheads, d_act, GeLU<FloatType>(), *xdecoder_solo_in.first, *xdecoder_solo_in.second );
   int decoder_solo_nparam = xdecoder_solo.nparams();
 
-  auto encoder_in_solo = batch_tensor_dnn_layer<3>(w1, b1, 1, ReLU<FloatType>(), input_layer<FloatType,TensorType>());
-  auto decoder_in_solo = batch_tensor_dnn_layer<3>(w2, b2, 1, ReLU<FloatType>(), input_layer<FloatType,TensorType>());
+  auto encoder_in_solo = batch_tensor_dnn_layer<3>(w1, b1, 1, ReLU<FloatType>(), input_layer<Config,TensorType>());
+  auto decoder_in_solo = batch_tensor_dnn_layer<3>(w2, b2, 1, ReLU<FloatType>(), input_layer<Config,TensorType>());
   
   //Check nparams
   int nparams = xdecoder.nparams();
@@ -154,7 +156,7 @@ void testCrossDecoderMultiBlock(){
   typedef Tensor<FloatType,3> TensorType;
   typedef std::pair<TensorType,TensorType> InputType;
 
-  auto splt = pair_split_layer(input_layer<FloatType,InputType>());
+  auto splt = pair_split_layer(input_layer<Config,InputType>());
 
   int C = 3;
   int E = 4;
@@ -183,8 +185,8 @@ void testCrossDecoderMultiBlock(){
   auto xdecoder1 = transformer_cross_decoder_block(E, nheads, d_act, GeLU<FloatType>(), *encoder_in_repl[0], decoder_in );
   auto xdecoder2 = transformer_cross_decoder_block(E, nheads, d_act, GeLU<FloatType>(), *encoder_in_repl[1], xdecoder1 );
 
-  auto xdecoder_solo_in = pair_split_layer(input_layer<FloatType,InputType>());
-  auto xdecoder_solo2_in = pair_split_layer(input_layer<FloatType,InputType>());
+  auto xdecoder_solo_in = pair_split_layer(input_layer<Config,InputType>());
+  auto xdecoder_solo2_in = pair_split_layer(input_layer<Config,InputType>());
   
   reseedGlobalRNG(9876); //ensure it gets the same initial params as the above
   auto xdecoder_solo = transformer_cross_decoder_block( E, nheads, d_act, GeLU<FloatType>(), *xdecoder_solo_in.first, *xdecoder_solo_in.second );
@@ -192,8 +194,8 @@ void testCrossDecoderMultiBlock(){
   
   int decoder_solo_nparam = xdecoder_solo.nparams();
 
-  auto encoder_in_solo = batch_tensor_dnn_layer<3>(w1, b1, 1, ReLU<FloatType>(), input_layer<FloatType,TensorType>());
-  auto decoder_in_solo = batch_tensor_dnn_layer<3>(w2, b2, 1, ReLU<FloatType>(), input_layer<FloatType,TensorType>());
+  auto encoder_in_solo = batch_tensor_dnn_layer<3>(w1, b1, 1, ReLU<FloatType>(), input_layer<Config,TensorType>());
+  auto decoder_in_solo = batch_tensor_dnn_layer<3>(w2, b2, 1, ReLU<FloatType>(), input_layer<Config,TensorType>());
   
   //Check nparams
   int nparams = xdecoder2.nparams();

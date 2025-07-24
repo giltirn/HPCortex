@@ -1,7 +1,9 @@
 #include <HPCortex.hpp>
 #include <Testing.hpp>
 #include <layers/ReplicateLayer.hpp>
-typedef double FloatType;
+
+typedef confDouble Config;
+typedef typename Config::FloatType FloatType;
 
 //To test the layer by itself, this wrapper concetates the matrix output of two chains
 template<typename ChainType1, typename ChainType2>
@@ -88,7 +90,7 @@ void testReplicateLayer(){
   Vector<FloatType> bbase(szbase);
   uniformRandom(bbase,rng);
   
-  auto base = dnn_layer(wbase,bbase,input_layer<FloatType,Matrix<FloatType>>());
+  auto base = dnn_layer(wbase,bbase,input_layer<Config,Matrix<FloatType>>());
   auto repls = replicate_layer(2, base);
   
   assert(repls.size() == 2);
@@ -183,11 +185,11 @@ void testReplicateLayer(){
     Matrix<FloatType> x(in_sz, B);
     uniformRandom(x,rng);
     
-    auto base_solo = dnn_layer(wbase,bbase,input_layer<FloatType,Matrix<FloatType>>());
+    auto base_solo = dnn_layer(wbase,bbase,input_layer<Config,Matrix<FloatType>>());
     auto vbase = base_solo.value(x);
 
-    auto chain1_solo = dnn_layer(w1,b1,input_layer<FloatType,Matrix<FloatType>>());
-    auto chain2_solo = dnn_layer(w2,b2,input_layer<FloatType,Matrix<FloatType>>());
+    auto chain1_solo = dnn_layer(w1,b1,input_layer<Config,Matrix<FloatType>>());
+    auto chain2_solo = dnn_layer(w2,b2,input_layer<Config,Matrix<FloatType>>());
 
     auto expect1 = chain1_solo.value(vbase);
     auto expect2 = chain2_solo.value(vbase);

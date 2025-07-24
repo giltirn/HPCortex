@@ -1,12 +1,12 @@
-template<typename FloatType, typename InputType, typename ChainInternal, typename ChainBelow>
-typename SkipConnection<FloatType,InputType,ChainInternal,ChainBelow>::LayerInputOutputType SkipConnection<FloatType,InputType,ChainInternal,ChainBelow>::value(const InputType &x){
+template<typename Config, typename InputType, typename ChainInternal, typename ChainBelow>
+typename SkipConnection<Config,InputType,ChainInternal,ChainBelow>::LayerInputOutputType SkipConnection<Config,InputType,ChainInternal,ChainBelow>::value(const InputType &x){
   LayerInputOutputType in = leaf_below.v.value(x);
   LayerInputOutputType out = in + leaf_internal.v.value(in);
   return out;
 }
 
-template<typename FloatType, typename InputType, typename ChainInternal, typename ChainBelow>
-int SkipConnection<FloatType,InputType,ChainInternal,ChainBelow>::deriv(Vector<FloatType> &cost_deriv, int off, LayerInputOutputType &&_above_deriv, InputType* input_above_deriv_return) const{
+template<typename Config, typename InputType, typename ChainInternal, typename ChainBelow>
+int SkipConnection<Config,InputType,ChainInternal,ChainBelow>::deriv(Vector<FloatType> &cost_deriv, int off, LayerInputOutputType &&_above_deriv, InputType* input_above_deriv_return) const{
   int p=off;
   LayerInputOutputType layer_deriv;
   {
@@ -33,23 +33,23 @@ int SkipConnection<FloatType,InputType,ChainInternal,ChainBelow>::deriv(Vector<F
     
   return leaf_below.v.deriv(cost_deriv, p, std::move(layer_deriv), input_above_deriv_return);
 }
-template<typename FloatType, typename InputType, typename ChainInternal, typename ChainBelow>
-int SkipConnection<FloatType,InputType,ChainInternal,ChainBelow>::update(int off, const Vector<FloatType> &new_params){
+template<typename Config, typename InputType, typename ChainInternal, typename ChainBelow>
+int SkipConnection<Config,InputType,ChainInternal,ChainBelow>::update(int off, const Vector<FloatType> &new_params){
   int p=off;
   p = leaf_internal.v.update(p, new_params);
   return leaf_below.v.update(p, new_params);
 }
 
-template<typename FloatType, typename InputType, typename ChainInternal, typename ChainBelow>
-int SkipConnection<FloatType,InputType,ChainInternal,ChainBelow>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
+template<typename Config, typename InputType, typename ChainInternal, typename ChainBelow>
+int SkipConnection<Config,InputType,ChainInternal,ChainBelow>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
   int p=off;
   p = leaf_internal.v.step(p, derivs, eps);
   return leaf_below.v.step(p, derivs, eps);
 }
 
 //off measured from *end*, return new off
-template<typename FloatType, typename InputType, typename ChainInternal, typename ChainBelow>
-int SkipConnection<FloatType,InputType,ChainInternal,ChainBelow>::getParams(Vector<FloatType> &into, int off) const{
+template<typename Config, typename InputType, typename ChainInternal, typename ChainBelow>
+int SkipConnection<Config,InputType,ChainInternal,ChainBelow>::getParams(Vector<FloatType> &into, int off) const{
   int p = off;
   p = leaf_internal.v.getParams(into, p);
   return leaf_below.v.getParams(into,p);

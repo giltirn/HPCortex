@@ -43,9 +43,38 @@ public:
   
   size_t size() const{ return ring.size(); }
 
+  //This function is used to provide a valid object even if the buffer is not completely filled
   const T &latest() const{    
     return ring[  (off - 1 + ring.size()) % ring.size() ];
   }
     
 };
-    
+ 
+template<typename T>
+class BufferSingle{
+  T val;
+  bool valid;
+public:
+  BufferSingle(size_t size): valid(false){ resize(size); }
+  BufferSingle(): BufferSingle(1){}
+  void resize(size_t size){
+    if(size != 1) throw std::runtime_error("BufferSingle cannot accommodate more than 1 entry");
+  }
+  inline void push(T&& v){
+    val = std::move(v);
+    valid=true;
+  }
+  inline T pop(){
+    T ret(std::move(val));
+    valid = false;
+    return ret;
+  }
+  inline bool isFilled() const{ return valid; }
+  
+  inline size_t size() const{ return 1; }
+
+  inline const T &latest() const{
+    if(!valid) throw std::runtime_error("Cannot call latest when the buffer is depopulated");
+    return val;
+  }
+};

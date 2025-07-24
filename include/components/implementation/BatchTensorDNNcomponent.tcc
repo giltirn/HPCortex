@@ -1,5 +1,5 @@
-template<typename FloatType, int TensDim, typename ActivationFunc>
-Tensor<FloatType,TensDim> BatchTensorDNNcomponent<FloatType,TensDim,ActivationFunc>::value(const Tensor<FloatType,TensDim> &in){
+template<typename Config, int TensDim, typename ActivationFunc>
+Tensor<typename Config::FloatType,TensDim> BatchTensorDNNcomponent<Config,TensDim,ActivationFunc>::value(const Tensor<FloatType,TensDim> &in){
   if(!setup){
     batch_size = in.size(TensDim-1);  
     memcpy(in_dims,in.sizeArray(),TensDim*sizeof(int));
@@ -37,8 +37,8 @@ Tensor<FloatType,TensDim> BatchTensorDNNcomponent<FloatType,TensDim,ActivationFu
   return out;    
 }
 
-template<typename FloatType, int TensDim, typename ActivationFunc>
-void BatchTensorDNNcomponent<FloatType,TensDim,ActivationFunc>::deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,TensDim> &&_above_deriv, Tensor<FloatType,TensDim> &layer_deriv) const{
+template<typename Config, int TensDim, typename ActivationFunc>
+void BatchTensorDNNcomponent<Config,TensDim,ActivationFunc>::deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,TensDim> &&_above_deriv, Tensor<FloatType,TensDim> &layer_deriv) const{
   profileStart();
   Tensor<FloatType,TensDim> above_deriv(std::move(_above_deriv));
   for(int i=0;i<TensDim;i++) assert(above_deriv.size(i) == out_dims[i]);
@@ -129,8 +129,8 @@ void BatchTensorDNNcomponent<FloatType,TensDim,ActivationFunc>::deriv(Vector<Flo
   profileStop();
 }
 
-template<typename FloatType, int TensDim, typename ActivationFunc>
-void BatchTensorDNNcomponent<FloatType,TensDim,ActivationFunc>::update(int off, const Vector<FloatType> &new_params){
+template<typename Config, int TensDim, typename ActivationFunc>
+void BatchTensorDNNcomponent<Config,TensDim,ActivationFunc>::update(int off, const Vector<FloatType> &new_params){
   autoView(new_params_v,new_params,DeviceRead);
   int p = off;
   {
@@ -150,8 +150,8 @@ void BatchTensorDNNcomponent<FloatType,TensDim,ActivationFunc>::update(int off, 
   }
 }
 
-template<typename FloatType, int TensDim, typename ActivationFunc>
-void BatchTensorDNNcomponent<FloatType,TensDim,ActivationFunc>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
+template<typename Config, int TensDim, typename ActivationFunc>
+void BatchTensorDNNcomponent<Config,TensDim,ActivationFunc>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
   autoView(derivs_v,derivs,DeviceRead);
   int p = off;
   {
@@ -173,8 +173,8 @@ void BatchTensorDNNcomponent<FloatType,TensDim,ActivationFunc>::step(int off, co
 
 
 
-template<typename FloatType, int TensDim, typename ActivationFunc>
-void BatchTensorDNNcomponent<FloatType,TensDim,ActivationFunc>::getParams(Vector<FloatType> &into, int off) const{
+template<typename Config, int TensDim, typename ActivationFunc>
+void BatchTensorDNNcomponent<Config,TensDim,ActivationFunc>::getParams(Vector<FloatType> &into, int off) const{
   autoView(into_v,into,DeviceReadWrite);
   int p = off;
   {

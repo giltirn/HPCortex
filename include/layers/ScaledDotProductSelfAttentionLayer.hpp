@@ -3,10 +3,10 @@
 #include <components/ScaledDotProductAttentionHeadComponent.hpp>
 
 //A layer implementing scaled dot-product self-attention with optional masking. The input 3-tensor X is expected to have dimension C * E * B  in this order, where C is the size of the context, E the size of the embedding and B the batch size
-template<typename _FloatType, typename _InputType, typename Store>
+template<typename Config, typename _InputType, typename Store>
 class ScaledDotProductSelfAttentionLayer{
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
   typedef _InputType InputType;
 private:
   typedef Tensor<FloatType,3> LayerInputType;
@@ -26,7 +26,7 @@ private:
   int d_v;
   bool setup;
   
-  ScaledDotProductAttentionHeadComponent<FloatType> attentionQKV;
+  ScaledDotProductAttentionHeadComponent<Config> attentionQKV;
   
   Store leaf;
 
@@ -71,7 +71,7 @@ public:
 
 };
 
-#define LAYER_TYPE ScaledDotProductSelfAttentionLayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u)>
+#define LAYER_TYPE ScaledDotProductSelfAttentionLayer<CONFIGTYPE(U),INPUTTYPE(U),DDST(u)>
 template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
 auto scaled_dotproduct_self_attention_layer(const Matrix<FLOATTYPE(U)> &W_Q,
 					    const Matrix<FLOATTYPE(U)> &W_K,

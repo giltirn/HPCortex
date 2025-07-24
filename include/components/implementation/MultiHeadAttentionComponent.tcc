@@ -1,5 +1,5 @@
-template<typename FloatType>
-MultiHeadAttentionComponent<FloatType>::MultiHeadAttentionComponent(int Nheads, Matrix<FloatType> const* const* W_Q, Matrix<FloatType> const* const* W_K, Matrix<FloatType> const* const* W_V, const Matrix<FloatType> &W_O, bool use_mask):
+template<typename Config>
+MultiHeadAttentionComponent<Config>::MultiHeadAttentionComponent(int Nheads, Matrix<FloatType> const* const* W_Q, Matrix<FloatType> const* const* W_K, Matrix<FloatType> const* const* W_V, const Matrix<FloatType> &W_O, bool use_mask):
   concatY(1,Nheads),
   multW_O(W_O),
   heads(Nheads),
@@ -18,14 +18,14 @@ MultiHeadAttentionComponent<FloatType>::MultiHeadAttentionComponent(int Nheads, 
 
   Nparams_layer = multW_O.nparams();
   for(int h=0;h<Nheads;h++){
-    heads[h].reset(new ScaledDotProductAttentionHeadComponent<FloatType>(*W_Q[h],*W_K[h],*W_V[h],use_mask));
+    heads[h].reset(new ScaledDotProductAttentionHeadComponent<Config>(*W_Q[h],*W_K[h],*W_V[h],use_mask));
     Nparams_layer += heads[h]->nparams();
   }
 
 }
 
-template<typename FloatType>
-MultiHeadAttentionComponent<FloatType>::MultiHeadAttentionComponent(int Nheads, const std::vector<Matrix<FloatType> > &W_Q, const std::vector<Matrix<FloatType> > &W_K, const std::vector<Matrix<FloatType> > &W_V, const Matrix<FloatType> &W_O, bool use_mask):
+template<typename Config>
+MultiHeadAttentionComponent<Config>::MultiHeadAttentionComponent(int Nheads, const std::vector<Matrix<FloatType> > &W_Q, const std::vector<Matrix<FloatType> > &W_K, const std::vector<Matrix<FloatType> > &W_V, const Matrix<FloatType> &W_O, bool use_mask):
   concatY(1,Nheads),
   multW_O(W_O),
   heads(Nheads),
@@ -44,7 +44,7 @@ MultiHeadAttentionComponent<FloatType>::MultiHeadAttentionComponent(int Nheads, 
 
   Nparams_layer = multW_O.nparams();
   for(int h=0;h<Nheads;h++){
-    heads[h].reset(new ScaledDotProductAttentionHeadComponent<FloatType>(W_Q[h],W_K[h],W_V[h],use_mask));
+    heads[h].reset(new ScaledDotProductAttentionHeadComponent<Config>(W_Q[h],W_K[h],W_V[h],use_mask));
     Nparams_layer += heads[h]->nparams();
   }
 
@@ -53,8 +53,8 @@ MultiHeadAttentionComponent<FloatType>::MultiHeadAttentionComponent(int Nheads, 
 
 
 
-template<typename FloatType>
-Tensor<FloatType,3> MultiHeadAttentionComponent<FloatType>::value(const TensorType &Q, const TensorType &K, const TensorType &V){
+template<typename Config>
+Tensor<typename Config::FloatType,3> MultiHeadAttentionComponent<Config>::value(const TensorType &Q, const TensorType &K, const TensorType &V){
   //Q(C,E,B) ,  K(C,E,B)  and V(C,E,B)
   assert(Q.size(1) == E && K.size(1) == E && V.size(1) == E);
 
@@ -75,8 +75,8 @@ Tensor<FloatType,3> MultiHeadAttentionComponent<FloatType>::value(const TensorTy
   }
   return multW_O.value( concatY.value(Yp.data()) );
 }
-template<typename FloatType>
-void MultiHeadAttentionComponent<FloatType>::deriv(Vector<FloatType> &cost_deriv, int off, TensorType &&dCost_by_dOut, TensorType &dCost_by_dQ, TensorType &dCost_by_dK, TensorType &dCost_by_dV) const{
+template<typename Config>
+void MultiHeadAttentionComponent<Config>::deriv(Vector<FloatType> &cost_deriv, int off, TensorType &&dCost_by_dOut, TensorType &dCost_by_dQ, TensorType &dCost_by_dK, TensorType &dCost_by_dV) const{
   int p = off;
   
   TensorType dCost_by_dO = std::move(dCost_by_dOut);
@@ -111,8 +111,8 @@ void MultiHeadAttentionComponent<FloatType>::deriv(Vector<FloatType> &cost_deriv
   }
 }
 
-template<typename FloatType>
-void MultiHeadAttentionComponent<FloatType>::update(int off, const Vector<FloatType> &new_params){
+template<typename Config>
+void MultiHeadAttentionComponent<Config>::update(int off, const Vector<FloatType> &new_params){
   int p=off;
   multW_O.update(p,new_params);
   p += multW_O.nparams();
@@ -122,8 +122,8 @@ void MultiHeadAttentionComponent<FloatType>::update(int off, const Vector<FloatT
   }
 }
 
-template<typename FloatType>
-void MultiHeadAttentionComponent<FloatType>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
+template<typename Config>
+void MultiHeadAttentionComponent<Config>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
   int p=off;
   multW_O.step(p,derivs,eps);
   p += multW_O.nparams();
@@ -132,8 +132,8 @@ void MultiHeadAttentionComponent<FloatType>::step(int off, const Vector<FloatTyp
     p += heads[h]->nparams();
   }
 }
-template<typename FloatType>
-void MultiHeadAttentionComponent<FloatType>::getParams(Vector<FloatType> &into, int off) const{
+template<typename Config>
+void MultiHeadAttentionComponent<Config>::getParams(Vector<FloatType> &into, int off) const{
   int p=off;
   multW_O.getParams(into,p);
   p += multW_O.nparams();
@@ -143,15 +143,15 @@ void MultiHeadAttentionComponent<FloatType>::getParams(Vector<FloatType> &into, 
   }
 }
 
-template<typename FloatType>
-void MultiHeadAttentionComponent<FloatType>::resizeInputBuffer(size_t to){
+template<typename Config>
+void MultiHeadAttentionComponent<Config>::resizeInputBuffer(size_t to){
   multW_O.resizeInputBuffer(to);
   for(int h=0;h<heads.size();h++)
     heads[h]->resizeInputBuffer(to);
 }
 
-template<typename FloatType>
-size_t MultiHeadAttentionComponent<FloatType>::FLOPS(int value_or_deriv) const{
+template<typename Config>
+size_t MultiHeadAttentionComponent<Config>::FLOPS(int value_or_deriv) const{
   size_t ret = 0;
   for(int h=0;h<heads.size();h++)
     ret += heads[h]->FLOPS(value_or_deriv);

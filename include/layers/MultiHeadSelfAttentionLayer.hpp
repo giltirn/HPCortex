@@ -4,15 +4,15 @@
 
 //A layer implementing multi-head scaled dot-product self-attention. The input 3-tensor X is expected to have dimension C * E * B  in this order, where C is the size of the context, E the size of the embedding and B the batch size
 //Require W_Q[i], W_K[i] :  d_qk^(i) x E,     W_V[i] : d_v^(i) x E      W_O :  E x sum_i d_v^(i)
-template<typename _FloatType, typename _InputType, typename Store>
+template<typename Config, typename _InputType, typename Store>
 class MultiHeadSelfAttentionLayer{
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
   typedef _InputType InputType;
 private:
   typedef Tensor<FloatType,3> LayerInputType;
 
-  MultiHeadAttentionComponent<FloatType> mha;
+  MultiHeadAttentionComponent<Config> mha;
   Store leaf;
 
 public:
@@ -46,7 +46,7 @@ public:
 
 };
 
-#define LAYER_TYPE MultiHeadSelfAttentionLayer<FLOATTYPE(U),INPUTTYPE(U),DDST(u)>
+#define LAYER_TYPE MultiHeadSelfAttentionLayer<CONFIGTYPE(U),INPUTTYPE(U),DDST(u)>
 template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
 auto multihead_self_attention_layer(int Nheads,
 				    Matrix<FLOATTYPE(U)> const* const* W_Q,

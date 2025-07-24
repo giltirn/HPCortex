@@ -1,21 +1,21 @@
-template<typename FloatType, typename InputType, typename Store>
-MultiHeadSelfAttentionLayer<FloatType,InputType,Store>::MultiHeadSelfAttentionLayer(Store &&leaf, int Nheads, Matrix<FloatType> const* const* W_Q, Matrix<FloatType> const* const* W_K, Matrix<FloatType> const* const* W_V, const Matrix<FloatType> &W_O, bool use_mask):
+template<typename Config, typename InputType, typename Store>
+MultiHeadSelfAttentionLayer<Config,InputType,Store>::MultiHeadSelfAttentionLayer(Store &&leaf, int Nheads, Matrix<FloatType> const* const* W_Q, Matrix<FloatType> const* const* W_K, Matrix<FloatType> const* const* W_V, const Matrix<FloatType> &W_O, bool use_mask):
   leaf(std::move(leaf)),
   mha(Nheads,W_Q,W_K,W_V,W_O,use_mask){}
 
-template<typename FloatType, typename InputType, typename Store>
-MultiHeadSelfAttentionLayer<FloatType,InputType,Store>::MultiHeadSelfAttentionLayer(Store &&leaf, int Nheads, const std::vector<Matrix<FloatType> > &W_Q, const std::vector<Matrix<FloatType> > &W_K, const std::vector<Matrix<FloatType> > &W_V, const Matrix<FloatType> &W_O, bool use_mask):
+template<typename Config, typename InputType, typename Store>
+MultiHeadSelfAttentionLayer<Config,InputType,Store>::MultiHeadSelfAttentionLayer(Store &&leaf, int Nheads, const std::vector<Matrix<FloatType> > &W_Q, const std::vector<Matrix<FloatType> > &W_K, const std::vector<Matrix<FloatType> > &W_V, const Matrix<FloatType> &W_O, bool use_mask):
   leaf(std::move(leaf)),
   mha(Nheads,W_Q,W_K,W_V,W_O,use_mask){}
 
 
-template<typename FloatType, typename InputType, typename Store>
-Tensor<FloatType,3> MultiHeadSelfAttentionLayer<FloatType,InputType,Store>::value(const InputType &x){
+template<typename Config, typename InputType, typename Store>
+Tensor<typename Config::FloatType,3> MultiHeadSelfAttentionLayer<Config,InputType,Store>::value(const InputType &x){
   Tensor<FloatType,3> X = leaf.v.value(x);
   return mha.value(X,X,X);
 }
-template<typename FloatType, typename InputType, typename Store>
-int MultiHeadSelfAttentionLayer<FloatType,InputType,Store>::deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,3> &&_above_deriv, InputType* input_above_deriv_return) const{
+template<typename Config, typename InputType, typename Store>
+int MultiHeadSelfAttentionLayer<Config,InputType,Store>::deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,3> &&_above_deriv, InputType* input_above_deriv_return) const{
   Tensor<FloatType,3> dCost_by_dX;
   {
     Tensor<FloatType,3> dCost_by_dX_Q, dCost_by_dX_K, dCost_by_dX_V;
@@ -42,25 +42,25 @@ int MultiHeadSelfAttentionLayer<FloatType,InputType,Store>::deriv(Vector<FloatTy
   return leaf.v.deriv(cost_deriv, off+mha.nparams(), std::move(dCost_by_dX), input_above_deriv_return);
 }
 
-template<typename FloatType, typename InputType, typename Store>
-int MultiHeadSelfAttentionLayer<FloatType,InputType,Store>::update(int off, const Vector<FloatType> &new_params){
+template<typename Config, typename InputType, typename Store>
+int MultiHeadSelfAttentionLayer<Config,InputType,Store>::update(int off, const Vector<FloatType> &new_params){
   mha.update(off,new_params);
   return leaf.v.update(off + mha.nparams(),new_params);
 }
 
-template<typename FloatType, typename InputType, typename Store>
-int MultiHeadSelfAttentionLayer<FloatType,InputType,Store>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
+template<typename Config, typename InputType, typename Store>
+int MultiHeadSelfAttentionLayer<Config,InputType,Store>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
   mha.step(off,derivs,eps);
   return leaf.v.step(off+mha.nparams(),derivs,eps);
 }
-template<typename FloatType, typename InputType, typename Store>
-int MultiHeadSelfAttentionLayer<FloatType,InputType,Store>::getParams(Vector<FloatType> &into, int off) const{
+template<typename Config, typename InputType, typename Store>
+int MultiHeadSelfAttentionLayer<Config,InputType,Store>::getParams(Vector<FloatType> &into, int off) const{
   mha.getParams(into,off);
   return leaf.v.getParams(into,off+mha.nparams());
 }
 
-template<typename FloatType, typename InputType, typename Store>
-void MultiHeadSelfAttentionLayer<FloatType,InputType,Store>::resizeInputBuffer(size_t to){
+template<typename Config, typename InputType, typename Store>
+void MultiHeadSelfAttentionLayer<Config,InputType,Store>::resizeInputBuffer(size_t to){
   mha.resizeInputBuffer(to);
   leaf.v.resizeInputBuffer(to);
 }

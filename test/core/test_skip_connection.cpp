@@ -2,8 +2,11 @@
 #include <Testing.hpp>
 
 void testSkipConnection(){
-  typedef double FloatType; //more precise derivatives
+  typedef confDouble Config;
+  typedef typename Config::FloatType FloatType;
+
   FloatType delta = 1e-6;
+
   typedef std::vector<FloatType> vecD;
  
   Matrix<FloatType> w1_init(3,3, vecD({0.1,0.2,-0.1,
@@ -20,9 +23,9 @@ void testSkipConnection(){
   
   {
     //Test value for one layer  
-    auto skip1 = skip_connection( dnn_layer(w1_init, b1_init,input_layer<FloatType>()),  input_layer<FloatType>() );
+    auto skip1 = skip_connection( dnn_layer(w1_init, b1_init,input_layer<Config>()),  input_layer<Config>() );
 
-    auto internal1 = dnn_layer(w1_init, b1_init,input_layer<FloatType>());
+    auto internal1 = dnn_layer(w1_init, b1_init,input_layer<Config>());
 
     Matrix<FloatType> x1(3,2,vecD({1.3, 0.6,
 	  -0.3, -1.7,
@@ -34,11 +37,11 @@ void testSkipConnection(){
   }
   {
     //Test value for two layer
-    auto skip1 = skip_connection( dnn_layer(w1_init, b1_init,input_layer<FloatType>()),  input_layer<FloatType>() );
-    auto skip2 = skip_connection( dnn_layer(w2_init, b2_init,input_layer<FloatType>()),  skip1 );
+    auto skip1 = skip_connection( dnn_layer(w1_init, b1_init,input_layer<Config>()),  input_layer<Config>() );
+    auto skip2 = skip_connection( dnn_layer(w2_init, b2_init,input_layer<Config>()),  skip1 );
     
-    auto internal1 = dnn_layer(w1_init, b1_init, input_layer<FloatType>());
-    auto internal2 = dnn_layer(w2_init, b2_init, input_layer<FloatType>());
+    auto internal1 = dnn_layer(w1_init, b1_init, input_layer<Config>());
+    auto internal2 = dnn_layer(w2_init, b2_init, input_layer<Config>());
 
     Matrix<FloatType> x1(3,2,vecD({1.3, 0.6,
 	  -0.3, -1.7,
@@ -125,7 +128,9 @@ void testSkipConnection(){
 }
 
 void testSkipConnectionTensor(){
-  typedef double FloatType; 
+  typedef confDouble Config;
+  typedef typename Config::FloatType FloatType;
+
   typedef std::vector<FloatType> vecD;
   std::mt19937 rng(1234);
   
@@ -138,8 +143,8 @@ void testSkipConnectionTensor(){
   uniformRandom(w1_init,rng);
   uniformRandom(b1_init,rng);
   
-  auto skip_over = batch_tensor_dnn_layer<3>(w1_init, b1_init, 1, ReLU<FloatType>(), input_layer<FloatType,TensorType>());
-  auto skip = skip_connection( skip_over, input_layer<FloatType,TensorType>() );
+  auto skip_over = batch_tensor_dnn_layer<3>(w1_init, b1_init, 1, ReLU<FloatType>(), input_layer<Config,TensorType>());
+  auto skip = skip_connection( skip_over, input_layer<Config,TensorType>() );
 
   TensorType x(tens_size);
   uniformRandom(x,rng);
@@ -152,7 +157,9 @@ void testSkipConnectionTensor(){
 }
 
 void testSkipConnectionTensorSplitJoin(){
-  typedef double FloatType; 
+  typedef confDouble Config;
+  typedef typename Config::FloatType FloatType;
+
   typedef std::vector<FloatType> vecD;
   std::mt19937 rng(1234);
   
@@ -165,11 +172,11 @@ void testSkipConnectionTensorSplitJoin(){
   uniformRandom(w1_init,rng);
   uniformRandom(b1_init,rng);
 
-  auto repl = replicate_layer(2, input_layer<FloatType,TensorType>() );
+  auto repl = replicate_layer(2, input_layer<Config,TensorType>() );
   auto chn = batch_tensor_dnn_layer<3>(w1_init, b1_init, 1, ReLU<FloatType>(), *repl[0]);
   auto join = sum_join_layer(chn,*repl[1]);
   
-  auto skip_over = batch_tensor_dnn_layer<3>(w1_init, b1_init, 1, ReLU<FloatType>(), input_layer<FloatType,TensorType>());
+  auto skip_over = batch_tensor_dnn_layer<3>(w1_init, b1_init, 1, ReLU<FloatType>(), input_layer<Config,TensorType>());
   
   TensorType x(tens_size);
   uniformRandom(x,rng);

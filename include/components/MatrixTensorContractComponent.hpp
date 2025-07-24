@@ -1,15 +1,16 @@
 #pragma once
 #include <type_traits>
 #include <sstream>
+#include <ModelConfig.hpp>
 #include <Tensors.hpp>
-#include <RingBuffer.hpp>
+#include <Buffers.hpp>
 #include <Linalg.hpp>
 
 //A component implementing    W_{ij} X_{..., j, b}   where W is a weight matrix and X is a tensor of at least dimension 2. The last dimension is always assumed to be the batch dimension
-template<typename _FloatType, int TensDim>
+template<typename Config, int TensDim>
 class MatrixTensorContractComponent{
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
 private:
   Matrix<FloatType> weights;
   int size0;
@@ -24,7 +25,7 @@ private:
 
   //Storage from last call to "value"
   //Buffer size > 1 depending on rank if doing pipelining
-  mutable RingBuffer<Tensor<FloatType,TensDim> > in_buf;
+  mutable BufferType<Tensor<FloatType,TensDim> > in_buf;
 public:
 
   

@@ -2,10 +2,10 @@
 #include "LayerCommon.hpp"
 
 //Unflatten an input matrix into a tensor, lexicographically; performs the inverse of FlattenLayer
-template<typename _FloatType, int OutDimension, typename _InputType, typename Store>
+template<typename Config, int OutDimension, typename _InputType, typename Store>
 class UnflattenLayer{
 public:
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
   typedef _InputType InputType;
   typedef LAYEROUTPUTTYPE(typename Store::type) LayerInputTensorType; //expect a Matrix
   static_assert(std::is_same<LayerInputTensorType, Matrix<FloatType> >::value == true );
@@ -47,8 +47,8 @@ public:
 };
 
 template<int OutDimension, typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
-auto unflatten_layer(int const* output_tens_dim, U &&u)->UnflattenLayer<FLOATTYPE(U),OutDimension,INPUTTYPE(U),DDST(u)>{
-  return UnflattenLayer<FLOATTYPE(U),OutDimension,INPUTTYPE(U),DDST(u)>(std::forward<U>(u), output_tens_dim);
+auto unflatten_layer(int const* output_tens_dim, U &&u)->UnflattenLayer<CONFIGTYPE(U),OutDimension,INPUTTYPE(U),DDST(u)>{
+  return UnflattenLayer<CONFIGTYPE(U),OutDimension,INPUTTYPE(U),DDST(u)>(std::forward<U>(u), output_tens_dim);
 }
 
 #include "implementation/UnflattenLayer.tcc"

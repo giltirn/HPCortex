@@ -3,6 +3,8 @@
 
 //Note, only skipping within a rank, not between!
 void testSkipConnectionPipeline(){
+  typedef confDoublePipeline PipelineConfig;
+  typedef confDouble StdConfig;
   typedef double FloatType;
   
   communicators().enableGlobalPipelining(); //put all the ranks into a single pipeline
@@ -27,8 +29,8 @@ void testSkipConnectionPipeline(){
   
   if(1){ //test model
     if(!rank) std::cout << "Testing model value pipeline" << std::endl;
-    auto skip1 = skip_connection( dnn_layer(winit1,binit1,input_layer<FloatType>()), input_layer<FloatType>());
-    auto skip2 = skip_connection( dnn_layer(winit2,binit2,input_layer<FloatType>()), skip1);
+    auto skip1 = skip_connection( dnn_layer(winit1,binit1,input_layer<PipelineConfig>()), input_layer<PipelineConfig>());
+    auto skip2 = skip_connection( dnn_layer(winit2,binit2,input_layer<PipelineConfig>()), skip1);
         
     auto p = pipeline_block<Matrix<FloatType>, Matrix<FloatType> >( skip2, block_output_dims, block_input_dims);
     
@@ -38,10 +40,10 @@ void testSkipConnectionPipeline(){
     int iters=20;
 
     //Build the same model on just this rank
-    auto test_model = enwrap( input_layer<FloatType>() );
+    auto test_model = enwrap( input_layer<StdConfig>() );
     for(int r=0;r<nranks;r++){
-      test_model = enwrap( skip_connection( dnn_layer(winit1,binit1, input_layer<FloatType>()), std::move(test_model) ) ); 
-      test_model = enwrap( skip_connection( dnn_layer(winit2,binit2, input_layer<FloatType>()), std::move(test_model) ) ); 
+      test_model = enwrap( skip_connection( dnn_layer(winit1,binit1, input_layer<StdConfig>()), std::move(test_model) ) ); 
+      test_model = enwrap( skip_connection( dnn_layer(winit2,binit2, input_layer<StdConfig>()), std::move(test_model) ) ); 
     }
       
     if(!rank) std::cout << "Computing expectations" << std::endl;

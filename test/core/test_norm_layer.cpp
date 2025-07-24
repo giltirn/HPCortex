@@ -1,15 +1,15 @@
 #include <HPCortex.hpp>
 #include <Testing.hpp>
 
-template<typename _FloatType, int TensDim>
+template<typename Config, int TensDim>
 struct NormComponentWrapper{
-  typedef _FloatType FloatType;
+  EXTRACT_CONFIG_TYPES;
   
-  NormComponent<FloatType,TensDim> &cpt;
+  NormComponent<Config,TensDim> &cpt;
   int size[TensDim];
   size_t size_lin;
 
-  NormComponentWrapper(NormComponent<FloatType,TensDim> &cpt, int const *sz): cpt(cpt){
+  NormComponentWrapper(NormComponent<Config,TensDim> &cpt, int const *sz): cpt(cpt){
     memcpy(size,sz,TensDim*sizeof(int));
     size_lin = 1;
     for(int i=0;i<TensDim;i++)
@@ -72,7 +72,8 @@ std::vector<FloatType> norm_lin(const std::vector<FloatType> &v, FloatType eps){
 }
 
 void testNormComponent(){
-  typedef double FloatType;
+  typedef confDouble Config;
+  typedef typename Config::FloatType FloatType;
   std::mt19937 rng(1234);
 
   int size[4] = {2,3,4,5};
@@ -83,7 +84,7 @@ void testNormComponent(){
  
   {
     //dim 0
-    NormComponent<FloatType,4> cpt(0,eps);
+    NormComponent<Config,4> cpt(0,eps);
     Tensor<FloatType,4> got = cpt.value(v);
     Tensor<FloatType,4> expect(size);
 
@@ -101,14 +102,14 @@ void testNormComponent(){
       });
     assert(abs_near(got,expect,FloatType(1e-5),true));
 
-    NormComponent<FloatType,4> cpta(0,eps);
-    NormComponentWrapper<FloatType,4> wrp(cpta,size);
+    NormComponent<Config,4> cpta(0,eps);
+    NormComponentWrapper<Config,4> wrp(cpta,size);
     testComponentDeriv(wrp, FloatType(1e-7));
   }
 
   {
     //dim 1
-    NormComponent<FloatType,4> cpt(1,eps);
+    NormComponent<Config,4> cpt(1,eps);
     Tensor<FloatType,4> got = cpt.value(v);
     Tensor<FloatType,4> expect(size);
 
@@ -126,14 +127,14 @@ void testNormComponent(){
       });
     assert(abs_near(got,expect,FloatType(1e-5),true));
 
-    NormComponent<FloatType,4> cpta(1,eps);
-    NormComponentWrapper<FloatType,4> wrp(cpta,size);
+    NormComponent<Config,4> cpta(1,eps);
+    NormComponentWrapper<Config,4> wrp(cpta,size);
     testComponentDeriv(wrp, FloatType(1e-7));
   }
 
   {
     //dim 2
-    NormComponent<FloatType,4> cpt(2,eps);
+    NormComponent<Config,4> cpt(2,eps);
     Tensor<FloatType,4> got = cpt.value(v);
     Tensor<FloatType,4> expect(size);
 
@@ -151,8 +152,8 @@ void testNormComponent(){
       });
     assert(abs_near(got,expect,FloatType(1e-5),true));
 
-    NormComponent<FloatType,4> cpta(2,eps);
-    NormComponentWrapper<FloatType,4> wrp(cpta,size);
+    NormComponent<Config,4> cpta(2,eps);
+    NormComponentWrapper<Config,4> wrp(cpta,size);
     testComponentDeriv(wrp, FloatType(1e-7));
   }
   
@@ -180,7 +181,8 @@ std::vector<FloatType> norm_and_scale_lin(const std::vector<FloatType> &v, Float
 }
 
 void testNormLayer(){
-  typedef double FloatType;
+  typedef confDouble Config;
+  typedef typename Config::FloatType FloatType;
   std::mt19937 rng(1234);
 
   int size[4] = {2,3,4,5};
@@ -195,7 +197,7 @@ void testNormLayer(){
     uniformRandom(gamma,rng); uniformRandom(beta,rng);
 
     auto m = norm_layer<4>(0, size[0], true, true, gamma, beta, eps,
-			   input_layer<FloatType,Tensor<FloatType,4> >()
+			   input_layer<Config,Tensor<FloatType,4> >()
 			   );
 
     Tensor<FloatType,4> got = m.value(v);
@@ -219,7 +221,7 @@ void testNormLayer(){
       for(int use_beta=0; use_beta<2; use_beta++){
 	std::cout << "use_gamma: " << use_gamma << " use_beta: " << use_beta << std::endl;
 	auto mm = norm_layer<4>(0, size[0], bool(use_gamma), bool(use_beta), gamma, beta, eps,
-				input_layer<FloatType,Tensor<FloatType,4> >()
+				input_layer<Config,Tensor<FloatType,4> >()
 				);
 	testDeriv(mm,size,size, FloatType(1e-7));
       }
@@ -233,7 +235,7 @@ void testNormLayer(){
     uniformRandom(gamma,rng); uniformRandom(beta,rng);
 
     auto m = norm_layer<4>(1, size[1], true, true, gamma, beta, eps,
-			   input_layer<FloatType,Tensor<FloatType,4> >()
+			   input_layer<Config,Tensor<FloatType,4> >()
 			   );
 
     Tensor<FloatType,4> got = m.value(v);
@@ -257,7 +259,7 @@ void testNormLayer(){
       for(int use_beta=0; use_beta<2; use_beta++){
 	std::cout << "use_gamma: " << use_gamma << " use_beta: " << use_beta << std::endl;
 	auto mm = norm_layer<4>(1, size[1], bool(use_gamma), bool(use_beta), gamma, beta, eps,
-				input_layer<FloatType,Tensor<FloatType,4> >()
+				input_layer<Config,Tensor<FloatType,4> >()
 				);
 	testDeriv(mm,size,size, FloatType(1e-7));
       }
@@ -271,7 +273,7 @@ void testNormLayer(){
     uniformRandom(gamma,rng); uniformRandom(beta,rng);
 
     auto m = norm_layer<4>(2, size[2], true, true, gamma, beta, eps,
-			   input_layer<FloatType,Tensor<FloatType,4> >()
+			   input_layer<Config,Tensor<FloatType,4> >()
 			   );
     
     Tensor<FloatType,4> got = m.value(v);
@@ -295,7 +297,7 @@ void testNormLayer(){
       for(int use_beta=0; use_beta<2; use_beta++){
 	std::cout << "use_gamma: " << use_gamma << " use_beta: " << use_beta << std::endl;
 	auto mm = norm_layer<4>(2, size[2], bool(use_gamma), bool(use_beta), gamma, beta, eps,
-				input_layer<FloatType,Tensor<FloatType,4> >()
+				input_layer<Config,Tensor<FloatType,4> >()
 				);
 	testDeriv(mm,size,size, FloatType(1e-7));
       }

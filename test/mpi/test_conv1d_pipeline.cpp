@@ -25,6 +25,8 @@ void run(std::vector<FloatType> &loss,std::vector<Vector<FloatType> > &deriv, Mo
 }
 
 void testConvPipeline(){
+  typedef confSinglePipeline PipelineConfig;
+  typedef confSingle StdConfig;
   typedef float FloatType;
   
   communicators().enableGlobalPipelining(); //put all the ranks into a single pipeline
@@ -67,7 +69,7 @@ void testConvPipeline(){
   Tensor<FloatType,3> filter_init(out_channels, in_channels, kernel_size);
   uniformRandom(filter_init, rng);
 
-  auto conv_block = conv1d_layer( filter_init, ReLU<FloatType>(), padding, stride, input_layer<FloatType,InputType>() ); //last rank
+  auto conv_block = conv1d_layer( filter_init, ReLU<FloatType>(), padding, stride, input_layer<PipelineConfig,InputType>() ); //last rank
   int conv_block_output_data_sz[3] = {out_channels, in_len, call_batch_size }; //same padding
 
   ///////////////////////////////////////////////////////////////////////
@@ -81,14 +83,14 @@ void testConvPipeline(){
   uniformRandom(bias_init, rng);
   
   auto dnn_first = dnn_layer(weight_init, bias_init, ReLU<FloatType>(),
-			     flatten_layer( input_layer<FloatType,InputType>() )			      
+			     flatten_layer( input_layer<PipelineConfig,InputType>() )			      
 			     ); //next to last rank
 
 
   ///////////////////////////////////////////////////////////////////////
   ////// Other DNN block
   auto dnn_other = dnn_layer(weight_init, bias_init, ReLU<FloatType>(),
-			     input_layer<FloatType,Matrix<FloatType> >()			      
+			     input_layer<PipelineConfig,Matrix<FloatType> >()			      
 			     );
   
 
@@ -103,7 +105,7 @@ void testConvPipeline(){
   
   auto output_block = unflatten_layer<3>(output_data_sz,
 					 dnn_layer(weight_out_init, bias_out_init,
-						   input_layer<FloatType,Matrix<FloatType> >()						   
+						   input_layer<PipelineConfig,Matrix<FloatType> >()						   
 						   )
 					 );
   
@@ -114,7 +116,7 @@ void testConvPipeline(){
   auto full_model = enwrap( dnn_layer(weight_init, bias_init, ReLU<FloatType>(),
 				      flatten_layer(
 						    conv1d_layer(filter_init, ReLU<FloatType>(), padding, stride,
-								 input_layer<FloatType,InputType>()
+								 input_layer<StdConfig,InputType>()
 								 ) 
 						    )				      
 				      )

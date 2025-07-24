@@ -27,7 +27,7 @@ int main(int argc, char** argv){
 	Tensor<float,4> x(tsize);
 	uniformRandom(x, rng);
 
-	MatrixTensorContractComponent<float,4> cpt(a);
+	MatrixTensorContractComponent<confSingle,4> cpt(a);
 
 	Tensor<float,4> got;
 	

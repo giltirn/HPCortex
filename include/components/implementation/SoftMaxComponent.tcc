@@ -1,5 +1,5 @@
-template<typename FloatType, int TensDim>
-Tensor<FloatType,TensDim> SoftMaxComponent<FloatType,TensDim>::value(const Tensor<FloatType,TensDim> &in) const{
+template<typename Config, int TensDim>
+Tensor<typename Config::FloatType,TensDim> SoftMaxComponent<Config,TensDim>::value(const Tensor<FloatType,TensDim> &in) const{
   int batch_size = in.size(TensDim-1);
   int nlogp = in.size(softmax_dim);
 
@@ -60,8 +60,8 @@ Tensor<FloatType,TensDim> SoftMaxComponent<FloatType,TensDim>::value(const Tenso
   return out;
 }
 
-template<typename FloatType, int TensDim>
-void SoftMaxComponent<FloatType,TensDim>::deriv(Tensor<FloatType,TensDim> &&_dcost_by_dOut, Tensor<FloatType,TensDim> &dcost_by_dIn) const{
+template<typename Config, int TensDim>
+void SoftMaxComponent<Config,TensDim>::deriv(Tensor<FloatType,TensDim> &&_dcost_by_dOut, Tensor<FloatType,TensDim> &dcost_by_dIn) const{
   //No parameters so we just have to compute the "layer_deriv",  l_j = \sum_i dcost/dout_i dout_i / din_j
   //out_i =  exp(beta*in_i)/ \sum_k exp(beta*in_k) = e_i / norm
   //dout_i / din_j = beta * out_i \delta_ij     - e_i  beta e_j /norm^2 = beta * out_i ( \delta_ij - out_j )

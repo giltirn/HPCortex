@@ -22,7 +22,7 @@ void benchmarkMultiHeadSelfAttentionLayer(){
 	  if(E % nhead != 0) break;
 	  std::cout << "C:" << C << " E:" << E << " B:" << B << " nhead:" << nhead << std::endl;
 
-	  auto m = multihead_self_attention_layer(nhead, E, false, input_layer<float, Tensor<float,3> >());
+	  auto m = multihead_self_attention_layer(nhead, E, false, input_layer<confSingle, Tensor<float,3> >());
 
 	  int tsize[3] = {C,E,B};
 	  Tensor<float,3> x(tsize);

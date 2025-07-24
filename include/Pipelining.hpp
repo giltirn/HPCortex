@@ -322,6 +322,7 @@ auto pipeline_mse_cost(PipelineBlockType &u)->CWRP{
 struct LockControlWrapper{
   virtual void lock() = 0;
   virtual void unlock() = 0;
+  virtual ~LockControlWrapper(){}
 };
 template<typename FloatType, int Dim>
 struct LockControlWrapperTensor: public LockControlWrapper{
@@ -425,7 +426,15 @@ public:
     if(is_last) reqs.push_back(send(*send_last,0));
     else if(is_first) reqs.push_back(recv(*recv_first,pipeline_depth-1));
   }
-
+  template<typename T>
+  void passRightFirstToLast(std::vector<CommsRequest> &reqs,
+			    T const* send_first, T *recv_last){
+    if(pipeline_depth == 1){
+      *recv_last = *send_first; return;
+    }
+    if(is_first) reqs.push_back(send(*send_first,pipeline_depth-1));
+    else if(is_last) reqs.push_back(recv(*recv_last,0));
+  }
 };
   
 

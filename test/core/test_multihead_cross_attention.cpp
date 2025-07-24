@@ -1,20 +1,20 @@
 #include <HPCortex.hpp>
 #include <Testing.hpp>
 
-template<typename FloatType>
-Tensor<FloatType,3> naiveImpl(const Tensor<FloatType,3> &XKV, const Tensor<FloatType,3> &XQ,
-			      const std::vector< Matrix<FloatType> > &W_Q,
-			      const std::vector< Matrix<FloatType> > &W_K,
-			      const std::vector< Matrix<FloatType> > &W_V,
-			      const Matrix<FloatType> &W_O, bool use_mask){
+template<typename Config>
+Tensor<typename Config::FloatType,3> naiveImpl(const Tensor<typename Config::FloatType,3> &XKV, const Tensor<typename Config::FloatType,3> &XQ,
+			      const std::vector< Matrix<typename Config::FloatType> > &W_Q,
+			      const std::vector< Matrix<typename Config::FloatType> > &W_K,
+			      const std::vector< Matrix<typename Config::FloatType> > &W_V,
+			      const Matrix<typename Config::FloatType> &W_O, bool use_mask){
   int Nheads = W_V.size();
-  std::vector< Matrix<FloatType> const* > W_Q_p(Nheads), W_K_p(Nheads), W_V_p(Nheads);
+  std::vector< Matrix<typename Config::FloatType> const* > W_Q_p(Nheads), W_K_p(Nheads), W_V_p(Nheads);
   for(int i=0;i<Nheads;i++){
     W_Q_p[i] = &W_Q[i];
     W_K_p[i] = &W_K[i];
     W_V_p[i] = &W_V[i];
   }
-  MultiHeadAttentionComponent<FloatType> cpt(Nheads, W_Q_p.data(), W_K_p.data(), W_V_p.data(), W_O, use_mask);
+  MultiHeadAttentionComponent<Config> cpt(Nheads, W_Q_p.data(), W_K_p.data(), W_V_p.data(), W_O, use_mask);
   return cpt.value(XQ, XKV, XKV);
 }
 
@@ -93,7 +93,8 @@ struct MultiHeadCrossAttentionLayerWrapper{
 
 
 void testMultiHeadCrossAttention(){
-  typedef double FloatType;
+  typedef confDouble Config;
+  typedef typename Config::FloatType FloatType;
   std::mt19937 rng(1234);
    
   typedef std::vector<FloatType> vecD;
@@ -136,7 +137,7 @@ void testMultiHeadCrossAttention(){
   typedef std::pair<TensorType,TensorType> TensorPair;
   
   for(int use_mask=0;use_mask<2;use_mask++){
-    auto splt = pair_split_layer(input_layer<FloatType, TensorPair>());
+    auto splt = pair_split_layer(input_layer<Config, TensorPair>());
     
     auto model = multihead_cross_attention_layer(Nheads, in_W_Q_p.data(), in_W_K_p.data(), in_W_V_p.data(), in_W_O, use_mask,
 						 *splt.first,*splt.second
@@ -147,7 +148,7 @@ void testMultiHeadCrossAttention(){
     uniformRandom(X.second,rng);
       
     Tensor<FloatType,3> got = model.value(X);
-    Tensor<FloatType,3> expect = naiveImpl(X.first,X.second,in_W_Q,in_W_K,in_W_V,in_W_O,use_mask);
+    Tensor<FloatType,3> expect = naiveImpl<Config>(X.first,X.second,in_W_Q,in_W_K,in_W_V,in_W_O,use_mask);
 
     assert(abs_near(got,expect,FloatType(1e-4),true));
 

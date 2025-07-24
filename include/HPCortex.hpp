@@ -5,6 +5,7 @@
 #include <Accelerator.hpp>
 #include <Random.hpp>
 #include <Performance.hpp>
+#include <ModelConfig.hpp>
 #include <Layers.hpp>
 #include <LossFunctions.hpp>
 #include <Optimizers.hpp>
