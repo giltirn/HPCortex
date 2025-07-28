@@ -39,7 +39,7 @@ void testMSEcost(){
   }
   expect /= 2.;
     
-  FloatType got=  f.loss(x1,y1);
+  FloatType got=  f.loss(x1,y1,DerivYes);
   std::cout << "Test loss : got " << got << " expect " << expect << std::endl;
   assert(abs_near(got,expect,FloatType(1e-8)));
 

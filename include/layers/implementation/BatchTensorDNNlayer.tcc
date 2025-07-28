@@ -1,6 +1,6 @@
 template<typename Config, int TensDim, typename InputType, typename Store, typename ActivationFunc>
-Tensor<typename Config::FloatType,TensDim> BatchTensorDNNlayer<Config,TensDim,InputType,Store,ActivationFunc>::value(const InputType &x){
-  return cpt.value(leaf.v.value(x));
+Tensor<typename Config::FloatType,TensDim> BatchTensorDNNlayer<Config,TensDim,InputType,Store,ActivationFunc>::value(const InputType &x, EnableDeriv enable_deriv){
+  return cpt.value(leaf.v.value(x, enable_deriv), enable_deriv);
 }
 
 template<typename Config, int TensDim, typename InputType, typename Store, typename ActivationFunc>

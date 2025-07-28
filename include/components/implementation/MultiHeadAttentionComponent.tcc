@@ -54,7 +54,7 @@ MultiHeadAttentionComponent<Config>::MultiHeadAttentionComponent(int Nheads, con
 
 
 template<typename Config>
-Tensor<typename Config::FloatType,3> MultiHeadAttentionComponent<Config>::value(const TensorType &Q, const TensorType &K, const TensorType &V){
+Tensor<typename Config::FloatType,3> MultiHeadAttentionComponent<Config>::value(const TensorType &Q, const TensorType &K, const TensorType &V, EnableDeriv enable_deriv){
   //Q(C,E,B) ,  K(C,E,B)  and V(C,E,B)
   assert(Q.size(1) == E && K.size(1) == E && V.size(1) == E);
 
@@ -70,10 +70,10 @@ Tensor<typename Config::FloatType,3> MultiHeadAttentionComponent<Config>::value(
   std::vector< TensorType > Y(heads.size());
   std::vector< TensorType const* > Yp(heads.size());
   for(int h=0;h<heads.size();h++){  
-    Y[h] = heads[h]->value(Q,K,V);
+    Y[h] = heads[h]->value(Q,K,V, enable_deriv);
     Yp[h] = &Y[h];
   }
-  return multW_O.value( concatY.value(Yp.data()) );
+  return multW_O.value( concatY.value(Yp.data()), enable_deriv );
 }
 template<typename Config>
 void MultiHeadAttentionComponent<Config>::deriv(Vector<FloatType> &cost_deriv, int off, TensorType &&dCost_by_dOut, TensorType &dCost_by_dQ, TensorType &dCost_by_dK, TensorType &dCost_by_dV) const{

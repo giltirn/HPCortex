@@ -237,8 +237,8 @@ void testDeriv(ModelType &model, int const* in_sizes, int const* out_sizes, type
 
   InputType in_base(in_sizes);
   uniformRandom(in_base, rng);
- 
-  OutputType val_base = model.value(in_base);
+  
+  OutputType val_base = model.value(in_base, DerivYes);
   Vector<FloatType> pderiv_got(nparam,0.);
 
   OutputType above_deriv(out_sizes);
@@ -248,7 +248,7 @@ void testDeriv(ModelType &model, int const* in_sizes, int const* out_sizes, type
     });
   InputType inderiv_got;
   model.deriv(pderiv_got,0,std::move(above_deriv),&inderiv_got);
- 
+  
   //Test parameter derivs
   //param_deriv = \sum_i dcost/dout_i  dout_i/dparam_j  =  \sum_i c_i dout_i/dparam_j
   FloatType cost_base = testCost(c, val_base);
@@ -336,12 +336,12 @@ void testComponentDeriv(ComponentWrapper &cpt, typename ComponentWrapper::FloatT
   Vector<FloatType> in_base(vin);
   uniformRandom(in_base, rng);
 
-  Vector<FloatType> val_base = cpt.value(in_base);
+  Vector<FloatType> val_base = cpt.value(in_base, DerivYes);
   Vector<FloatType> pderiv_got(nparam,0.);
 
   Vector<FloatType> inderiv_got;
   cpt.deriv(pderiv_got,0, Vector<FloatType>(c), inderiv_got);
- 
+  
   //Test parameter derivs
   //param_deriv = \sum_i dcost/dout_i  dout_i/dparam_j  =  \sum_i c_i dout_i/dparam_j
   FloatType cost_base = testCost(c, val_base);

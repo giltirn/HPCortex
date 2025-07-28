@@ -255,7 +255,7 @@ void testConv1D(){
       uniformRandom(x, rng);
       
       ////////////////////// TEST VALUE //////////////////////////////
-      Tens got_value = layer.value(x);
+      Tens got_value = layer.value(x, DerivYes);
       convExpect<PaddingType>::testValue(x, init_filter, got_value, out_chan, kernel_size, stride);
       
       int out_data_len = got_value.size(1);

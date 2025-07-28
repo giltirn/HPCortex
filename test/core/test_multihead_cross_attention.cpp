@@ -47,14 +47,14 @@ struct MultiHeadCrossAttentionLayerWrapper{
   size_t outputLinearSize() const{ return size_lin_Out; }
   size_t inputLinearSize() const{ return size_lin_KV + size_lin_Q; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in){
+  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
     std::pair<Tensor<FloatType,3>, Tensor<FloatType,3> > X({ Tensor<FloatType,3>(sizeKV), Tensor<FloatType,3>(sizeQ) });
     {
       autoView(in_v,in,HostRead);
       FloatType const* p = in_v.data();
       p = unflatten(X.first,p); unflatten(X.second,p);
     }           
-    return flatten(cpt.value(X));
+    return flatten(cpt.value(X,enable_deriv));
   }
   void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
     Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);

@@ -21,8 +21,8 @@ public:
   EmbedPositionsSinusoidalLayer(EmbedPositionsSinusoidalLayer &&r) = default;
   
   //Forward pass
-  Tensor<FloatType,3> value(const InputType &x){
-    auto out = embedPositionsSinusoidal(leaf.v.value(x), &value_FLOPS);
+  Tensor<FloatType,3> value(const InputType &x, EnableDeriv enable_deriv = DerivNo){
+    auto out = embedPositionsSinusoidal(leaf.v.value(x, enable_deriv), &value_FLOPS);
     value_FLOPS.lock();
     return out;
   }
@@ -49,7 +49,6 @@ public:
   inline void resizeInputBuffer(size_t to){
     leaf.v.resizeInputBuffer(to);
   }
-
 };
 
 template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>

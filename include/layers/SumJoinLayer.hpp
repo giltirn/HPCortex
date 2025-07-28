@@ -25,8 +25,8 @@ public:
   SumJoinLayer(const SumJoinLayer &r) = delete;
   SumJoinLayer(SumJoinLayer &&r) = default;
   
-  inline LayerInputOutputType value(const InputType &x){
-    return leaf1.v.value(x) + leaf2.v.value(x);
+  inline LayerInputOutputType value(const InputType &x, EnableDeriv enable_deriv = DerivNo){
+    return leaf1.v.value(x, enable_deriv) + leaf2.v.value(x, enable_deriv);
   }
   inline int deriv(Vector<FloatType> &cost_deriv, int off, LayerInputOutputType &&_above_deriv, InputType* input_above_deriv_return = nullptr) const{
     LayerInputOutputType above_deriv(std::move(_above_deriv));
@@ -60,7 +60,6 @@ public:
     leaf1.v.resizeInputBuffer(to);
     leaf2.v.resizeInputBuffer(to);
   }
-
 };
 
 template<typename U, typename V, typename std::enable_if<ISLEAF(U) && ISLEAF(V) && std::is_same<CONFIGTYPE(U),CONFIGTYPE(V)>::value && std::is_same<INPUTTYPE(U),INPUTTYPE(V)>::value , int>::type = 0>

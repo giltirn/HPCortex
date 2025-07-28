@@ -1,6 +1,6 @@
 template<typename Config, typename InputType, typename Store>
-Tensor<typename Config::FloatType,3> ScaledDotProductSelfAttentionLayer<Config,InputType,Store>::value(const InputType &x){
-  Tensor<FloatType,3> X = leaf.v.value(x);
+Tensor<typename Config::FloatType,3> ScaledDotProductSelfAttentionLayer<Config,InputType,Store>::value(const InputType &x, EnableDeriv enable_deriv ){
+  Tensor<FloatType,3> X = leaf.v.value(x,enable_deriv);
   assert(X.size(1) == E);
   if(!setup){
     C = X.size(0);
@@ -8,7 +8,7 @@ Tensor<typename Config::FloatType,3> ScaledDotProductSelfAttentionLayer<Config,I
     setup = true;
   }else assert(X.size(0) == C && X.size(2) == B);
 
-  return attentionQKV.value(X,X,X);
+  return attentionQKV.value(X,X,X,enable_deriv);
 }
 
 template<typename Config, typename InputType, typename Store>

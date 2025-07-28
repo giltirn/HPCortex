@@ -26,10 +26,10 @@ struct Batch3tensorPairContractComponentWrapper{
   size_t outputLinearSize() const{ return C_lin; }
   size_t inputLinearSize() const{ return A_lin + B_lin; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in){
+  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
     Tensor<FloatType,3> A(A_size), B(B_size);
     unflatten2(A,B,in);
-    Tensor<FloatType,3> C = cpt.value(A,B);
+    Tensor<FloatType,3> C = cpt.value(A,B,enable_deriv);
     return flatten(C);
   }
   void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
@@ -152,7 +152,7 @@ struct BatchTensorConcatenateComponentWrapper{
   size_t outputLinearSize() const{ return lin_sz; }
   size_t inputLinearSize() const{ return lin_sz; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in){
+  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
     unflattenNsameDim(tmp.data(),N,in);    
     Tensor<FloatType,TensDim> out = cpt.value(tmp.data());
     return flatten(out);
@@ -265,10 +265,10 @@ struct ScaleComponentWrapper{
   size_t outputLinearSize() const{ return size_lin; }
   size_t inputLinearSize() const{ return size_lin; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in){
+  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
     Tensor<FloatType,TensDim> T(size);
     unflatten(T,in);
-    return flatten(cpt.value(T));
+    return flatten(cpt.value(T,enable_deriv));
   }
   void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
     Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);
@@ -464,7 +464,7 @@ struct BatchTensorDimensionSliceComponentWrapper{
   size_t outputLinearSize() const{ return out_lin_sz; }
   size_t inputLinearSize() const{ return in_lin_sz; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in){
+  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
     Tensor<FloatType,TensDim> in_t(in_sz);
     unflatten(in_t,in); 
     Tensor<FloatType,TensDim-1> out = cpt.value(in_t);
@@ -616,10 +616,10 @@ struct MatrixTensorContractComponentWrapper{
   size_t outputLinearSize() const{ return out_size_lin; }
   size_t inputLinearSize() const{ return in_size_lin; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in){
+  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
     Tensor<FloatType,Dim> A(in_size);
     unflatten(A,in);
-    Tensor<FloatType,Dim> C = cpt.value(A);
+    Tensor<FloatType,Dim> C = cpt.value(A,enable_deriv);
     return flatten(C);
   }
   void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){

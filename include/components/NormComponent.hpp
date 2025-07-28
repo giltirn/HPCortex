@@ -34,7 +34,7 @@ public:
   NormComponent(const NormComponent &r) = delete;
   NormComponent(NormComponent &&r) = default;
   
-  Tensor<FloatType,TensDim> value(const Tensor<FloatType,TensDim> &in);
+  Tensor<FloatType,TensDim> value(const Tensor<FloatType,TensDim> &in, EnableDeriv enable_deriv = DerivNo);
   
   void deriv(Tensor<FloatType,TensDim> &&dcost_by_dOut, Tensor<FloatType,TensDim> &dcost_by_dIn) const;
   

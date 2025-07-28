@@ -1,6 +1,6 @@
 template<typename Config, typename InputType, typename Store, typename ActivationFunc, typename PaddingFunc>
-Tensor<typename Config::FloatType,3> ConvolutionLayer1D<Config,InputType,Store,ActivationFunc,PaddingFunc>::value(const InputType &x){
-  LayerInputTensorType in = leaf.v.value(x);
+Tensor<typename Config::FloatType,3> ConvolutionLayer1D<Config,InputType,Store,ActivationFunc,PaddingFunc>::value(const InputType &x, EnableDeriv enable_deriv ){
+  LayerInputTensorType in = leaf.v.value(x, enable_deriv);
 
   //std::cout << "Conv1d input tensor of size " << in.sizeArrayString() << std::endl;
   
@@ -59,9 +59,10 @@ Tensor<typename Config::FloatType,3> ConvolutionLayer1D<Config,InputType,Store,A
   assert(activation_deriv.size(1) == out_data_len);
   assert(activation_deriv.size(2) == batch_size);
 
-  leaf_buf.push(std::move(in)); //keep the *padded* tensor
-  activation_deriv_buf.push(std::move(activation_deriv));
-    
+  if(enable_deriv){
+    leaf_buf.push(std::move(in)); //keep the *padded* tensor
+    activation_deriv_buf.push(std::move(activation_deriv));
+  }
   return out;
 }
 

@@ -7,7 +7,7 @@ template<typename Config, typename InputType, typename LayerOutputType>
 class LayerWrapperInternalBase{  
 public:
   EXTRACT_CONFIG_TYPES;
-  virtual LayerOutputType value(const InputType &x) = 0;
+  virtual LayerOutputType value(const InputType &x, EnableDeriv enable_deriv) = 0;
   virtual int deriv(Vector<FloatType> &cost_deriv, int off, LayerOutputType &&above_deriv, InputType* input_above_deriv_return = nullptr) const = 0;
   virtual int nparams() const = 0;
   virtual size_t FLOPS(int value_or_deriv) const = 0;
@@ -29,8 +29,8 @@ public:
 public:
   LayerWrapperInternal(Store &&layer): layer(std::move(layer)){}
   
-  LayerOutputType value(const InputType &x) override{
-    return layer.v.value(x);
+  LayerOutputType value(const InputType &x, EnableDeriv enable_deriv) override{
+    return layer.v.value(x, enable_deriv);
   }
   int deriv(Vector<FloatType> &cost_deriv, int off, LayerOutputType &&above_deriv, InputType* input_above_deriv_return = nullptr) const override{
     return layer.v.deriv(cost_deriv,off,std::move(above_deriv), input_above_deriv_return);
@@ -62,8 +62,8 @@ public:
   template<typename Store, typename std::enable_if<ISSTORAGE(Store), int>::type = 0 >
   LayerWrapper(Store &&layer): layer( new LayerWrapperInternal<Store>(std::move(layer)) ){}
 
-  inline LayerOutputType value(const InputType &x){
-    return layer->value(x);
+  inline LayerOutputType value(const InputType &x, EnableDeriv enable_deriv = DerivNo){
+    return layer->value(x, enable_deriv);
   }
   inline int deriv(Vector<FloatType> &cost_deriv, int off, LayerOutputType &&above_deriv, InputType* input_above_deriv_return = nullptr) const{
     return layer->deriv(cost_deriv,off, std::move(above_deriv), input_above_deriv_return);

@@ -1,5 +1,5 @@
 template<typename Config, int TensDim>
-Tensor<typename Config::FloatType,TensDim> SoftMaxComponent<Config,TensDim>::value(const Tensor<FloatType,TensDim> &in) const{
+Tensor<typename Config::FloatType,TensDim> SoftMaxComponent<Config,TensDim>::value(const Tensor<FloatType,TensDim> &in, EnableDeriv enable_deriv) const{
   int batch_size = in.size(TensDim-1);
   int nlogp = in.size(softmax_dim);
 
@@ -55,7 +55,7 @@ Tensor<typename Config::FloatType,TensDim> SoftMaxComponent<Config,TensDim>::val
       });
   }
   
-  out_buf.push(Tensor<FloatType,TensDim>(out));
+  if(enable_deriv) out_buf.push(Tensor<FloatType,TensDim>(out));
   
   return out;
 }

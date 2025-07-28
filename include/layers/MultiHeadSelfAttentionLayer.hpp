@@ -25,7 +25,7 @@ public:
   MultiHeadSelfAttentionLayer(MultiHeadSelfAttentionLayer &&r) = default;
   
   //Forward pass
-  Tensor<FloatType,3> value(const InputType &x);
+  Tensor<FloatType,3> value(const InputType &x, EnableDeriv enable_deriv = DerivNo);
 
   int deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,3> &&_above_deriv, InputType* input_above_deriv_return = nullptr) const;
 

@@ -27,7 +27,7 @@ struct CrossDecoderWrapper{
   size_t outputLinearSize() const{ return size_lin_out; }
   size_t inputLinearSize() const{ return size_lin_in; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in){
+  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
     std::pair< Tensor<FloatType,3>, Tensor<FloatType,3> > inm;
     inm.first = Tensor<FloatType,3>(sz);
     inm.second = Tensor<FloatType,3>(sz);
@@ -40,7 +40,7 @@ struct CrossDecoderWrapper{
     Vector<FloatType> out(size_lin_out);
     {
       autoView(out_v,out,HostWrite);
-      auto v = chain.value(inm);
+      auto v = chain.value(inm, enable_deriv);
       FloatType* p = out_v.data();
       p = flatten(p, v);
     }

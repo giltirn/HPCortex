@@ -52,7 +52,7 @@ public:
   ConvolutionLayer1D(ConvolutionLayer1D &&r) = default;
   
   //Forward pass, output  [depth channel][1d data idx][batch_idx]
-  Tensor<FloatType,3> value(const InputType &x);
+  Tensor<FloatType,3> value(const InputType &x, EnableDeriv enable_deriv = DerivNo);
 
   int deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,3> &&_above_deriv, InputType* input_above_deriv_return = nullptr) const;
 
@@ -76,7 +76,6 @@ public:
     activation_deriv_buf.resize(to);
     leaf.v.resizeInputBuffer(to);
   }
-
 };
 #define LAYER_TYPE ConvolutionLayer1D<CONFIGTYPE(U),INPUTTYPE(U),DDST(u),ActivationFunc,PaddingFunc>
 

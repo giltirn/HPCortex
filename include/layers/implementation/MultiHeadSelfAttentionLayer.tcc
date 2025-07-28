@@ -10,9 +10,9 @@ MultiHeadSelfAttentionLayer<Config,InputType,Store>::MultiHeadSelfAttentionLayer
 
 
 template<typename Config, typename InputType, typename Store>
-Tensor<typename Config::FloatType,3> MultiHeadSelfAttentionLayer<Config,InputType,Store>::value(const InputType &x){
-  Tensor<FloatType,3> X = leaf.v.value(x);
-  return mha.value(X,X,X);
+Tensor<typename Config::FloatType,3> MultiHeadSelfAttentionLayer<Config,InputType,Store>::value(const InputType &x, EnableDeriv enable_deriv){
+  Tensor<FloatType,3> X = leaf.v.value(x,enable_deriv);
+  return mha.value(X,X,X, enable_deriv);
 }
 template<typename Config, typename InputType, typename Store>
 int MultiHeadSelfAttentionLayer<Config,InputType,Store>::deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,3> &&_above_deriv, InputType* input_above_deriv_return) const{
@@ -64,3 +64,4 @@ void MultiHeadSelfAttentionLayer<Config,InputType,Store>::resizeInputBuffer(size
   mha.resizeInputBuffer(to);
   leaf.v.resizeInputBuffer(to);
 }
+  

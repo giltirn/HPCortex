@@ -49,7 +49,7 @@ public:
   ScaleComponent(const ScaleComponent &r) = delete;
   ScaleComponent(ScaleComponent &&r) = default;
   
-  Tensor<FloatType,TensDim> value(const Tensor<FloatType,TensDim> &in);
+  Tensor<FloatType,TensDim> value(const Tensor<FloatType,TensDim> &in, EnableDeriv enable_deriv = DerivNo);
   
   void deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,TensDim> &&dcost_by_dOut, Tensor<FloatType,TensDim> &dcost_by_dIn) const;
 
@@ -63,10 +63,6 @@ public:
   size_t FLOPS(int value_or_deriv) const{ return value_or_deriv == 0 ? value_FLOPS.value() : deriv_FLOPS.value(); }
 
   inline int nparams() const{ return nparams_val; }
-
-  inline void resizeInputBuffer(size_t to){
-    in_buf.resize(to);
-  }
 };
 
 #include "implementation/ScaleComponent.tcc"

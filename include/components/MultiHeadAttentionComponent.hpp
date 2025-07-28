@@ -30,7 +30,7 @@ public:
   MultiHeadAttentionComponent(MultiHeadAttentionComponent &&r) = default;
   
   //Forward pass
-  TensorType value(const TensorType &Q, const TensorType &K, const TensorType &V);
+  TensorType value(const TensorType &Q, const TensorType &K, const TensorType &V, EnableDeriv enable_deriv = DerivNo);
 
   void deriv(Vector<FloatType> &cost_deriv, int off, TensorType &&dCost_by_dOut, TensorType &dCost_by_dQ, TensorType &dCost_by_dK, TensorType &dCost_by_dV) const;
 
@@ -48,7 +48,6 @@ public:
 
   //For pipelining
   void resizeInputBuffer(size_t to);
-
 };
 
 #include "implementation/MultiHeadAttentionComponent.tcc"

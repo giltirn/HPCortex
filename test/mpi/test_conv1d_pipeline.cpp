@@ -11,7 +11,7 @@ void run(std::vector<FloatType> &loss,std::vector<Vector<FloatType> > &deriv, Mo
   int deriv_off = 0;
     
   for(int call=0;call < total_calls; call++){
-    auto ls = cost.loss(x[call < ndata ? call : 0],y[call < ndata ? call : 0]); //need to feed in extra vals to drain out the derivatives
+    auto ls = cost.loss(x[call < ndata ? call : 0],y[call < ndata ? call : 0], DerivYes); //need to feed in extra vals to drain out the derivatives
     if(ls.second && loss_off < ndata)
       loss[loss_off++] = ls.first;
     auto der = cost.deriv();
@@ -137,7 +137,7 @@ void testConvPipeline(){
   std::vector<FloatType> loss_expect(ndata);
   std::vector<Vector<FloatType> > deriv_expect(ndata);
   for(int d=0;d<ndata;d++){
-    loss_expect[d] = full_cost.loss(x[d],y[d]);
+    loss_expect[d] = full_cost.loss(x[d],y[d],DerivYes);
     deriv_expect[d] = full_cost.deriv();
   }
   

@@ -18,11 +18,11 @@ struct NormComponentWrapper{
 
   size_t outputLinearSize() const{ return size_lin; }
   size_t inputLinearSize() const{ return size_lin; }
-  
-  Vector<FloatType> value(const Vector<FloatType> &in){
+ 
+  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
     Tensor<FloatType,TensDim> T(size);
     unflatten(T,in);
-    return flatten(cpt.value(T));
+    return flatten(cpt.value(T, enable_deriv));
   }
   void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
     Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);

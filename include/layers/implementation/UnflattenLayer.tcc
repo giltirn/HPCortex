@@ -1,6 +1,6 @@
 template<typename Config, int OutDimension, typename InputType, typename Store>
-Tensor<typename Config::FloatType,OutDimension> UnflattenLayer<Config,OutDimension,InputType,Store>::value(const InputType &x){
-  LayerInputTensorType in = leaf.v.value(x);
+Tensor<typename Config::FloatType,OutDimension> UnflattenLayer<Config,OutDimension,InputType,Store>::value(const InputType &x, EnableDeriv enable_deriv){
+  LayerInputTensorType in = leaf.v.value(x, enable_deriv);
   int batch_size = _output_tens_size[OutDimension-1];
   size_t flat_size = 1;
   for(int i=0;i<OutDimension-1;i++)

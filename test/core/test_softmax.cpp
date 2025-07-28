@@ -18,10 +18,10 @@ struct SoftMaxComponentWrapper{
   size_t outputLinearSize() const{ return size_lin; }
   size_t inputLinearSize() const{ return size_lin; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in){
+  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
     Tensor<FloatType,Dim> A(size);
     unflatten(A,in);
-    Tensor<FloatType,Dim> C = cpt.value(A);
+    Tensor<FloatType,Dim> C = cpt.value(A, enable_deriv);
     return flatten(C);
   }
   void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
@@ -174,7 +174,7 @@ void testSoftMaxLayer(){
   uniformRandom(logp,rng);
 
   ///value
-  Matrix<FloatType> vgot = m.value(logp);
+  Matrix<FloatType> vgot = m.value(logp, DerivYes);
 
   Matrix<FloatType> vexpect(np,batch_size);
   doHost3(vexpect, vgot, logp, {
@@ -254,10 +254,10 @@ struct BatchedMatrixRowSoftMaxComponentWrapper{
   size_t outputLinearSize() const{ return size_lin; }
   size_t inputLinearSize() const{ return size_lin; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in){
+  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
     Tensor<FloatType,3> A(size);
     unflatten(A,in);
-    Tensor<FloatType,3> C = cpt.value(A);
+    Tensor<FloatType,3> C = cpt.value(A, enable_deriv);
     return flatten(C);
   }
   void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){

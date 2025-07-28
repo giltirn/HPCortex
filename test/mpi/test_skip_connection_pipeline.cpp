@@ -54,7 +54,7 @@ void testSkipConnectionPipeline(){
     for(int i=0;i<iters;i++){
       input_deriv[i] = Matrix<FloatType>(1,batch_size, 2.13*(i+1)); 
       Matrix<FloatType> x(1,1, i+1);
-      expect_v[i] = test_model.value(x);
+      expect_v[i] = test_model.value(x,DerivYes);
 
       Matrix<FloatType> idcp(input_deriv[i]);
       test_model.deriv(expect_d[i],0,std::move(idcp));
@@ -64,7 +64,7 @@ void testSkipConnectionPipeline(){
     if(!rank) std::cout << "Starting test loop" << std::endl;
     for(int i=0;i<iters;i++){
       Matrix<FloatType> x(1,1, i+1);
-      Matrix<FloatType> v = p.value(x);
+      Matrix<FloatType> v = p.value(x,DerivYes);
       Vector<FloatType> d(nparams,0.);
 
       int i_vpipe = i-(value_lag-1); //lag=3    2->0  3->1

@@ -25,7 +25,7 @@ public:
   BatchTensorDNNlayer(BatchTensorDNNlayer &&r) = default;
   
   //Forward pass
-  Tensor<FloatType,TensDim> value(const InputType &x);
+  Tensor<FloatType,TensDim> value(const InputType &x, EnableDeriv enable_deriv = DerivNo);
 
   int deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,TensDim> &&_above_deriv, InputType* input_above_deriv_return = nullptr) const;
 
@@ -46,7 +46,6 @@ public:
     cpt.resizeInputBuffer(to);
     leaf.v.resizeInputBuffer(to);
   }
-
 };
 
 #define LAYER_TYPE BatchTensorDNNlayer<CONFIGTYPE(U),TensDim,INPUTTYPE(U),DDST(u),ActivationFunc>

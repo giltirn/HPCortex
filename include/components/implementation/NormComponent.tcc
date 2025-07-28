@@ -1,5 +1,5 @@
 template<typename Config, int TensDim>
-Tensor<typename Config::FloatType,TensDim> NormComponent<Config,TensDim>::value(const Tensor<FloatType,TensDim> &in){
+Tensor<typename Config::FloatType,TensDim> NormComponent<Config,TensDim>::value(const Tensor<FloatType,TensDim> &in, EnableDeriv enable_deriv){
   if(!setup){
     memcpy(in_size, in.sizeArray(), TensDim*sizeof(int));
     other_dim_vol = 1;
@@ -61,10 +61,11 @@ Tensor<typename Config::FloatType,TensDim> NormComponent<Config,TensDim>::value(
 	std_store_v(o,b) = std;
       });
   }
-  
-  out_buf.push(Tensor<FloatType,TensDim>(out));
-  std_buf.push(std::move(std_store));
-  
+
+  if(enable_deriv){
+    out_buf.push(Tensor<FloatType,TensDim>(out));
+    std_buf.push(std::move(std_store));
+  }
   return out;		  
 }
 

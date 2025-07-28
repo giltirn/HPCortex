@@ -49,7 +49,7 @@ public:
   BatchTensorDNNcomponent(BatchTensorDNNcomponent &&r) = default;
   
   //Forward pass
-  Tensor<FloatType,TensDim> value(const Tensor<FloatType,TensDim> &x);
+  Tensor<FloatType,TensDim> value(const Tensor<FloatType,TensDim> &x, EnableDeriv enable_deriv = DerivNo);
 
   void deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,TensDim> &&dCost_by_dOut, Tensor<FloatType,TensDim> &dCost_by_dIn) const;
 
@@ -70,7 +70,6 @@ public:
     in_buf.resize(to);
     activation_deriv_buf.resize(to);
   }
-
 };
 
 #include "implementation/BatchTensorDNNcomponent.tcc"

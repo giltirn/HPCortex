@@ -22,7 +22,7 @@ public:
   FlattenLayer(FlattenLayer &&r) = default;
   
   //Forward pass
-  Matrix<FloatType> value(const InputType &x);
+  Matrix<FloatType> value(const InputType &x, EnableDeriv enable_deriv = DerivNo);
 
   int deriv(Vector<FloatType> &cost_deriv, int off, Matrix<FloatType> &&_above_deriv, InputType* input_above_deriv_return = nullptr) const;
 

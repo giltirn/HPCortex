@@ -43,7 +43,7 @@ public:
 
 
   
-  FloatType loss(const InputType &x, const OutputType &y){
+  FloatType loss(const InputType &x, const OutputType &y, EnableDeriv enable_deriv = DerivNo){
     int dim = y.size(0);
     int global_batch_size = y.size(1);
 
@@ -93,7 +93,7 @@ public:
     int iter =0;
     while(dcount < navg){
       InputType x_iter = iter < navg ? x.sliceLastDimension(iter * call_batch_size, (iter+1)* call_batch_size - 1) : x_dummy;
-      OutputType ypred = block.value(x_iter);
+      OutputType ypred = block.value(x_iter, DerivYes); //right now ignore the option to disable deriv
       
       int i_vpipe = iter-(value_lag-1);
       int i_dpipe = iter-(deriv_lag-1);
@@ -228,7 +228,7 @@ public:
 
   //On rank 0, return the delayed loss as out.first, with a delay of value_lag calls.
   //If insufficient calls have been made to saturate the pipeline, out.second will be false, otherwise true (on all ranks)
-  std::pair<FloatType,bool> loss(const OutputType &x, const OutputType &y){
+  std::pair<FloatType,bool> loss(const OutputType &x, const OutputType &y, EnableDeriv enable_deriv = DerivNo){
     ++calls;
     int dim = y.size(0);
     int batch_size = y.size(1);
@@ -246,7 +246,7 @@ public:
     OutputType ycp(y);
     yval_buf_v.push(std::move(ycp));
    
-    ypred = block.value(x);
+    ypred = block.value(x, enable_deriv);
     
     if(calls < value_lag) return std::pair<FloatType,bool>(-1.,false);
     else{ //yval not initialized until ring buffer is full
@@ -522,7 +522,7 @@ public:
  
   //input is ignored for all ranks bar the last
   //we return the output of this block but it is only ultimately used on the first rank
-  OutputType value(const InputType &in){
+  OutputType value(const InputType &in, EnableDeriv enable_deriv = DerivNo){
     std::vector<CommsRequest> reqs;
 
     //<i- (<0-, <1- etc): item i in 'prev_in' at start of iteration, perform action and send left in this iter
@@ -536,7 +536,7 @@ public:
     //3      <1-   <2-    <3|
     //etc
 
-    BlockOutputType out = block.v.value(is_last ? get_as<BlockInputType>(in) : prev_block_in); //last block takes data input in, otherwise we just consume what was previously passed up
+    BlockOutputType out = block.v.value(is_last ? get_as<BlockInputType>(in) : prev_block_in, enable_deriv); //last block takes data input in, otherwise we just consume what was previously passed up
     passLeft(reqs,                      &out,        &out,
 	          &prev_block_in, &prev_block_in);
     waitAll(reqs);

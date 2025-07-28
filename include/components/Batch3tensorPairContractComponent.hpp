@@ -29,9 +29,11 @@ public:
   Batch3tensorPairContractComponent(Batch3tensorPairContractComponent &&r) = default;
   
   //Forward pass
-  Tensor<FloatType,3> value(const Tensor<FloatType,3> &A, const Tensor<FloatType,3> &B){   
-    A_buf.push(Tensor<FloatType,3>(A));
-    B_buf.push(Tensor<FloatType,3>(B));
+  Tensor<FloatType,3> value(const Tensor<FloatType,3> &A, const Tensor<FloatType,3> &B, EnableDeriv enable_deriv = DerivNo){
+    if(enable_deriv){
+      A_buf.push(Tensor<FloatType,3>(A));
+      B_buf.push(Tensor<FloatType,3>(B));
+    }
     auto out = batch3tensorContract(A,B,contract_dim_A,contract_dim_B,nrm,&value_FLOPS);
     value_FLOPS.lock();
     return out;

@@ -43,7 +43,7 @@ public:
   ScaledDotProductAttentionComponent(ScaledDotProductAttentionComponent &&r) = default;
   
   //Forward pass
-  Tensor<FloatType,3> value(const Tensor<FloatType,3> &Q, const Tensor<FloatType,3> &K, Tensor<FloatType,3> &V);
+  Tensor<FloatType,3> value(const Tensor<FloatType,3> &Q, const Tensor<FloatType,3> &K, Tensor<FloatType,3> &V, EnableDeriv enable_deriv = DerivNo);
 
   void deriv(Tensor<FloatType,3> &&dCost_by_dOut, Tensor<FloatType,3> &dCost_by_dQ, Tensor<FloatType,3> &dCost_by_dK, Tensor<FloatType,3> &dCost_by_dV) const;
 
@@ -57,7 +57,6 @@ public:
     mulSSVtoGetOut.resizeInputBuffer(to);
     softmaxS_to_SS.resizeInputBuffer(to);
   }
-
 };
 
 #include "implementation/ScaledDotProductAttentionComponent.tcc"

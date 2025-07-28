@@ -29,7 +29,7 @@ struct PairSplitLayerWrapper{
   size_t outputLinearSize() const{ return size_lin_out; }
   size_t inputLinearSize() const{ return size_lin_in; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in){
+  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
     std::pair< Matrix<FloatType>, Matrix<FloatType> > inm;
     inm.first = Matrix<FloatType>(in_sz1,batch_size);
     inm.second = Matrix<FloatType>(in_sz2,batch_size);
@@ -42,8 +42,8 @@ struct PairSplitLayerWrapper{
     Vector<FloatType> out(size_lin_out);
     {
       autoView(out_v,out,HostWrite);
-      auto v1 = chain1.value(inm);
-      auto v2 = chain2.value(inm);
+      auto v1 = chain1.value(inm,enable_deriv);
+      auto v2 = chain2.value(inm,enable_deriv);
       FloatType* p = out_v.data();
       p = flatten(p, v1);
       p = flatten(p, v2);
@@ -231,7 +231,7 @@ struct PairSplitJoinLayerWrapper{
   size_t outputLinearSize() const{ return size_lin_out; }
   size_t inputLinearSize() const{ return size_lin_in; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in){
+  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
     std::pair< Matrix<FloatType>, Matrix<FloatType> > inm;
     inm.first = Matrix<FloatType>(in_sz1,batch_size);
     inm.second = Matrix<FloatType>(in_sz2,batch_size);
@@ -244,7 +244,7 @@ struct PairSplitJoinLayerWrapper{
     Vector<FloatType> out(size_lin_out);
     {
       autoView(out_v,out,HostWrite);
-      auto v = model.value(inm);
+      auto v = model.value(inm,enable_deriv);
       FloatType* p = out_v.data();
       p = flatten(p, v.first);
       p = flatten(p, v.second);

@@ -23,7 +23,7 @@ public:
   UnflattenLayer(UnflattenLayer &&r) = default;
   
   //Forward pass
-  Tensor<FloatType, OutDimension> value(const InputType &x);
+  Tensor<FloatType, OutDimension> value(const InputType &x, EnableDeriv enable_deriv = DerivNo);
 
   int deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType, OutDimension> &&_above_deriv, InputType* input_above_deriv_return = nullptr) const;
 
@@ -43,7 +43,6 @@ public:
   inline void resizeInputBuffer(size_t to){
     leaf.v.resizeInputBuffer(to);
   }
-
 };
 
 template<int OutDimension, typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>

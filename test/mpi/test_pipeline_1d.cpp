@@ -44,7 +44,7 @@ void testPipeline(){
     for(int i=0;i<iters;i++){
       input_deriv[i] = Matrix<FloatType>(1,batch_size, 2.13*(i+1)); 
       Matrix<FloatType> x(1,1, i+1);
-      expect_v[i] = test_model.value(x);
+      expect_v[i] = test_model.value(x,DerivYes);
 
       Matrix<FloatType> idcp(input_deriv[i]);
       test_model.deriv(expect_d[i],0,std::move(idcp));
@@ -54,7 +54,7 @@ void testPipeline(){
     if(!rank) std::cout << "Starting test loop" << std::endl;
     for(int i=0;i<iters;i++){
       Matrix<FloatType> x(1,1, i+1);
-      Matrix<FloatType> v = p.value(x);
+      Matrix<FloatType> v = p.value(x,DerivYes);
       Vector<FloatType> d(nparams,0.);
 
       int i_vpipe = i-(value_lag-1); //lag=3    2->0  3->1
@@ -114,14 +114,14 @@ void testPipeline(){
     std::vector<FloatType> expect_l(iters);
     std::vector<Vector<FloatType> > expect_d(iters, Vector<FloatType>(test_model.nparams()) );
     for(int i=0;i<iters;i++){
-      expect_l[i] = test_cost.loss(x[i],y[i]);
+      expect_l[i] = test_cost.loss(x[i],y[i],DerivYes);
       expect_d[i] = test_cost.deriv();
     }
     
     if(!rank) std::cout << "Starting test loop" << std::endl;
     for(int i=0;i<iters;i++){
       int i_vpipe = i-(value_lag-1);
-      FloatType loss = pc.loss(x[i],y[i]).first;
+      FloatType loss = pc.loss(x[i],y[i],DerivYes).first;
       FloatType loss_expect = i_vpipe < 0 ? -1. : expect_l[i_vpipe];
 
       int i_dpipe = i-(deriv_lag-1); //item index associated with derivative
@@ -170,10 +170,10 @@ void testPipeline(){
     auto test_cost = mse_cost(test_model);
 
 
-    FloatType loss_expect = test_cost.loss(x,y);
+    FloatType loss_expect = test_cost.loss(x,y,DerivYes);
     Vector<FloatType> deriv_expect = test_cost.deriv();
 
-    FloatType loss_got = pc.loss(x,y);
+    FloatType loss_got = pc.loss(x,y,DerivYes);
     Vector<FloatType> deriv_got = pc.deriv();
 
     if(!rank){
@@ -466,7 +466,7 @@ void sendRecvInitializer(std::vector<CommsRequest> &reqs,
 template<typename FloatType>
 class PipelineBlockContainerBase{
 public:
-  virtual PipelineLayerIOcontainer_p blockValue(const PipelineLayerIOcontainer_p &block_input) = 0;
+  virtual PipelineLayerIOcontainer_p blockValue(const PipelineLayerIOcontainer_p &block_input, EnableDeriv enable_deriv) = 0;
   virtual void blockDeriv(Vector<FloatType> &cost_deriv, const PipelineLayerIOcontainer_p &_above_deriv, PipelineLayerIOcontainer_p &layer_input_deriv) = 0;
   virtual void resizeInputBuffer(int to) = 0;
   virtual void setInputType(PipelineLayerIOcontainer_p &con) const = 0;
@@ -485,9 +485,9 @@ class PipelineBlockContainer: public PipelineBlockContainerBase<typename BlockSt
 public:
   PipelineBlockContainer(BlockStore &&block): block(std::move(block)){}
   
-  PipelineLayerIOcontainer_p blockValue(const PipelineLayerIOcontainer_p &block_input) override{
+  PipelineLayerIOcontainer_p blockValue(const PipelineLayerIOcontainer_p &block_input, EnableDeriv enable_deriv) override{
     const BlockInputType &block_input_tens = block_input.as<BlockInputType>();
-    return PipelineLayerIOcontainer_p(block.v.value(block_input_tens));
+    return PipelineLayerIOcontainer_p(block.v.value(block_input_tens,enable_deriv));
   }
   void blockDeriv(Vector<FloatType> &cost_deriv, const PipelineLayerIOcontainer_p &_above_deriv, PipelineLayerIOcontainer_p &_layer_input_deriv) override{
     BlockOutputType above_deriv(_above_deriv.as<BlockOutputType>());
@@ -556,7 +556,7 @@ public:
     return nparam;
   }
   
-  LayerOutputType value(const ModelInputType &x){
+  LayerOutputType value(const ModelInputType &x, EnableDeriv enable_deriv = DerivNo){
     initialize();
     int rank = communicators().pipelineRank();
     int pipeline_depth = communicators().pipelineNrank();
@@ -566,7 +566,7 @@ public:
     PipelineLayerIOcontainer_p below_in;
     int input_batch_dim_size;
     if(is_first){
-      below_in.insert(below.v.value(x));
+      below_in.insert(below.v.value(x,enable_deriv));
       input_batch_dim_size = below_in.batchDimSize();
     }
     commsBroadcast(&input_batch_dim_size, 1, 0, communicators().pipelineCommunicator());
@@ -597,7 +597,7 @@ public:
       //1  :   0,1
       //2  :   0,1,2
       //3  :   0,1,2,3
-      if(rank <= prime) rank_block_out = rank_block->blockValue(rank_block_in);
+      if(rank <= prime) rank_block_out = rank_block->blockValue(rank_block_in,enable_deriv);
 
       //Ranks that were just called for the first time need to send their output initializers to the right
       if(prime != pipeline_depth-1){
@@ -619,7 +619,7 @@ public:
 	rank_block_in = below_in.getMicroBatch(ubatch_idx_in, ubatch_size);
       ++ubatch_idx_in;
       
-      rank_block_out = rank_block->blockValue(rank_block_in);
+      rank_block_out = rank_block->blockValue(rank_block_in, enable_deriv);
       passRight(reqs, rank_block_in, rank_block_out);
       waitAll(reqs);
       if(is_last) pipeline_out.insertMicroBatch(ubatch_idx_out, ubatch_size, rank_block_out);
@@ -631,7 +631,7 @@ public:
     
     //"drain" the pipeline
     for(int drain=0;drain < pipeline_depth-1; drain++){
-      if(rank > drain) rank_block_out = rank_block->blockValue(rank_block_in);
+      if(rank > drain) rank_block_out = rank_block->blockValue(rank_block_in, enable_deriv);
       passRightConditional(reqs, rank_block_in, rank_block_out, [=](int send_rank){ return send_rank > drain; }  );
       waitAll(reqs);
       if(is_last) pipeline_out.insertMicroBatch(ubatch_idx_out, ubatch_size, rank_block_out);
@@ -837,7 +837,7 @@ void testPipelineLayer(){
 			   );
     PipelineBlockContainer<LeafRef<decltype(layer)> > con(layer);
   
-    PipelineLayerIOcontainer_p got = con.blockValue(tc);
+    PipelineLayerIOcontainer_p got = con.blockValue(tc,DerivNo);
     auto expect = layer.value(tens);
     assert(equal(got.as<Tensor<float,2> >(), expect,true));
   }
@@ -923,8 +923,8 @@ void testPipelineLayer(){
       Matrix<double> input(fan_in, batch_size);
       uniformRandom(input, rng);
 
-      Matrix<double> expect = expect_model.value(input);
-      Matrix<double> got = player.value(input);
+      Matrix<double> expect = expect_model.value(input,DerivYes);
+      Matrix<double> got = player.value(input,DerivYes);
       if(rank == 0) assert(abs_near(expect,got,1e-6,true));
 
       Matrix<double> above_deriv(fan_out, batch_size);
@@ -965,7 +965,7 @@ void testPipelineLayer(){
 int main(int argc, char** argv){
   initialize(argc, argv);
 
-  //testPipeline();
+  testPipeline();
   testPipelineLayer();
   return 0;
 }

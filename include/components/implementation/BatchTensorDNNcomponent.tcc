@@ -1,5 +1,5 @@
 template<typename Config, int TensDim, typename ActivationFunc>
-Tensor<typename Config::FloatType,TensDim> BatchTensorDNNcomponent<Config,TensDim,ActivationFunc>::value(const Tensor<FloatType,TensDim> &in){
+Tensor<typename Config::FloatType,TensDim> BatchTensorDNNcomponent<Config,TensDim,ActivationFunc>::value(const Tensor<FloatType,TensDim> &in, EnableDeriv enable_deriv){
   if(!setup){
     batch_size = in.size(TensDim-1);  
     memcpy(in_dims,in.sizeArray(),TensDim*sizeof(int));
@@ -25,15 +25,15 @@ Tensor<typename Config::FloatType,TensDim> BatchTensorDNNcomponent<Config,TensDi
 
   Tensor<FloatType,TensDim> out = matrixBatchTensorAxpy(weights, in, bias, contract_dim, &value_FLOPS);
   value_FLOPS.lock();
-  
-  in_buf.push(Tensor<FloatType,TensDim>(in)); //TODO: Can avoid this copy in some case by allowing r-value references for inputs. Perhaps have 2 versions of "value", taking l-value and r-value refs, respectively?
-  
+   
   Tensor<FloatType,TensDim> activation_deriv;
   activation_func(out, &activation_deriv);
   for(int i=0;i<TensDim;i++) assert(activation_deriv.size(i) == out.size(i));
-  
-  activation_deriv_buf.push(std::move(activation_deriv));
-  
+
+  if(enable_deriv){
+    in_buf.push(Tensor<FloatType,TensDim>(in)); //TODO: Can avoid this copy in some case by allowing r-value references for inputs. Perhaps have 2 versions of "value", taking l-value and r-value refs, respectively?
+    activation_deriv_buf.push(std::move(activation_deriv));
+  }
   return out;    
 }
 

@@ -14,7 +14,7 @@ public:
   inline InputLayer(InputLayer &&r) = default;
   inline InputLayer(const InputLayer &r) = delete;
 
-  inline const InputType &value(const InputType &x){
+  inline const InputType &value(const InputType &x, EnableDeriv enable_deriv = DerivNo){
     //Simply reflect the passed-down input value back up to commence forwards propagation
     return x;
   }
@@ -38,6 +38,7 @@ public:
 
   //For pipelining
   inline void resizeInputBuffer(size_t to){}
+
 };
 
 template<typename Config, typename InputType = Matrix<typename Config::FloatType> >

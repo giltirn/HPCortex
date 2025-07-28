@@ -45,7 +45,7 @@ void testOneHiddenLayer(){
     for(int d=1;d<5;d++){ //first 5 batches (unscrambled)
       auto bxy = batchData(didx.data() + d*batch_size, batch_size, data);
       
-      double c1 = model.loss(bxy.x,bxy.y);
+      double c1 = model.loss(bxy.x,bxy.y,DerivYes);
       Vector<FloatType> pd = model.deriv();
       
       auto hidden_layer2 = dnn_layer(winit_h, binit_h, ReLU<FloatType>(), input_layer<Config>());  

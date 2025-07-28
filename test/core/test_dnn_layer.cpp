@@ -83,10 +83,10 @@ struct BatchTensorDNNcomponentWrapper{
   size_t outputLinearSize() const{ return out_size_lin; }
   size_t inputLinearSize() const{ return in_size_lin; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in){
+  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
     Tensor<FloatType,Dim> A(in_size);
     unflatten(A,in);
-    Tensor<FloatType,Dim> C = cpt.value(A);
+    Tensor<FloatType,Dim> C = cpt.value(A,enable_deriv);
     return flatten(C);
   }
   void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){

@@ -76,8 +76,9 @@ void testActivation(){
    	                             -0.1,-0.2,
 			              0.7,0.7}));
   Vector<FloatType> b1_init( vecD({-0.5,0.7,-0.9}));		    
- 
-  auto f = mse_cost( dnn_layer(w1_init, b1_init, ActivationFunc<FloatType>(), input_layer<Config>()) );
+
+  auto model = dnn_layer(w1_init, b1_init, ActivationFunc<FloatType>(), input_layer<Config>());
+  auto f = mse_cost( model );
 
   //NB batch size 2, batches in different *columns*
   Matrix<FloatType> x1(2,2,vecD({1.3, 0.6,
@@ -101,8 +102,8 @@ void testActivation(){
       });
   }
   expect /= 2.;
-    
-  FloatType got=  f.loss(x1,y1);
+
+  FloatType got=  f.loss(x1,y1,DerivYes);
   std::cout << "Test loss : got " << got << " expect " << expect << std::endl;
   assert(near(got,expect,FloatType(1e-6)));
 

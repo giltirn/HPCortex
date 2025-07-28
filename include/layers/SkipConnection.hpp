@@ -20,7 +20,7 @@ public:
   SkipConnection(SkipConnection &&r) = default;
   
   //Forward pass
-  LayerInputOutputType value(const InputType &x);
+  LayerInputOutputType value(const InputType &x, EnableDeriv enable_deriv = DerivNo);
 
   int deriv(Vector<FloatType> &cost_deriv, int off, LayerInputOutputType &&_above_deriv, InputType* input_above_deriv_return = nullptr) const;
   

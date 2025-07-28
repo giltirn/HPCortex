@@ -78,3 +78,5 @@ public:
     return val;
   }
 };
+
+enum EnableDeriv {DerivNo=0, DerivYes=1};

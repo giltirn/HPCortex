@@ -18,7 +18,7 @@ public:
   inline SoftMaxLayer(SoftMaxLayer &&r) = default;
   inline SoftMaxLayer(const SoftMaxLayer &r) = delete;
 
-  Tensor<FloatType,TensDim> value(const InputType &x);
+  Tensor<FloatType,TensDim> value(const InputType &x, EnableDeriv enable_deriv = DerivNo);
   
   int deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,TensDim> &&above_deriv, InputType* input_above_deriv_return = nullptr) const;
   
@@ -37,7 +37,7 @@ public:
     cpt.resizeInputBuffer(to);
     leaf.v.resizeInputBuffer(to);
   }
-
+  
   //Set the inverse-temperature, beta
   inline void setBeta(FloatType beta){ cpt.setBeta(beta); }
 };

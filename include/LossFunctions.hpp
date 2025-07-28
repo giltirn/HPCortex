@@ -7,10 +7,11 @@
 template<typename Store, typename CostFunc>
 class CostFuncWrapper{
 public:
-  typedef typename Store::type::FloatType FloatType;
-  typedef typename Store::type::InputType InputType;
+  typedef typename Store::type ModelType;
+  typedef typename ModelType::FloatType FloatType;
+  typedef typename ModelType::InputType InputType;
   typedef typename CostFunc::PredictionType PredictionType; //the type of data output by the model
-  static_assert( std::is_same<LAYEROUTPUTTYPE(typename Store::type),  PredictionType>::value );
+  static_assert( std::is_same<LAYEROUTPUTTYPE(ModelType),  PredictionType>::value );
   typedef typename CostFunc::ComparisonType ComparisonType; //the type of the data used to compare the predictions against (need not be the same as the PredictionType)
 private:  
   Store leaf;
@@ -21,11 +22,16 @@ private:
   int nparam;
 public:
   CostFuncWrapper(Store &&leaf, const CostFunc &cost = CostFunc()): cost(cost), leaf(std::move(leaf)), nparam(leaf.v.nparams()){}
+
+  /**
+   * @brief Access the underlying model
+   */
+  ModelType &getModel(){ return leaf.v; }
   
-  FloatType loss(const InputType &x, const ComparisonType &y){
+  FloatType loss(const InputType &x, const ComparisonType &y, EnableDeriv enable_deriv = DerivNo){
     //std::cout << "Loss with tensor of dim " << x.dimension() << " and sizes " << x.sizeArrayString() << std::endl;
     
-    ypred = leaf.v.value(x);
+    ypred = leaf.v.value(x, enable_deriv);
     yval = y;
     return cost.loss(y,ypred);
   }
@@ -40,7 +46,7 @@ public:
   PredictionType predict(const InputType &x){
     return leaf.v.value(x);
   }
- 
+  
   template<typename _PredictionType=PredictionType, typename _InputType=InputType, int TensDimIn = _InputType::Dimension, int TensDimOut = _PredictionType::Dimension,
 	   typename std::enable_if< std::is_same<_PredictionType,Tensor<FloatType,TensDimOut> >::value &&
 				    std::is_same<_InputType,Tensor<FloatType,TensDimIn> >::value &&

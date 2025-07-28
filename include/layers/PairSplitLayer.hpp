@@ -26,15 +26,15 @@ public:
 
   inline void cinc(int &i){ i = (i+1) % 2; }
   
-  LayerOutputType1 first(const InputType &x){
+  LayerOutputType1 first(const InputType &x, EnableDeriv enable_deriv){
     if(val_count == 0)
-      in_buf = leaf.v.value(x); //x is assumed to be the same for all calls from children (not checked)
+      in_buf = leaf.v.value(x,enable_deriv); //x is assumed to be the same for all calls from children (not checked)
     cinc(val_count);
     return in_buf.first;    
   }
-  LayerOutputType2 second(const InputType &x){
+  LayerOutputType2 second(const InputType &x, EnableDeriv enable_deriv){
     if(val_count == 0)
-      in_buf = leaf.v.value(x);
+      in_buf = leaf.v.value(x,enable_deriv);
     cinc(val_count);
     return in_buf.second;    
   }
@@ -111,8 +111,8 @@ public:
     if(leader != nullptr) delete leader;
   }
   
-  inline LayerOutputType value(const InputType &x){
-    return leader->first(x);
+  inline LayerOutputType value(const InputType &x, EnableDeriv enable_deriv = DerivNo){
+    return leader->first(x,enable_deriv);
   }
   inline int deriv(Vector<FloatType> &cost_deriv, int off, LayerOutputType &&_above_deriv, InputType* input_above_deriv_return = nullptr) const{
     return leader->deriv_first(cost_deriv,off,std::move(_above_deriv), input_above_deriv_return);
@@ -137,7 +137,6 @@ public:
   inline void resizeInputBuffer(size_t to){
     leader->leaf.v.resizeInputBuffer(to);
   }
-
 };
 
 
@@ -158,8 +157,8 @@ public:
   PairSplitLayer2(const PairSplitLayer2 &r) = delete;
   PairSplitLayer2(PairSplitLayer2 &&r) = default;
   
-  inline LayerOutputType value(const InputType &x){
-    return leader->second(x);
+  inline LayerOutputType value(const InputType &x, EnableDeriv enable_deriv = DerivNo){
+    return leader->second(x,enable_deriv);
   }
   inline int deriv(Vector<FloatType> &cost_deriv, int off, LayerOutputType &&_above_deriv, InputType* input_above_deriv_return = nullptr) const{
     return leader->deriv_second(cost_deriv,off,std::move(_above_deriv), input_above_deriv_return);
@@ -183,7 +182,6 @@ public:
 
   inline void resizeInputBuffer(size_t to){
   }
-
 };
 
 

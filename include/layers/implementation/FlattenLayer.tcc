@@ -1,6 +1,6 @@
 template<typename Config, typename InputType, typename Store>
-Matrix<typename Config::FloatType> FlattenLayer<Config,InputType,Store>::value(const InputType &x){
-  LayerInputTensorType in = leaf.v.value(x);
+Matrix<typename Config::FloatType> FlattenLayer<Config,InputType,Store>::value(const InputType &x, EnableDeriv enable_deriv ){
+  LayerInputTensorType in = leaf.v.value(x, enable_deriv);
   if(!init){
     memcpy(_input_tens_size, in.sizeArray(), in.dimension() * sizeof(int));
     init = true;

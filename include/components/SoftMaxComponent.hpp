@@ -26,7 +26,7 @@ public:
   SoftMaxComponent(const SoftMaxComponent &r) = delete;
   SoftMaxComponent(SoftMaxComponent &&r) = default;
   
-  Tensor<FloatType,TensDim> value(const Tensor<FloatType,TensDim> &in) const;
+  Tensor<FloatType,TensDim> value(const Tensor<FloatType,TensDim> &in, EnableDeriv enable_deriv = DerivNo) const;
   void deriv(Tensor<FloatType,TensDim> &&dcost_by_dOut, Tensor<FloatType,TensDim> &dcost_by_dIn) const;
 
   size_t FLOPS(int value_or_deriv) const{ return value_or_deriv == 0 ? value_FLOPS.value() : deriv_FLOPS.value(); }
@@ -36,7 +36,7 @@ public:
   inline void resizeInputBuffer(size_t to){
     out_buf.resize(to);
   }
-
+  
   //Set the inverse-temperature, beta
   inline void setBeta(FloatType _beta){ beta = _beta; }
 };

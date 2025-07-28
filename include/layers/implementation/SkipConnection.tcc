@@ -1,7 +1,7 @@
 template<typename Config, typename InputType, typename ChainInternal, typename ChainBelow>
-typename SkipConnection<Config,InputType,ChainInternal,ChainBelow>::LayerInputOutputType SkipConnection<Config,InputType,ChainInternal,ChainBelow>::value(const InputType &x){
-  LayerInputOutputType in = leaf_below.v.value(x);
-  LayerInputOutputType out = in + leaf_internal.v.value(in);
+typename SkipConnection<Config,InputType,ChainInternal,ChainBelow>::LayerInputOutputType SkipConnection<Config,InputType,ChainInternal,ChainBelow>::value(const InputType &x, EnableDeriv enable_deriv){
+  LayerInputOutputType in = leaf_below.v.value(x,enable_deriv);
+  LayerInputOutputType out = in + leaf_internal.v.value(in,enable_deriv);
   return out;
 }
 

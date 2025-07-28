@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+set -o pipefail
 
 if [[ $# == 0 || ( $# == 1 && $1 == "core" ) ]]; then
     echo "Running core tests"

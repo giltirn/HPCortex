@@ -111,7 +111,7 @@ void testSkipConnection(){
 	                           2.8, -3.1,
 	                           1.2, -2.1}));
     auto cost = mse_cost(skip2);
-    FloatType base_cost = cost.loss(x1,y1);
+    FloatType base_cost = cost.loss(x1,y1,DerivYes);
 
     Vector<FloatType> dgot = cost.deriv();
     Vector<FloatType> dexpect(nparams);

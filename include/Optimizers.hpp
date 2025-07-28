@@ -118,9 +118,9 @@ public:
 //DataLoaders are expected to contain the following methods:
 //size_t size() const   :  return the total amount of data
 //BatchType batch(int const* indices, int batch_size) const   : return the batch with batch size and indices as specified. BatchType must contain members 'x' and 'y', which are taken as the inputs to the model's loss function
-template<typename DataLoader, typename ModelType, typename Optimizer>
-std::vector<typename ModelType::FloatType> train(ModelType &model, const DataLoader &data, Optimizer &optimizer, int nepoch, int batch_size, bool suppress_logging = false){
-  typedef typename ModelType::FloatType FloatType;
+template<typename DataLoader, typename LossWrappedModelType, typename Optimizer>
+std::vector<typename LossWrappedModelType::FloatType> train(LossWrappedModelType &loss_func, const DataLoader &data, Optimizer &optimizer, int nepoch, int batch_size, bool suppress_logging = false){
+  typedef typename LossWrappedModelType::FloatType FloatType;
   std::default_random_engine gen(1234); //important that every rank shuffles in the same way
 
   //We want to divide the data evenly over batches. This means we may need to discard some data
@@ -134,7 +134,7 @@ std::vector<typename ModelType::FloatType> train(ModelType &model, const DataLoa
   std::vector<int> didx(ndata);
   for(int i=0;i<ndata;i++) didx[i] = i;
 
-  int nparam = model.nparams();
+  int nparam = loss_func.nparams();
 
   //For DDP we solve blocks of batches in parallel
   int blocksize = communicators().ddpNrank();
@@ -163,9 +163,9 @@ std::vector<typename ModelType::FloatType> train(ModelType &model, const DataLoa
 
 	//Get the batch
 	auto bxy = data.batch(didx.data() + bidx*batch_size, batch_size);
-	
-	loss = model.loss(bxy.x, bxy.y);
-	deriv = model.deriv();
+
+	loss = loss_func.loss(bxy.x, bxy.y, DerivYes);
+	deriv = loss_func.deriv();
       }
       ddpAverage(&loss,1,false); //no need to bcast the loss to the pipeline ranks
       ddpAverage(deriv,true); //share the deriv over all pipeline ranks
@@ -175,7 +175,7 @@ std::vector<typename ModelType::FloatType> train(ModelType &model, const DataLoa
       FloatType eps;
       Vector<FloatType> direction = optimizer.descentProfile(eps,deriv);
       
-      model.step( direction, eps );
+      loss_func.step( direction, eps );
 
       losses[block+nblocks*epoch] = loss;
     }
@@ -230,10 +230,10 @@ public:
   }
 };
 
-template<typename FloatType, int DimX, int DimY, typename ModelType, typename Optimizer>
-std::vector<FloatType> train(ModelType &model, const std::vector<XYpair<FloatType,DimX,DimY> > &data, Optimizer &optimizer, int nepoch, int batch_size, bool suppress_logging = false){
+template<typename FloatType, int DimX, int DimY, typename LossWrappedModelType, typename Optimizer>
+std::vector<FloatType> train(LossWrappedModelType &loss_func, const std::vector<XYpair<FloatType,DimX,DimY> > &data, Optimizer &optimizer, int nepoch, int batch_size, bool suppress_logging = false){
   XYpairDataLoader<FloatType,DimX,DimY> loader(data);
-  return train(model, loader, optimizer, nepoch, batch_size, suppress_logging);
+  return train(loss_func, loader, optimizer, nepoch, batch_size, suppress_logging);
 }
 
 

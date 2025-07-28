@@ -31,10 +31,10 @@ public:
   MultiHeadCrossAttentionLayer(MultiHeadCrossAttentionLayer &&r) = default;
   
   //Forward pass
-  TensorType value(const InputType &x){
-    TensorType in_KV = leaf_KV.v.value(x);
-    TensorType in_Q = leaf_Q.v.value(x);
-    return attention.value(in_Q,in_KV,in_KV);
+  TensorType value(const InputType &x, EnableDeriv enable_deriv = DerivNo){
+    TensorType in_KV = leaf_KV.v.value(x, enable_deriv);
+    TensorType in_Q = leaf_Q.v.value(x, enable_deriv);
+    return attention.value(in_Q,in_KV,in_KV, enable_deriv);
   }
   
   int deriv(Vector<FloatType> &cost_deriv, int off, TensorType &&_above_deriv, InputType* input_above_deriv_return = nullptr) const{

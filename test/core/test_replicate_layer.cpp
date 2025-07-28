@@ -27,15 +27,15 @@ struct ReplicateLayerWrapper{
 
   size_t outputLinearSize() const{ return size_lin_out; }
   size_t inputLinearSize() const{ return size_lin_in; }
-  
-  Vector<FloatType> value(const Vector<FloatType> &in){
+
+  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
     Matrix<FloatType> inm(szin,batch_size);
     unflatten(inm,in);
     Vector<FloatType> out(size_lin_out);
     {
       autoView(out_v,out,HostWrite);
-      auto v1 = chain1.value(inm);
-      auto v2 = chain2.value(inm);
+      auto v1 = chain1.value(inm,enable_deriv);
+      auto v2 = chain2.value(inm,enable_deriv);
       FloatType* p = out_v.data();
       p = flatten(p, v1);
       p = flatten(p, v2);

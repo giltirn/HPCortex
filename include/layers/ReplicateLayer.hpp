@@ -23,9 +23,9 @@ class ReplicateLayerLeader{
 
   inline void cinc(int &i){ i = (i+1) % N; }
   
-  LayerInputOutputType value(const InputType &x){
+  LayerInputOutputType value(const InputType &x, EnableDeriv enable_deriv){
     if(val_count == 0)
-      in_buf = leaf.v.value(x); //x is assumed to be the same for all calls from children (not checked)
+      in_buf = leaf.v.value(x,enable_deriv); //x is assumed to be the same for all calls from children (not checked)
     cinc(val_count);
     return in_buf;    
   }
@@ -97,8 +97,8 @@ public:
     if(!instance && leader != nullptr) delete leader; //first in group owns the pointer
   }
   
-  inline LayerInputOutputType value(const InputType &x){
-    return leader->value(x);
+  inline LayerInputOutputType value(const InputType &x, EnableDeriv enable_deriv = DerivNo){
+    return leader->value(x,enable_deriv);
   }
   inline int deriv(Vector<FloatType> &cost_deriv, int off, LayerInputOutputType &&_above_deriv, InputType* input_above_deriv_return = nullptr) const{
     return leader->deriv(cost_deriv,off,std::move(_above_deriv), input_above_deriv_return);
@@ -123,7 +123,6 @@ public:
   inline void resizeInputBuffer(size_t to){
     if(!instance) leader->leaf.v.resizeInputBuffer(to);
   }
-
 };
 
 template<typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>

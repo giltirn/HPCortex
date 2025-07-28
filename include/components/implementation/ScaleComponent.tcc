@@ -1,5 +1,5 @@
 template<typename Config, int TensDim>
-Tensor<typename Config::FloatType,TensDim> ScaleComponent<Config,TensDim>::value(const Tensor<FloatType,TensDim> &in){
+Tensor<typename Config::FloatType,TensDim> ScaleComponent<Config,TensDim>::value(const Tensor<FloatType,TensDim> &in, EnableDeriv enable_deriv){
   if(!setup){
     assert(in.size(scale_dim) == beta.size(0));
     
@@ -40,7 +40,7 @@ Tensor<typename Config::FloatType,TensDim> ScaleComponent<Config,TensDim>::value
       });
   }
   
-  in_buf.push(Tensor<FloatType,TensDim>(in)); //TODO: allow pass by r-value and move here
+  if(enable_deriv) in_buf.push(Tensor<FloatType,TensDim>(in)); //TODO: allow pass by r-value and move here
   
   return out;		  
 }

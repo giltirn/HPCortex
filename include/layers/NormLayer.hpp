@@ -26,7 +26,13 @@ public:
   NormLayer(NormLayer &&r) = default;
   
   //Forward pass
-  inline Tensor<FloatType,TensDim> value(const InputType &x){ return scale.value(nrm.value(leaf.v.value(x))); }
+  inline Tensor<FloatType,TensDim> value(const InputType &x, EnableDeriv enable_deriv = DerivNo){ return scale.value(
+														     nrm.value(
+															       leaf.v.value(x, enable_deriv),
+															       enable_deriv),
+														     enable_deriv
+														     );
+  }
 
   inline int deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,TensDim> &&_above_deriv, InputType* input_above_deriv_return = nullptr) const{
     Tensor<FloatType,TensDim> layer_deriv_scale;

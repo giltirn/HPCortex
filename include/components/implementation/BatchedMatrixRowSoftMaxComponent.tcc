@@ -1,5 +1,5 @@
 template<typename Config>
-Tensor<typename Config::FloatType,3> BatchedMatrixRowSoftMaxComponent<Config>::value(const Tensor<FloatType,3> &in) const{
+Tensor<typename Config::FloatType,3> BatchedMatrixRowSoftMaxComponent<Config>::value(const Tensor<FloatType,3> &in, EnableDeriv enable_deriv) const{
   int batch_size = in.size(2);
   int rows = in.size(0);
   int cols = in.size(1);
@@ -47,7 +47,7 @@ Tensor<typename Config::FloatType,3> BatchedMatrixRowSoftMaxComponent<Config>::v
       });
   }
   
-  out_buf.push(Tensor<FloatType,3>(out));
+  if(enable_deriv) out_buf.push(Tensor<FloatType,3>(out));
   
   return out;
 }
