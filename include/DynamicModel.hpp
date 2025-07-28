@@ -13,6 +13,7 @@ public:
   virtual size_t FLOPS(int value_or_deriv) const = 0;
   virtual void resizeInputBuffer(size_t to) = 0;
   virtual int getParams(Vector<FloatType> &into, int off) const = 0;
+  virtual int update(int off, const Vector<FloatType> &new_params) = 0;
   virtual int step(int off, const Vector<FloatType> &derivs, FloatType eps) = 0;
   virtual ~LayerWrapperInternalBase(){}
 };
@@ -41,6 +42,8 @@ public:
   
   int getParams(Vector<FloatType> &into, int off) const override{ return layer.v.getParams(into,off); }
 
+  int update(int off, const Vector<FloatType> &new_params) override{ return layer.v.update(off,new_params); }
+  
   int step(int off, const Vector<FloatType> &derivs, FloatType eps) override{ return layer.v.step(off,derivs,eps); }
   
   void resizeInputBuffer(size_t to) override{ layer.v.resizeInputBuffer(to); }
@@ -74,6 +77,8 @@ public:
   
   inline int getParams(Vector<FloatType> &into, int off) const{ return layer->getParams(into,off); }
 
+  inline int update(int off, const Vector<FloatType> &new_params){ return layer->update(off, new_params); }
+  
   inline int step(int off, const Vector<FloatType> &derivs, FloatType eps){ return layer->step(off,derivs,eps); }
   
   inline void resizeInputBuffer(size_t to){ layer->resizeInputBuffer(to); }

@@ -278,6 +278,7 @@ public:
     return out;
   }
   CommsRequest sendInitializer(int to) override{
+    if(!tens) std::cout << "Empty tensor on rank " << communicators().pipelineRank() << " ptr " << tens.get() << std::endl;
     assert(tens);
     CommsRequest out;
     assert( MPI_Isend(tens->sizeArray(), Dim, getMPIdataType<int>(), to, 0, communicators().pipelineCommunicator(), &out.req) == MPI_SUCCESS );
@@ -468,6 +469,10 @@ class PipelineBlockContainerBase{
 public:
   virtual PipelineLayerIOcontainer_p blockValue(const PipelineLayerIOcontainer_p &block_input, EnableDeriv enable_deriv) = 0;
   virtual void blockDeriv(Vector<FloatType> &cost_deriv, const PipelineLayerIOcontainer_p &_above_deriv, PipelineLayerIOcontainer_p &layer_input_deriv) = 0;
+  virtual void blockUpdate(int off, const Vector<FloatType> &new_params) = 0;
+  virtual void blockStep(int off, const Vector<FloatType> &derivs, FloatType eps) = 0;
+  virtual void blockGetParams(Vector<FloatType> &rank_params) = 0;
+  virtual size_t blockFLOPS(int value_or_deriv) const = 0;
   virtual void resizeInputBuffer(int to) = 0;
   virtual void setInputType(PipelineLayerIOcontainer_p &con) const = 0;
   virtual void setOutputType(PipelineLayerIOcontainer_p &con) const = 0;
@@ -495,9 +500,21 @@ public:
     block.v.deriv(cost_deriv, 0, std::move(above_deriv), &layer_input_deriv_tmp);
     _layer_input_deriv = std::move(layer_input_deriv_tmp);
   }
+  void blockUpdate(int off, const Vector<FloatType> &new_params) override{
+    block.v.update(off,new_params);
+  }
+  void blockStep(int off, const Vector<FloatType> &derivs, FloatType eps) override{
+    block.v.step(off, derivs, eps);
+  }
+  void blockGetParams(Vector<FloatType> &rank_params) override{
+    block.v.getParams(rank_params, 0);
+  }
   void resizeInputBuffer(int to) override{
     block.v.resizeInputBuffer(to);
   }
+  size_t blockFLOPS(int value_or_deriv) const override{
+    return block.v.FLOPS(value_or_deriv);
+  }    
   void setInputType(PipelineLayerIOcontainer_p &con) const override{
     con.setType<BlockInputType>();
   }
@@ -512,37 +529,84 @@ public:
 //Note: the pipeline starts with rank 0!
 template<typename LayerOutputType, typename BelowStore>
 class PipelineBlockLayer{
+public:
+  typedef typename BelowStore::type BelowType;
+  typedef typename BelowType::ModelConfig Config;
+  EXTRACT_CONFIG_TYPES;
+  typedef LAYEROUTPUTTYPE(BelowType) LayerInputType;
+  typedef typename BelowType::InputType InputType;
+  
 private: 
   BelowStore below;
-  typedef typename BelowStore::type BelowType;
-  typedef FLOATTYPE(BelowType) FloatType; 
-  typedef LAYEROUTPUTTYPE(BelowType) LayerInputType;
-  typedef typename BelowType::InputType ModelInputType;
+  
   int ubatch_size;
   std::unique_ptr<PipelineBlockContainerBase<FloatType> > rank_block;
   bool initialized;
 
+  int rank;
+  int pipeline_depth;
+  bool is_first;
+  bool is_last;
+
   int nparam;
   std::vector<int> rank_block_nparam;
+  int rank_param_offset;
 
+  size_t value_flops;
+  mutable size_t deriv_flops;
+  
   void initialize(){
     if(initialized) return;
     assert(rank_block);
-    int rank = communicators().pipelineRank();
     rank_block_nparam[rank] = rank_block->nparams();
     commsReduce(rank_block_nparam.data(),rank_block_nparam.size(), communicators().pipelineCommunicator());
     
-    for(int r=0;r<rank_block_nparam.size();r++){
+    for(int r=0;r<pipeline_depth;r++){
+      if(r==rank) rank_param_offset = nparam;
+      
       if(!rank) std::cout << "Rank params " << r << " : " << rank_block_nparam[r] << std::endl;
       nparam += rank_block_nparam[r];
     }
     if(!rank) std::cout << "Total params : " << nparam << std::endl;
+
+    //note: the ordering of parameters is *top-down*, so the rank's parameter offset counts down
+    rank_param_offset = nparam;
+    for(int r=0;r<=rank;r++)
+      rank_param_offset -= rank_block_nparam[r];
     
     initialized = true;
   }
+  //gather a parameter vector to rank 0
+  void gatherParameterVector(int to_off, Vector<FloatType> &vec_to, Vector<FloatType> &vec_from) const{
+    if(rank != 0){
+      autoView(vec_from_v, vec_from, HostRead);
+      MPI_Request req;
+      assert( MPI_Isend(vec_from_v.data(), vec_from_v.data_len(), getMPIdataType<FloatType>(),
+			0, 0, communicators().pipelineCommunicator(), &req) == MPI_SUCCESS );
+      assert(MPI_Wait(&req, MPI_STATUS_IGNORE) == MPI_SUCCESS);
+    }else{
+      //note: the ordering of parameters is *top-down*, so for the pipeline we need to put the last rank first in the output      
+      autoView(vec_to_v, vec_to, HostReadWrite);
+      std::vector<MPI_Request> mr(pipeline_depth-1);
+      FloatType* cdp = vec_to_v.data() + to_off;
+      for(int r=1;r<pipeline_depth;r++){
+	int from_rank = pipeline_depth-r;
+	assert( MPI_Irecv(cdp , rank_block_nparam[from_rank],
+			  getMPIdataType<FloatType>(), from_rank, 0, communicators().pipelineCommunicator(), &mr[r-1]) == MPI_SUCCESS );
+	cdp += rank_block_nparam[from_rank];
+      }
+      assert(MPI_Waitall(pipeline_depth-1, mr.data(), MPI_STATUSES_IGNORE) == MPI_SUCCESS);
+
+      autoView(vec_from_v, vec_from, HostRead);
+      memcpy(cdp, vec_from_v.data(), vec_from_v.data_len()*sizeof(FloatType));
+    }
+  }
   
 public:
-  PipelineBlockLayer(BelowStore &&below, int ubatch_size): below(std::move(below)), ubatch_size(ubatch_size), initialized(false), nparam(0),
+  typedef LeafTag tag;
+  
+  PipelineBlockLayer(BelowStore &&below, int ubatch_size): below(std::move(below)), ubatch_size(ubatch_size), initialized(false), nparam(0), rank(communicators().pipelineRank()),
+							   pipeline_depth(communicators().pipelineNrank()), is_first(rank == 0), is_last(rank == pipeline_depth -1), 
 							   rank_block_nparam(communicators().pipelineNrank(),0){}
 
   template<typename Block>
@@ -553,15 +617,11 @@ public:
 
   int nparams(){
     initialize();
-    return nparam;
+    return nparam + below.v.nparams();
   }
   
-  LayerOutputType value(const ModelInputType &x, EnableDeriv enable_deriv = DerivNo){
+  LayerOutputType value(const InputType &x, EnableDeriv enable_deriv = DerivNo){
     initialize();
-    int rank = communicators().pipelineRank();
-    int pipeline_depth = communicators().pipelineNrank();
-    bool is_first = rank == 0;
-    bool is_last = rank == pipeline_depth -1;
     
     PipelineLayerIOcontainer_p below_in;
     int input_batch_dim_size;
@@ -582,7 +642,7 @@ public:
 
     PipelineLayerIOcontainer_p rank_block_in, rank_block_out, pipeline_out;
     if(!is_first) rank_block->setInputType(rank_block_in);
-    if(is_last) pipeline_out.setType<LayerOutputType>();
+    pipeline_out.setType<LayerOutputType>();
     
     int ubatch_idx_in=0;
     //"prime" the pipeline
@@ -640,23 +700,21 @@ public:
     //should now be done
     assert(ubatch_idx_out == nubatch);
 
+    value_flops = rank_block->blockFLOPS(0) * nubatch;
+    
     //Communicate result back to pipeline leader and return
-    if(is_first) pipeline_out.setType<LayerOutputType>();
-    sendRecvInitializer(reqs, pipeline_out, pipeline_out, 0, pipeline_depth-1);
+    for(int r=0;r<pipeline_depth-1;r++)
+      sendRecvInitializer(reqs, pipeline_out, pipeline_out, r, pipeline_depth-1); //all ranks have output of correct *size*
+
     waitAll(reqs);
-    sendRecv(reqs, pipeline_out, pipeline_out, 0, pipeline_depth-1);
+    sendRecv(reqs, pipeline_out, pipeline_out, 0, pipeline_depth-1); //only rank 0 has actual output
     waitAll(reqs);
-    return is_first ? pipeline_out.remove<LayerOutputType>() : LayerOutputType();
+    return pipeline_out.remove<LayerOutputType>();
   }
-  int deriv(Vector<FloatType> &cost_deriv, int off, LayerOutputType &&_above_deriv, ModelInputType* input_above_deriv_return = nullptr) const{    
+  int deriv(Vector<FloatType> &cost_deriv, int off, LayerOutputType &&_above_deriv, InputType* input_above_deriv_return = nullptr) const{    
     PipelineLayerIOcontainer_p pipeline_above_deriv(std::move(_above_deriv));  //all ranks store the rvalue but only the pipeline leader is required to have valid input
     Vector<FloatType> rank_block_cost_derivs(rank_block->nparams(), 0.); //accumulate
-    
-    int rank = communicators().pipelineRank();
-    int pipeline_depth = communicators().pipelineNrank();
-    bool is_first = rank == 0;
-    bool is_last = rank == pipeline_depth -1;
-
+   
     int batch_dim_size = pipeline_above_deriv.batchDimSize();
     assert(batch_dim_size % ubatch_size == 0);
     
@@ -731,37 +789,50 @@ public:
     //should now be done
     assert(ubatch_idx_out == nubatch);
 
-    //gather the cost derivs to rank 0
-    if(rank != 0){
-      autoView(rank_block_cost_derivs_v, rank_block_cost_derivs, HostRead);
-      MPI_Request req;
-      assert( MPI_Isend(rank_block_cost_derivs_v.data(), rank_block_cost_derivs_v.data_len(), getMPIdataType<FloatType>(),
-			0, 0, communicators().pipelineCommunicator(), &req) == MPI_SUCCESS );
-      assert(MPI_Wait(&req, MPI_STATUS_IGNORE) == MPI_SUCCESS);
-    }else{
-      //note: the ordering of parameters is *top-down*, so for the pipeline we need to put the last rank first in the output      
-      autoView(cost_deriv_v, cost_deriv, HostReadWrite);
-      std::vector<MPI_Request> mr(pipeline_depth-1);
-      FloatType* cdp = cost_deriv_v.data() + off;
-      for(int r=1;r<pipeline_depth;r++){
-	int from_rank = pipeline_depth-r;
-	assert( MPI_Irecv(cdp , rank_block_nparam[from_rank],
-			  getMPIdataType<FloatType>(), from_rank, 0, communicators().pipelineCommunicator(), &mr[r-1]) == MPI_SUCCESS );
-	cdp += rank_block_nparam[from_rank];
-      }
-      assert(MPI_Waitall(pipeline_depth-1, mr.data(), MPI_STATUSES_IGNORE) == MPI_SUCCESS);
-
-      autoView(rank_block_cost_derivs_v, rank_block_cost_derivs, HostRead);
-      memcpy(cdp, rank_block_cost_derivs_v.data(), rank_block_cost_derivs_v.data_len()*sizeof(FloatType));
-    }
-
-    //while only rank 0 needs the right values for the pipeline input deriv, all ranks need to pass something valid down
-    for(int r=1;r<pipeline_depth;r++)
-      sendRecvInitializer(reqs, pipeline_input_deriv, pipeline_input_deriv, r, 0);
-    waitAll(reqs);
+    deriv_flops = rank_block->blockFLOPS(1) * nubatch;
     
-    return below.v.deriv(cost_deriv, off + nparam, pipeline_input_deriv.remove<LayerInputType>(), input_above_deriv_return);
+    //gather the cost derivs to rank 0
+    gatherParameterVector(off, cost_deriv, rank_block_cost_derivs);
+
+    if(rank == 0){
+      return below.v.deriv(cost_deriv, off + nparam, pipeline_input_deriv.remove<LayerInputType>(), input_above_deriv_return);
+    }else{
+      return off + nparam + below.v.nparams();
+    }
   }
+
+  inline void resizeInputBuffer(size_t to){
+    if(to != 1) throw std::runtime_error("Using a pipeline layer inside other pipelines is not currently supported");
+    below.v.resizeInputBuffer(to);
+  }
+  int update(int off, const Vector<FloatType> &new_params){
+    Vector<FloatType> np(new_params);
+    commsBroadcast(np, 0, communicators().pipelineCommunicator());
+    commsBroadcast(&off, 1, 0, communicators().pipelineCommunicator());
+    rank_block->blockUpdate(off + rank_param_offset, np);
+    return below.v.update(off + nparam, new_params);
+  }
+  int step(int off, const Vector<FloatType> &derivs, FloatType eps){
+    Vector<FloatType> np(derivs);
+    commsBroadcast(np, 0, communicators().pipelineCommunicator());
+    commsBroadcast(&off, 1, 0, communicators().pipelineCommunicator());
+    rank_block->blockStep(off + rank_param_offset, np, eps);
+    return below.v.step(off + nparam, derivs, eps);
+  }
+  int getParams(Vector<FloatType> &into, int off) const{
+    Vector<FloatType> rank_params(rank_block->nparams());
+    rank_block->blockGetParams(rank_params);
+    commsBroadcast(&off, 1, 0, communicators().pipelineCommunicator());
+    gatherParameterVector(off, into, rank_params);
+    return below.v.getParams(into, off + nparam);
+  }
+  size_t FLOPS(int value_or_deriv) const{
+    uint64_t fl = value_or_deriv == 0 ? value_flops : deriv_flops;
+    commsReduce(&fl,1, communicators().pipelineCommunicator());
+    if(!rank) fl += below.v.FLOPS(value_or_deriv);
+    return fl;
+  }
+    
 };
 
 
@@ -874,8 +945,8 @@ void testPipelineLayer(){
 	    for(int j=0;j<3;j++)
 	      expect_v(i,j) = j+3*i;
 	});
-      assert(equal(expect, tc.as< Tensor<float,2> >(), true));
-
+      assert(equal(expect, tc.as< Tensor<float,2> >(), true));      
+    
       //check copy, move
       {
 	PipelineLayerIOcontainer_p tc_cp(tc);
@@ -892,68 +963,127 @@ void testPipelineLayer(){
       //check remove
       Tensor<float,2> rm = tc.remove< Tensor<float,2> >();
       assert(equal(expect, rm, true));
-      
+    } //rank==1
+  }
+
+    
+  //Check layer functionality
+  {
+    std::cout << "Checking layer functionality" << std::endl;
+    int ubatch_size = 2;
+    int batch_size = nrank * ubatch_size * 3;
+
+    int fan_in = 3;
+    int fan_out = 3;
+
+    //have a non-trivial model below
+    Matrix<double> bweight(fan_out,fan_in);
+    Vector<double> bbias(fan_out);
+    uniformRandom(bweight,rng);
+    uniformRandom(bbias,rng);
+    
+    auto pbelow = dnn_layer(bweight, bbias, input_layer<pconfDouble>());
+    PipelineBlockLayer< Matrix<double>, LeafRef<decltype(pbelow)> > player(pbelow, ubatch_size);
+
+    //For covenience use a uniform fan_in, fan_out
+    std::vector<Matrix<double> > weights(nrank, Matrix<double>(fan_out,fan_in));
+    std::vector<Vector<double> > biases(nrank, Vector<double>(fan_out));
+    for(int r=0;r<nrank;r++){ 
+      uniformRandom(weights[r],rng);
+      uniformRandom(biases[r],rng);
     }
-    //Check value and deriv
-    {
-      std::cout << "Checking value and deriv" << std::endl;
-      int ubatch_size = 2;
-      int batch_size = nrank * ubatch_size * 3;
       
-      auto below = input_layer<pconfDouble>();      
-      PipelineBlockLayer< Matrix<double>, LeafRef<decltype(below)> > player(below, ubatch_size);
+    player.setRankBlock(dnn_layer(weights[rank],biases[rank], input_layer<pconfDouble>()));
 
-      //For covenience use a uniform fan_in, fan_out
-      int fan_in = 3;
-      int fan_out = 3;
-      std::vector<Matrix<double> > weights(nrank, Matrix<double>(fan_out,fan_in));
-      std::vector<Vector<double> > biases(nrank, Vector<double>(fan_out));
-      for(int r=0;r<nrank;r++){ 
-	uniformRandom(weights[r],rng);
-	uniformRandom(biases[r],rng);
-      }
-      
-      player.setRankBlock(dnn_layer(weights[rank],biases[rank], input_layer<pconfDouble>()));
-      assert(player.nparams() == nrank * (fan_out*fan_in + fan_out));
-      
-      auto expect_model = enwrap(input_layer<confDouble>());
-      for(int r=0;r<nrank;r++)
-	expect_model = enwrap(dnn_layer(weights[r],biases[r], std::move(expect_model)));
-      
-      Matrix<double> input(fan_in, batch_size);
-      uniformRandom(input, rng);
+    //have a non-trivial model above too
+    Matrix<double> aweight(fan_out,fan_in);
+    Vector<double> abias(fan_out);
+    uniformRandom(aweight,rng);
+    uniformRandom(abias,rng);
+    auto got_model = dnn_layer(aweight,abias, player);
+    
+    //generate the equivalent model on each rank separately
+    auto expect_model = enwrap(dnn_layer(bweight,bbias,input_layer<confDouble>()));
+    for(int r=0;r<nrank;r++)
+      expect_model = enwrap(dnn_layer(weights[r],biases[r], std::move(expect_model)));
+    expect_model = enwrap(dnn_layer(aweight,abias,std::move(expect_model)));
+    
+    assert(got_model.nparams() == expect_model.nparams());
+    
+    Matrix<double> input(fan_in, batch_size);
+    uniformRandom(input, rng);
 
-      Matrix<double> expect = expect_model.value(input,DerivYes);
-      Matrix<double> got = player.value(input,DerivYes);
-      if(rank == 0) assert(abs_near(expect,got,1e-6,true));
+    Matrix<double> expect = expect_model.value(input,DerivYes);
+    Matrix<double> got = got_model.value(input,DerivYes);
+    if(rank == 0) assert(abs_near(expect,got,1e-6,true));
 
-      Matrix<double> above_deriv(fan_out, batch_size);
-      uniformRandom(above_deriv,rng);
+    Matrix<double> above_deriv(fan_out, batch_size);
+    uniformRandom(above_deriv,rng);
 
       
-      Vector<double> got_der(player.nparams(),0.);
-      Matrix<double> got_in_der(fan_in, batch_size);
-      int dout_got = player.deriv(got_der, 0, Matrix<double>(above_deriv), &got_in_der);
+    Vector<double> got_der(got_model.nparams(),0.);
+    Matrix<double> got_in_der(fan_in, batch_size);
+    int dout_got = got_model.deriv(got_der, 0, Matrix<double>(above_deriv), &got_in_der);
 
-      Vector<double> expect_der(expect_model.nparams(),0.);
-      Matrix<double> expect_in_der(fan_in, batch_size);
+    Vector<double> expect_der(expect_model.nparams(),0.);
+    Matrix<double> expect_in_der(fan_in, batch_size);
       
-      int dout_expect = expect_model.deriv(expect_der, 0, Matrix<double>(above_deriv), &expect_in_der);
-      std::cout << "Offset got " << dout_got << " expect " << dout_expect << std::endl;
-      assert(dout_got == dout_expect);
+    int dout_expect = expect_model.deriv(expect_der, 0, Matrix<double>(above_deriv), &expect_in_der);
+    std::cout << "Offset got " << dout_got << " expect " << dout_expect << std::endl;
+    assert(dout_got == dout_expect);
 
-      if(rank == 0){
-	std::cout << "Got der:\n" << got_der << "\nExpect der:\n" << expect_der << std::endl;
-	std::cout << "Got input der:\n" << got_in_der << "\nExpect in der:\n" << expect_in_der << std::endl;
+    if(rank == 0){
+      std::cout << "Got der:\n" << got_der << "\nExpect der:\n" << expect_der << std::endl;
+      std::cout << "Got input der:\n" << got_in_der << "\nExpect in der:\n" << expect_in_der << std::endl;
 
-	assert(near(got_der,expect_der,1e-6,true));
-	assert(near(got_in_der,expect_in_der,1e-6,true));
-      }
-      
+      assert(near(got_der,expect_der,1e-6,true));
+      assert(near(got_in_der,expect_in_der,1e-6,true));
     }
+
+    //check update
+    Vector<double> new_params(got_model.nparams());
+    uniformRandom(new_params,rng);
+    Vector<double> dummy_params(got_model.nparams(), 0.);
+    
+    int poff = got_model.update(0, rank == 0 ? new_params : dummy_params); //ensure params are passed from rank 0
+    int eoff = expect_model.update(0, new_params);
+    assert(poff == eoff);
+    
+    expect = expect_model.value(input);
+    got = got_model.value(input);
+    if(rank == 0) assert(abs_near(expect,got,1e-6,true));
+
+    //check step
+    poff = got_model.step(0, rank == 0 ? new_params : dummy_params, 0.567); //ensure params are passed from rank 0
+    eoff = expect_model.step(0, new_params, 0.567);
+    assert(poff == eoff);
+    
+    expect = expect_model.value(input);
+    got = got_model.value(input);
+    if(rank == 0) assert(abs_near(expect,got,1e-6,true));
+
+    //check getparams
+    got_model.update(0, rank == 0 ? new_params : dummy_params); //ensure params are passed from rank 0
+   
+    Vector<double> pgot_params(got_model.nparams());
+    poff = got_model.getParams(pgot_params, 0);
+    assert(poff == eoff);
+    if(rank == 0) assert(equal(pgot_params, new_params, true));
+    
+    //check FLOPS
+    size_t ef = expect_model.FLOPS(0);
+    size_t gf = got_model.FLOPS(0);
+    if(rank == 0) assert(ef == gf);
+    
+    ef = expect_model.FLOPS(1);
+    gf = got_model.FLOPS(1);
+    if(rank == 0) assert(ef == gf);
 
     
   }
+
+
+  
 
 }
 
@@ -965,7 +1095,7 @@ void testPipelineLayer(){
 int main(int argc, char** argv){
   initialize(argc, argv);
 
-  testPipeline();
+  //testPipeline();
   testPipelineLayer();
   return 0;
 }

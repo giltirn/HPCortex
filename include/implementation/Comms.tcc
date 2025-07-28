@@ -7,6 +7,9 @@ inline MPI_Datatype getMPIdataType<float>(){ return MPI_FLOAT; }
 template<>
 inline MPI_Datatype getMPIdataType<int>(){ return MPI_INT; }
 
+template<>
+inline MPI_Datatype getMPIdataType<uint64_t>(){ return MPI_UINT64_T; }
+
 template<typename FloatType>
 inline void commsReduce(FloatType *data, size_t data_len, const MPI_Comm &comm){
   assert( MPI_Allreduce(MPI_IN_PLACE, data, data_len, getMPIdataType<FloatType>(), MPI_SUM, comm) == MPI_SUCCESS );
