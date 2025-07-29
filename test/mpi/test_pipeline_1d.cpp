@@ -194,28 +194,26 @@ struct PostCommActionCallback{
 
 struct CommsRequest{
   MPI_Request req;
-  std::unique_ptr<LockControlWrapper> lockctl;
-  std::unique_ptr<PostCommActionCallback> post;  
+  std::unique_ptr<PostCommActionCallback> post;
 };
+
 template<typename T>
-struct LockControlWrapperGen: public LockControlWrapper{ //for any class T with direct lock, unlock methods
+struct PostCommActionCallbackUnlock: public PostCommActionCallback{
   T const* v;
-  LockControlWrapperGen(T const* v): v(v){}
-  void lock() override{ v->lock(); }
-  void unlock() override{ v->unlock(); }
-};
-struct LockControlWrapperNone: public LockControlWrapper{ 
-  void lock() override{}
-  void unlock() override{}
-};
   
+  PostCommActionCallbackUnlock(T const* v): v(v){}
+  
+  void performAction() override{
+    v->unlock();
+  }
+};
+
 void waitAll(std::vector<CommsRequest> &reqs){
   std::vector<MPI_Request> rm(reqs.size());
   for(int i=0;i<reqs.size();i++)
     rm[i] = reqs[i].req;
   assert( MPI_Waitall(rm.size(), rm.data(), MPI_STATUSES_IGNORE) == MPI_SUCCESS );
   for(int i=0;i<reqs.size();i++){
-    if(reqs[i].lockctl) reqs[i].lockctl->unlock();
     if(reqs[i].post) reqs[i].post->performAction();
   }
   reqs.clear();
@@ -290,7 +288,7 @@ public:
     CommsRequest out;
     autoView(tens_v,(*tens),HostRead);   
     assert( MPI_Isend(tens_v.data(), tens_v.data_len(), getMPIdataType<FloatType>(), to, 0, communicators().pipelineCommunicator(), &out.req) == MPI_SUCCESS );
-    out.lockctl.reset(new LockControlWrapperGen(tens.get()));    
+    out.post.reset(new PostCommActionCallbackUnlock(tens.get()));    
     return out;
   }
   CommsRequest recv(int from) override{
@@ -299,7 +297,7 @@ public:
     CommsRequest out;
     autoView(tens_v,(*tens),HostWrite);	
     assert( MPI_Irecv(tens_v.data(), tens_v.data_len(), getMPIdataType<FloatType>(), from, 0, communicators().pipelineCommunicator(), &out.req) == MPI_SUCCESS );
-    out.lockctl.reset(new LockControlWrapperGen(tens.get()));    
+    out.post.reset(new PostCommActionCallbackUnlock(tens.get()));
     return out;
   }
   CommsRequest sendInitializer(int to) override{
@@ -894,52 +892,6 @@ auto pipeline_block_layer(int ubatch_size, U &&below){
 }
 
 
-//This buffer has n slots. It is expected that it will be used in a cycle where all n slots will first be filled then all n drained
-template<typename T>
-class FillEmptyRingBuffer{
-  std::vector<T> ring;
-  size_t push_off;
-  size_t pop_off;
-  int cycle; //0 fill, 1 empty
-    
-public:
-  FillEmptyRingBuffer(size_t size): ring(size), push_off(0), pop_off(0), cycle(0){}
-  FillEmptyRingBuffer(): FillEmptyRingBuffer(1){} 
-
-  void resize(size_t size){
-    ring.resize(size);
-    push_off = pop_off=0;
-    cycle=0;
-  }
-  
-  inline void push(T&& v){
-    if(cycle == 1) throw std::runtime_error("Cannot push to FillEmptyRingBuffer when in a drain cycle");    
-    ring[push_off] = std::move(v);
-    push_off = (push_off + 1) % ring.size();
-
-    //when it cycles back to 0 we switch to the drain cycle
-    if(!push_off) cycle = 1;
-  }
-  inline T pop(){
-    if(cycle == 0) throw std::runtime_error("Cannot pop FillEmptyRingBuffer when in a fill cycle");    
-    T ret(std::move(ring[pop_off]));
-    pop_off =  (pop_off + 1) % ring.size();
-
-    //when it cycles back to 1 we switch to the fill cycle
-    if(!pop_off) cycle = 0;    
-    return ret;
-  }
-  //Return whether the we are on the drain cycle
-  bool isFilled() const{ return cycle == 1; }
-  
-  size_t size() const{ return ring.size(); }
-
-  //This function is used to provide a valid object even if the buffer is not completely filled
-  const T &latest() const{    
-    return ring[  (push_off - 1 + ring.size()) % ring.size() ];
-  }
-    
-};
 
   
 void testPipelineLayer(){

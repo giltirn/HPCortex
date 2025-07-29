@@ -79,4 +79,52 @@ public:
   }
 };
 
+//This buffer has n slots. It is expected that it will be used in a cycle where all n slots will first be filled then all n drained
+template<typename T>
+class FillEmptyRingBuffer{
+  std::vector<T> ring;
+  size_t push_off;
+  size_t pop_off;
+  int cycle; //0 fill, 1 empty
+    
+public:
+  FillEmptyRingBuffer(size_t size): ring(size), push_off(0), pop_off(0), cycle(0){}
+  FillEmptyRingBuffer(): FillEmptyRingBuffer(1){} 
+
+  void resize(size_t size){
+    ring.resize(size);
+    push_off = pop_off=0;
+    cycle=0;
+  }
+  
+  inline void push(T&& v){
+    if(cycle == 1) throw std::runtime_error("Cannot push to FillEmptyRingBuffer when in a drain cycle");    
+    ring[push_off] = std::move(v);
+    push_off = (push_off + 1) % ring.size();
+
+    //when it cycles back to 0 we switch to the drain cycle
+    if(!push_off) cycle = 1;
+  }
+  inline T pop(){
+    if(cycle == 0) throw std::runtime_error("Cannot pop FillEmptyRingBuffer when in a fill cycle");    
+    T ret(std::move(ring[pop_off]));
+    pop_off =  (pop_off + 1) % ring.size();
+
+    //when it cycles back to 1 we switch to the fill cycle
+    if(!pop_off) cycle = 0;    
+    return ret;
+  }
+  //Return whether the we are on the drain cycle
+  bool isFilled() const{ return cycle == 1; }
+  
+  size_t size() const{ return ring.size(); }
+
+  //This function is used to provide a valid object even if the buffer is not completely filled
+  const T &latest() const{    
+    return ring[  (push_off - 1 + ring.size()) % ring.size() ];
+  }
+    
+};
+
+
 enum EnableDeriv {DerivNo=0, DerivYes=1};
