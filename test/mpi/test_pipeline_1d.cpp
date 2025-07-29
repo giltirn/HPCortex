@@ -883,6 +883,16 @@ public:
     
 };
 
+/**
+ * @brief Create a pipeline block layer object
+ * @param ubatch_size The microbatch size. Must be a divisor of the global batch size
+ * @param below The layer below
+ */
+template<typename LayerOutputType, typename U, typename std::enable_if<ISLEAF(U), int>::type = 0>
+auto pipeline_block_layer(int ubatch_size, U &&below){
+  return PipelineBlockLayer<LayerOutputType, DDST(below)>(std::forward<U>(below), ubatch_size);
+}
+
 
 //This buffer has n slots. It is expected that it will be used in a cycle where all n slots will first be filled then all n drained
 template<typename T>
@@ -1031,8 +1041,9 @@ void testPipelineLayer(){
     uniformRandom(bbias,rng);
     
     auto pbelow = dnn_layer(bweight, bbias, input_layer<pconfDouble>());
-    PipelineBlockLayer< Matrix<double>, LeafRef<decltype(pbelow)> > player(pbelow, ubatch_size);
-
+    // PipelineBlockLayer< Matrix<double>, LeafRef<decltype(pbelow)> > player(pbelow, ubatch_size);
+    auto player = pipeline_block_layer<Matrix<double> >(ubatch_size, pbelow);
+    
     //For covenience use a uniform fan_in, fan_out
     std::vector<Matrix<double> > weights(nrank, Matrix<double>(fan_out,fan_in));
     std::vector<Vector<double> > biases(nrank, Vector<double>(fan_out));
@@ -1152,8 +1163,10 @@ void testPipelineLayer(){
     uniformRandom(bbias,rng);
     
     auto pbelow = dnn_layer(bweight, bbias, input_layer<pconfDouble>());
-    PipelineBlockLayer< Matrix<double>, LeafRef<decltype(pbelow)> > player1(pbelow, ubatch_size);
-    PipelineBlockLayer< Matrix<double>, LeafRef<decltype(player1)> > player2(player1, ubatch_size);
+    auto player1 = pipeline_block_layer<Matrix<double> >(ubatch_size, pbelow);
+    auto player2 = pipeline_block_layer<Matrix<double> >(ubatch_size, player1);
+    //PipelineBlockLayer< Matrix<double>, LeafRef<decltype(pbelow)> > player1(pbelow, ubatch_size);
+    //PipelineBlockLayer< Matrix<double>, LeafRef<decltype(player1)> > player2(player1, ubatch_size);
 
     //For covenience use a uniform fan_in, fan_out
     std::vector<Matrix<double> > weights1(nrank, Matrix<double>(fan_out,fan_in)), weights2(nrank, Matrix<double>(fan_out,fan_in));
