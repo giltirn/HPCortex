@@ -4,7 +4,7 @@
 void testSimpleLinearPipelineDDP(){
   //Test f(x) = 0.2*x + 0.3;
   
-  typedef confSinglePipeline PipelineConfig;
+  typedef confSinglePipelineNew PipelineConfig;
   typedef confSingle StdConfig;
   typedef float FloatType;
   
@@ -14,21 +14,17 @@ void testSimpleLinearPipelineDDP(){
   
   int pipe_nranks = communicators().pipelineNrank();
   int pipe_rank = communicators().pipelineRank();
-
+  int ddp_nranks = communicators().ddpNrank();
+  
   int nranks_tot = communicators().worldNrank();
 
-  int nepoch = 20;
+  int nepoch = 10;
   
   int call_batch_size = 2; //how many samples are processed at a time by each pipeline rank
-  int in_out_dims[2] = {1, call_batch_size}; //all matrices here have the same dimension
+  int pipeline_batch_size = 6 * pipe_nranks; //how many samples in an overall batch handled by a pipeline block
+  int glob_batch_size = ddp_nranks * pipeline_batch_size; //how many samples in a batch overall
   
-  int glob_batch_size = 6 * nranks_tot; //how many samples in an overall batch
-  int nbatch = 50; //how many batches in the data set
-  
-  int ddp_nbatch = communicators().ddpNrank(); //now many batches are computed in parallel under DDP
-  
-  int eff_batch_size = glob_batch_size *  ddp_nbatch; //effective batch size for reproduction on single rank
-  
+  int nbatch = 20; //how many batches in the data set
   int ndata = nbatch * glob_batch_size;
  
   std::vector<XYpair<FloatType,1,1> > data(ndata);
@@ -51,12 +47,16 @@ void testSimpleLinearPipelineDDP(){
   Matrix<FloatType> winit(1,1,0.1);
   Vector<FloatType> binit(1,0.01);
 
-  auto rank_model = pipe_rank == pipe_nranks-1 ? enwrap( dnn_layer(winit, binit,input_layer<PipelineConfig>()) )  : enwrap( dnn_layer(winit, binit, ReLU<FloatType>(),input_layer<PipelineConfig>()) );
- 
-  auto rank_block = pipeline_block< Matrix<FloatType>, Matrix<FloatType> >(rank_model, in_out_dims, in_out_dims);
+  //pipeline block
+  auto player = pipeline_block_layer< Matrix<FloatType> >(call_batch_size, input_layer<PipelineConfig>());
+  if(pipe_rank == 0)
+    player.setRankBlock(dnn_layer(winit, binit, input_layer<PipelineConfig>()));
+  else
+    player.setRankBlock(dnn_layer(winit, binit, ReLU<FloatType>(),input_layer<PipelineConfig>()));
 
-  auto cost = BatchPipelineCostFuncWrapper<decltype(rank_block), MSEcostFunc<Matrix<FloatType> > >(rank_block, call_batch_size);
+  auto cost = mse_cost(player);
 
+  //full model
   auto full_model = enwrap( dnn_layer(winit, binit,input_layer<StdConfig>()) );
   for(int i=0;i<pipe_nranks-1;i++)
     full_model = enwrap( dnn_layer(winit, binit, ReLU<FloatType>(),std::move(full_model)) );
@@ -67,15 +67,15 @@ void testSimpleLinearPipelineDDP(){
   AdamOptimizer<FloatType,DecayScheduler<FloatType> > opt(ap,lr);
 
   //Train pipeline + DDP
-  train(cost, data, opt, nepoch, glob_batch_size);
+  train(cost, data, opt, nepoch, pipeline_batch_size);
   Vector<FloatType> final_p = cost.getParams();
   std::vector<Vector<FloatType> > predict(ndata);
-  for(int i=0;i<ndata;i++) predict[i] = cost.predict(data[i].x);
+  for(int i=0;i<ndata;i++) predict[i] = cost.predict(data[i].x, pipeline_batch_size);
 
   std::cout << "Training rank local model for comparison" << std::endl;  
   communicators().disableParallelism();
   communicators().reportSetup();
-  train(full_cost, data, opt, nepoch, eff_batch_size, communicators().worldRank() != 0);
+  train(full_cost, data, opt, nepoch, glob_batch_size, communicators().worldRank() != 0);
   Vector<FloatType> expect_p = full_cost.getParams();
 
   MPI_Barrier(MPI_COMM_WORLD);
@@ -88,7 +88,7 @@ void testSimpleLinearPipelineDDP(){
     
     std::cout << "Predictions:" << std::endl;
     for(int i=0;i<ndata;i++)
-      std::cout << "Got " << predict[i] << " expect " << full_cost.predict(data[i].x, eff_batch_size) << " actual " << data[i].y << std::endl;
+      std::cout << "Got " << predict[i] << " expect " << full_cost.predict(data[i].x, glob_batch_size) << " actual " << data[i].y << std::endl;
   }
   std::cout << "testSimpleLinearPipelineDDP passed" << std::endl;
 }

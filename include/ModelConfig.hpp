@@ -16,6 +16,9 @@ using confDouble = ModelConfiguration<double, BufferSingle>;
 using confSinglePipeline = ModelConfiguration<float, RingBuffer>;
 using confDoublePipeline = ModelConfiguration<double, RingBuffer>;
 
+using confSinglePipelineNew = ModelConfiguration<float, FillEmptyRingBuffer>;
+using confDoublePipelineNew = ModelConfiguration<double, FillEmptyRingBuffer>;
+
 
 #define EXTRACT_CONFIG_TYPES \
   typedef Config ModelConfig;			\

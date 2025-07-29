@@ -3,7 +3,9 @@
 
 //Note, only skipping within a rank, not between!
 void testSkipConnectionPipeline(){
-  typedef confDoublePipeline PipelineConfig;
+  std::mt19937 rng(1234);
+
+  typedef confDoublePipelineNew PipelineConfig;
   typedef confDouble StdConfig;
   typedef double FloatType;
   
@@ -12,11 +14,9 @@ void testSkipConnectionPipeline(){
   int nranks = communicators().pipelineNrank();
   int rank = communicators().pipelineRank();
   
-  int batch_size = 1;
-  int input_features = 1; 
-  int block_output_dims[2] = {1, batch_size};
-  int block_input_dims[2] = { rank == nranks-1 ? input_features : 1, batch_size };
-  
+  int ubatch_size = 2;
+  int glob_batch_size = nranks * ubatch_size;
+   
   FloatType A=3.14;
   FloatType B=0.15;
   FloatType C=5.66;
@@ -27,68 +27,43 @@ void testSkipConnectionPipeline(){
   Matrix<FloatType> winit2(1,1,C);
   Vector<FloatType> binit2(1,D);
   
-  if(1){ //test model
-    if(!rank) std::cout << "Testing model value pipeline" << std::endl;
-    auto skip1 = skip_connection( dnn_layer(winit1,binit1,input_layer<PipelineConfig>()), input_layer<PipelineConfig>());
-    auto skip2 = skip_connection( dnn_layer(winit2,binit2,input_layer<PipelineConfig>()), skip1);
-        
-    auto p = pipeline_block<Matrix<FloatType>, Matrix<FloatType> >( skip2, block_output_dims, block_input_dims);
-    
-    int value_lag = p.valueLag(); //iterations before first complete cycle of forwards differentiation
-    int deriv_lag = p.derivLag(); //iterations before first complete cycle of backwards differentiation
-    
-    int iters=20;
+  if(!rank) std::cout << "Testing model value pipeline" << std::endl;
+  auto skip1 = skip_connection( dnn_layer(winit1,binit1,input_layer<PipelineConfig>()), input_layer<PipelineConfig>());
+  auto skip2 = skip_connection( dnn_layer(winit2,binit2,input_layer<PipelineConfig>()), skip1);
 
-    //Build the same model on just this rank
-    auto test_model = enwrap( input_layer<StdConfig>() );
-    for(int r=0;r<nranks;r++){
-      test_model = enwrap( skip_connection( dnn_layer(winit1,binit1, input_layer<StdConfig>()), std::move(test_model) ) ); 
-      test_model = enwrap( skip_connection( dnn_layer(winit2,binit2, input_layer<StdConfig>()), std::move(test_model) ) ); 
-    }
-      
-    if(!rank) std::cout << "Computing expectations" << std::endl;
-    std::vector<Matrix<FloatType> > expect_v(iters);
-    std::vector<Vector<FloatType> > expect_d(iters, Vector<FloatType>(test_model.nparams()) );
-    
-    std::vector<Matrix<FloatType> > input_deriv(iters);
-    for(int i=0;i<iters;i++){
-      input_deriv[i] = Matrix<FloatType>(1,batch_size, 2.13*(i+1)); 
-      Matrix<FloatType> x(1,1, i+1);
-      expect_v[i] = test_model.value(x,DerivYes);
+  auto player = pipeline_block_layer<Matrix<FloatType> >(ubatch_size, input_layer<PipelineConfig>());
+  player.setRankBlock(skip2);
 
-      Matrix<FloatType> idcp(input_deriv[i]);
-      test_model.deriv(expect_d[i],0,std::move(idcp));
-    }
-    int nparams = test_model.nparams();
-
-    if(!rank) std::cout << "Starting test loop" << std::endl;
-    for(int i=0;i<iters;i++){
-      Matrix<FloatType> x(1,1, i+1);
-      Matrix<FloatType> v = p.value(x,DerivYes);
-      Vector<FloatType> d(nparams,0.);
-
-      int i_vpipe = i-(value_lag-1); //lag=3    2->0  3->1
-      int i_dpipe = i-(deriv_lag-1);
-      p.deriv(d,i_vpipe >= 0 ? input_deriv[i_vpipe] : Matrix<FloatType>(1,batch_size,-1)); //use the input deriv appropriate to the item index!
-      
-      if(!rank){
-
-	if(i_vpipe >=0 ){
-	  autoView(ev_i_v, expect_v[i_vpipe], HostRead);
-	  autoView(v_v,v,HostRead);
-	  
-	  FloatType ev = ev_i_v(0,0); 
-	  std::cout << i << "\tval expect " << ev << " got "<<  v_v(0,0) << std::endl;
-	  assert(near(ev,v_v(0,0),FloatType(1e-4)));
-	}
-	if(i_dpipe >=0 ){
-	  Vector<FloatType> ed = expect_d[i_dpipe];	
-	  std::cout << "\tderiv expect " << ed << " got " << d << std::endl;
-	  assert(near(d,ed,FloatType(1e-4),true));
-	}
-      }
-    }
+  //Build the same model on just this rank
+  auto test_model = enwrap( input_layer<StdConfig>() );
+  for(int r=0;r<nranks;r++){
+    test_model = enwrap( skip_connection( dnn_layer(winit1,binit1, input_layer<StdConfig>()), std::move(test_model) ) ); 
+    test_model = enwrap( skip_connection( dnn_layer(winit2,binit2, input_layer<StdConfig>()), std::move(test_model) ) ); 
   }
+      
+  if(!rank) std::cout << "Computing expectations" << std::endl;
+  Matrix<FloatType> x(1,glob_batch_size), above_deriv(1,glob_batch_size);
+  uniformRandom(x,rng);
+  uniformRandom(above_deriv,rng);
+      
+  Matrix<FloatType> expect_v = test_model.value(x,DerivYes);
+
+  Vector<FloatType> expect_d(test_model.nparams());
+  Matrix<FloatType> expect_id(1,glob_batch_size);
+  test_model.deriv(expect_d,0, Matrix<FloatType>(above_deriv), &expect_id);
+
+  Matrix<FloatType> got_v = player.value(x,DerivYes);
+
+  Vector<FloatType> got_d(player.nparams());
+  Matrix<FloatType> got_id(1,glob_batch_size);
+  player.deriv(got_d,0, Matrix<FloatType>(above_deriv), &got_id);
+
+  if(!rank){
+    assert(near(expect_v,got_v,1e-5,true));
+    assert(near(expect_d,got_d,1e-5,true));
+    assert(near(expect_id,got_id,1e-5,true));
+  }
+  MPI_Barrier(MPI_COMM_WORLD);
   std::cout << "testSkipConnectionPipeline passed" << std::endl;
 }
 

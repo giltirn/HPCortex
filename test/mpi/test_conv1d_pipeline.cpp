@@ -25,7 +25,7 @@ void run(std::vector<FloatType> &loss,std::vector<Vector<FloatType> > &deriv, Mo
 }
 
 void testConvPipeline(){
-  typedef confSinglePipeline PipelineConfig;
+  typedef confSinglePipelineNew PipelineConfig;
   typedef confSingle StdConfig;
   typedef float FloatType;
   
@@ -36,7 +36,6 @@ void testConvPipeline(){
   assert(nranks > 2);
   int rank = communicators().pipelineRank();
   std::mt19937 rng(1234);
-  int call_batch_size = 2;
 
   typedef Tensor<FloatType,3> InputType;
   typedef Tensor<FloatType,3> OutputType;
@@ -48,9 +47,12 @@ void testConvPipeline(){
   int kernel_size = 3;
   int stride = 1;
 
-  int output_data_sz[3] = { out_channels, out_len, call_batch_size };
-  int input_data_sz[3] = {in_channels, in_len, call_batch_size};
+  int call_batch_size = 2;
+  int batch_size = call_batch_size * 3 * nranks; //actual data batch size (must be divisible by call_batch_size)
   
+  int output_data_sz[3] = { out_channels, out_len, batch_size };
+  int input_data_sz[3] = {in_channels, in_len, batch_size};
+
   ///////////////////////////////////////////////////////////////////////
   //////// Generate data
 
@@ -70,12 +72,10 @@ void testConvPipeline(){
   uniformRandom(filter_init, rng);
 
   auto conv_block = conv1d_layer( filter_init, ReLU<FloatType>(), padding, stride, input_layer<PipelineConfig,InputType>() ); //last rank
-  int conv_block_output_data_sz[3] = {out_channels, in_len, call_batch_size }; //same padding
 
   ///////////////////////////////////////////////////////////////////////
   ////// First DNN block
   int flat_size = in_len * out_channels;
-  int intermediate_block_data_sz[2] = { flat_size, call_batch_size };
   
   Matrix<FloatType> weight_init(flat_size, flat_size);
   uniformRandom(weight_init, rng);
@@ -102,8 +102,9 @@ void testConvPipeline(){
   uniformRandom(weight_out_init, rng);
   Vector<FloatType> bias_out_init(out_flat_size);
   uniformRandom(bias_out_init, rng);
-  
-  auto output_block = unflatten_layer<3>(output_data_sz,
+
+  int output_data_sz_block[3] = { out_channels, out_len, call_batch_size }; //within the pipeline blocks the batch size == call_batch_size
+  auto output_block = unflatten_layer<3>(output_data_sz_block,
 					 dnn_layer(weight_out_init, bias_out_init,
 						   input_layer<PipelineConfig,Matrix<FloatType> >()						   
 						   )
@@ -111,6 +112,16 @@ void testConvPipeline(){
   
   static_assert(std::is_same< LAYEROUTPUTTYPE(decltype(output_block)), OutputType >::value );
 
+  /////////////////////////////////////////////////////////////////////
+  /////// Pipelined model
+  auto model = pipeline_block_layer<OutputType>(call_batch_size, input_layer<PipelineConfig,InputType>());
+  if(rank == 0) model.setRankBlock(conv_block);
+  else if(rank == 1) model.setRankBlock(dnn_first);
+  else if(rank != nranks-1) model.setRankBlock(dnn_other);
+  else model.setRankBlock(output_block);
+
+  auto cost = mse_cost( model );
+  
   //////////////////////////////////////////////////////////////////////
   //Generate expectations
   auto full_model = enwrap( dnn_layer(weight_init, bias_init, ReLU<FloatType>(),
@@ -143,22 +154,11 @@ void testConvPipeline(){
   
   ///////////////////////////////////////////////////////////////////////
   //Run
-
   std::vector<FloatType> loss(ndata);
   std::vector<Vector<FloatType> > deriv(ndata);
- 
-  if(rank == nranks-1){
-    auto model = pipeline_block<InputType,OutputType>(conv_block,  conv_block_output_data_sz, input_data_sz);
-    run(loss,deriv,model,x,y);    
-  }else if(rank == nranks - 2){
-    auto model = pipeline_block<InputType,OutputType>(dnn_first, intermediate_block_data_sz, conv_block_output_data_sz);
-    run(loss,deriv,model,x,y);    
-  }else if(rank == 0){
-    auto model = pipeline_block<InputType,OutputType>(output_block, output_data_sz, intermediate_block_data_sz);
-    run(loss,deriv,model,x,y);    
-  }else{
-    auto model = pipeline_block<InputType,OutputType>(dnn_other, intermediate_block_data_sz, intermediate_block_data_sz);
-    run(loss,deriv,model,x,y);    
+  for(int d=0;d<ndata;d++){
+    loss[d] = cost.loss(x[d],y[d],DerivYes);
+    deriv[d] = cost.deriv();
   }
 
   if(rank == 0){

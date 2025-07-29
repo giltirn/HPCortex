@@ -9,15 +9,13 @@ void testSimpleLinearPipeline(){
   int nranks = communicators().pipelineNrank();
   int rank = communicators().pipelineRank();
 
-  int call_batch_size = 2;
-  int in_out_dims[2] = {1,call_batch_size};
-  
+  int call_batch_size = 2;  
   int glob_batch_size = 6 * nranks;
 
-  int nepoch = 20;
+  int nepoch = 10;
   int nbatch = 10;
 
-  typedef confSinglePipeline PipelineConfig;
+  typedef confSinglePipelineNew PipelineConfig;
   typedef confSingle StdConfig;
   typedef float FloatType;
     
@@ -36,11 +34,13 @@ void testSimpleLinearPipeline(){
   Matrix<FloatType> winit(1,1,0.1);
   Vector<FloatType> binit(1,0.01);
 
-  auto rank_model = rank == nranks-1 ? enwrap( dnn_layer(winit, binit, input_layer<PipelineConfig>()) )  : enwrap( dnn_layer(winit, binit, ReLU<FloatType>(),input_layer<PipelineConfig>()) );
- 
-  auto rank_block = pipeline_block<Matrix<FloatType>, Matrix<FloatType> >(rank_model, in_out_dims, in_out_dims);
+  auto player = pipeline_block_layer< Matrix<FloatType> >(call_batch_size, input_layer<PipelineConfig>());
+  if(rank == 0)
+    player.setRankBlock(dnn_layer(winit, binit, input_layer<PipelineConfig>()));
+  else
+    player.setRankBlock(dnn_layer(winit, binit, ReLU<FloatType>(),input_layer<PipelineConfig>()));
 
-  auto cost = BatchPipelineCostFuncWrapper<decltype(rank_block), MSEcostFunc<Matrix<FloatType>> >(rank_block, call_batch_size);
+  auto cost = mse_cost(player);
 
   auto full_model = enwrap( dnn_layer(winit, binit,input_layer<StdConfig>()) );
   for(int i=0;i<nranks-1;i++)
@@ -55,7 +55,7 @@ void testSimpleLinearPipeline(){
   train(cost, data, opt, nepoch, glob_batch_size);
   Vector<FloatType> final_p = cost.getParams();
   std::vector<Vector<FloatType>> predict(ndata);
-  for(int i=0;i<ndata;i++) predict[i] = cost.predict(data[i].x);
+  for(int i=0;i<ndata;i++) predict[i] = cost.predict(data[i].x, glob_batch_size);
 
   std::cout << "Training rank local model for comparison" << std::endl;  
   communicators().disableParallelism();
