@@ -17,3 +17,4 @@
 #include<layers/PairJoinLayer.hpp>
 #include<layers/ReplicateLayer.hpp>
 #include<layers/SumJoinLayer.hpp>
+#include<layers/PipelineBlockLayer.hpp>

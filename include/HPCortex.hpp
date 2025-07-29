@@ -6,6 +6,7 @@
 #include <Random.hpp>
 #include <Performance.hpp>
 #include <ModelConfig.hpp>
+#include <LayerIOcontainer.hpp>
 #include <Layers.hpp>
 #include <LossFunctions.hpp>
 #include <Optimizers.hpp>

@@ -123,5 +123,48 @@ inline void commsBroadcast(Vector<FloatType> &v, int from_rank, const MPI_Comm &
 template<typename FloatType>
 inline void commsBroadcast(Matrix<FloatType> &v, int from_rank, const MPI_Comm &comm);
 
+/**
+ * @brief A generic callback function applied after comms have completed
+ */
+struct PostCommActionCallback{
+  virtual void performAction() = 0;
+  virtual ~PostCommActionCallback(){}
+};
+
+/**
+ * @brief A post-comms callback to unlock a managed object
+ */
+template<typename T>
+struct PostCommActionCallbackUnlock: public PostCommActionCallback{
+  T const* v;  
+  PostCommActionCallbackUnlock(T const* v): v(v){}  
+  void performAction() override{ v->unlock(); }
+};
+
+/**
+ * @brief A post-comms callback to initialize a tensor. The associated comms should populate the "size" field
+ */
+template<typename FloatType, int Dim>
+struct PostCommActionCallbackTensorInitialize: public PostCommActionCallback{
+  std::unique_ptr<Tensor<FloatType,Dim> > &tens;
+  int size[Dim];
+  PostCommActionCallbackTensorInitialize(std::unique_ptr<Tensor<FloatType,Dim> > &tens): tens(tens){}  
+  void performAction() override{
+    tens.reset(new Tensor<FloatType,Dim>(size));
+  }
+};
+
+/**
+ * @brief A comms request with a callback hook
+ */
+struct CommsRequest{
+  MPI_Request req;
+  std::unique_ptr<PostCommActionCallback> post;
+};
+
+/**
+ * @brief Wait for all comms activity on the associated requests to complete
+ */
+void waitAll(std::vector<CommsRequest> &reqs);
 
 #include "implementation/Comms.tcc"

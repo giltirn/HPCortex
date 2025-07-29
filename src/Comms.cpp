@@ -207,3 +207,14 @@ void initializeComms(int argc, char** argv){
   if(c) return; 
   c.reset(new Communicators(argc, argv));
 }
+
+void waitAll(std::vector<CommsRequest> &reqs){
+  std::vector<MPI_Request> rm(reqs.size());
+  for(int i=0;i<reqs.size();i++)
+    rm[i] = reqs[i].req;
+  assert( MPI_Waitall(rm.size(), rm.data(), MPI_STATUSES_IGNORE) == MPI_SUCCESS );
+  for(int i=0;i<reqs.size();i++){
+    if(reqs[i].post) reqs[i].post->performAction();
+  }
+  reqs.clear();
+}
