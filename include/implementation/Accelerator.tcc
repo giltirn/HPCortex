@@ -1,4 +1,4 @@
-#ifdef USE_CUDA
+#if defined(USE_CUDA) || defined(USE_HIP)
 
 template<>
 struct CUDAitemPos<0>{

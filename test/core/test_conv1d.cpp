@@ -53,9 +53,11 @@ void testSamePaddingZero1D(){
 	    for(int i=0;i<in_size_padded;i++){
 	      //std::cout << i << ":" << out_v(0,i,0) << std::endl;
 	      
-	      if(i>= edge_size && i-edge_size < in_size)
+	      if(i>= edge_size && i-edge_size < in_size){
 		assert(out_v(0,i,0) == FloatType(i-edge_size+1));
-	      else assert(out_v(0,i,0) == 0.0);
+	      }else{
+		assert(out_v(0,i,0) == 0.0);
+	      }
 	    }	  	
 	  });
 

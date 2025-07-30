@@ -6,6 +6,7 @@
 #include <ActivationFuncs.hpp>
 #include <Buffers.hpp>
 #include <Linalg.hpp>
+#include <ModelConfig.hpp>
 
 //Tag for all "leaf" types that can be used to build a model tree
 struct LeafTag{};

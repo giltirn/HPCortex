@@ -47,6 +47,44 @@ void acceleratorReport(){
   }
 }
 
+#elif defined(USE_HIP)
+#warning "Compiling with HIP support"
+hipStream_t copyStream;
+hipStream_t computeStream;
+
+void acceleratorInit(void){
+  int nDevices = 1;
+  auto d=hipGetDeviceCount(&nDevices);
+
+  //Distribute node-local ranks evenly over the number of devices round-robin
+  //Consider this for optimal GPU-rank binding
+  int node_rank = communicators().nodeRank();
+  
+  int device = node_rank % nDevices;
+  
+  d=hipSetDevice(device);
+  d=hipStreamCreate(&copyStream);
+  d=hipStreamCreate(&computeStream);
+}
+
+void acceleratorReport(){
+  int world_nrank = communicators().worldNrank();
+  int world_rank = communicators().worldRank();
+  int device;  
+  auto d=hipGetDevice(&device);
+
+  int nDevices = 1;
+  d=hipGetDeviceCount(&nDevices);
+  
+  for(int w=0;w<world_nrank;w++){
+    assert( MPI_Barrier(MPI_COMM_WORLD) == MPI_SUCCESS );
+    if(w == world_rank)
+      std::cout << "world:" << world_rank << '/' << world_nrank
+	        << " device:" << device << '/' << nDevices
+		<< std::endl << std::flush;
+  }
+}
+
 #elif defined(USE_SYCL)
 #warning "Compiling with SYCL support"
 

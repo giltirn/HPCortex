@@ -85,7 +85,7 @@ struct LogLossFunc{
 	const std::string &next = (*y[b])[c+1];
 	
 	auto it = token_idx_map->find(next);
-	assert(it != token_idx_map->end());
+	assert(bool(it != token_idx_map->end()));
 	int next_idx = it->second;
            
 	std::cout << "c: " << c << " b: " << b << " next_tok: " << next << " idx: " << next_idx << " prob: " << ypred_v(c,next_idx,b) << std::endl;  
@@ -113,7 +113,7 @@ struct LogLossFunc{
 	  const std::string &next = (*y[b])[c+1];
 
 	  auto it = token_idx_map->find(next);
-	  assert(it != token_idx_map->end());
+	  assert(bool(it != token_idx_map->end()));
 	  int next_idx = it->second;
 
 	  deriv_v(c,next_idx,b) = -1./ypred_v(c,next_idx,b)/B/(C-1);	
