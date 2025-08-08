@@ -38,7 +38,7 @@ public:
   }
   int nparams() const override{ return layer.v.nparams(); }
 
-  size_t FLOPS(int value_or_deriv) const{ return layer.v.FLOPS(value_or_deriv); }
+  size_t FLOPS(int value_or_deriv) const override{ return layer.v.FLOPS(value_or_deriv); }
   
   int getParams(Vector<FloatType> &into, int off) const override{ return layer.v.getParams(into,off); }
 

@@ -278,8 +278,7 @@ public:
    */
   class View: private ManagedArray<FloatType>::View{
     typedef typename ManagedArray<FloatType>::View Base;
-    int* _size; /**< Tensor dimensions*/
-    bool is_device_ptr; /**< Track whether the tensor dimensions array is allocated on the device or host*/
+    int _size[Dim];
   public:
     /**
      * @brief Construct a view with a specific view mode and parent object
@@ -287,23 +286,13 @@ public:
      * @param parent The parent object
      */
     inline View(ViewMode mode, const Tensor<FloatType,Dim> &parent): Base(mode, parent.vals){
-      if(mode == DeviceRead || mode == DeviceWrite || mode == DeviceReadWrite){
-	_size = (int*)acceleratorAllocDevice(Dim*sizeof(int));
-	acceleratorCopyToDevice(_size,parent._size,Dim*sizeof(int));
-	is_device_ptr = true;
-      }else{
-	_size = (int*)malloc(Dim*sizeof(int));
-	memcpy(_size,parent._size,Dim*sizeof(int));
-	is_device_ptr = false;
-      }	       
+      memcpy(_size,parent._size,Dim*sizeof(int)); //note, this constructor will only ever be called on the *host* so it's safe to use memcpy    
     }
 
     /**
      * @brief Free the view. This *must* be called explicitly once the view is no longer needed
      */
-    inline void free(){
-      if(is_device_ptr) acceleratorFreeDevice(_size);
-      else ::free(_size);      
+    inline void free(){   
       return this->Base::free();
     }
 
