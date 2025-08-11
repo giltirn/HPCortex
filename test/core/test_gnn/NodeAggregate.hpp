@@ -68,7 +68,7 @@ void testNodeAggregateGlobalSum(){
   ginit.edge_attr_sizes = std::vector<int>({5,6});
   //edges in circle
   ginit.edge_map = std::vector<std::pair<int,int> >({  {0,1}, {1,2}, {2,0}, {1,0}, {2,1}, {0,2} });
-  ginit.global_attr_size = 2;
+  ginit.global_attr_sizes = std::vector<int>({2});
   ginit.batch_size =4;
   
   Graph<FloatType> graph(ginit);

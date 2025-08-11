@@ -52,7 +52,7 @@ Graph<double> graphify(double x, double v, double E, double L, const GraphInitia
   
   //global
   {
-    autoView(n, out.global, HostWrite);
+    autoView(n, out.global.attributes[0], HostWrite);
     n(0,0) = E; //energy
   }
 
@@ -92,7 +92,9 @@ public:
       for(int a=0;a<y.edges[e].attributes.size();a++)
 	out += MSEcostFunc< Tensor<FloatType,2> >::loss(y.edges[e].attributes[a], ypred.edges[e].attributes[a]);
     }
-    out += MSEcostFunc< Tensor<FloatType,2> >::loss(y.global, ypred.global);
+
+    for(int a=0;a<y.global.attributes.size();a++)
+      out += MSEcostFunc< Tensor<FloatType,2> >::loss(y.global.attributes[a], ypred.global.attributes[a]);
     return out;
   }
 
@@ -109,7 +111,8 @@ public:
       for(int a=0;a<y.edges[e].attributes.size();a++)
 	out.edges[e].attributes[a] = MSEcostFunc< Tensor<FloatType,2> >::layer_deriv(y.edges[e].attributes[a], ypred.edges[e].attributes[a]);
     }
-    out.global = MSEcostFunc< Tensor<FloatType,2> >::layer_deriv(y.global, ypred.global);
+    for(int a=0;a<y.global.attributes.size();a++)
+      out.global.attributes[a] = MSEcostFunc< Tensor<FloatType,2> >::layer_deriv(y.global.attributes[a], ypred.global.attributes[a]);
     return out;
   }
 };
@@ -220,7 +223,7 @@ void springSystem(){
   ginit.node_attr_sizes = std::vector<int>({1,1}); //position, velocity
   ginit.edge_attr_sizes = std::vector<int>({1}); //length
   ginit.edge_map = std::vector<std::pair<int,int> >({ {0,1}, {2,1} }); //0, 1 are send nodes, 1 is a recv node. Only receive nodes pull in edge information
-  ginit.global_attr_size = 1; //energy
+  ginit.global_attr_sizes = std::vector<int>({1}); //energy
   ginit.batch_size = 16;
   
   //We want to learn a mapping between one step and the next on the trajectory

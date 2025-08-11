@@ -1,5 +1,5 @@
 template<typename FloatType>
-bool equal(const Node<FloatType> &a, const Node<FloatType> &b, bool verbose = true){
+bool equal(const AttributedGraphElement<FloatType> &a, const AttributedGraphElement<FloatType> &b, bool verbose = true){
   if(a.attributes.size() != b.attributes.size()) return false;
   for(int aa=0;aa<a.attributes.size();aa++)    
     if(!equal(a.attributes[aa],b.attributes[aa],verbose)){
@@ -68,10 +68,14 @@ bool abs_near(const Graph<FloatType> &g1, const Graph<FloatType> &g2, FloatType 
 	return false;
       }
   }
-  if(!abs_near(g1.global,g2.global,delta,verbose)){
-    if(verbose) std::cout << "Failed on global" << std::endl;
-    return false;
-  }
+
+  if(g1.global.attributes.size() != g2.global.attributes.size()) return false;
+  for(int a=0;a<g1.global.attributes.size();a++)    
+    if(!abs_near(g1.global.attributes[a],g2.global.attributes[a],delta,verbose)){
+      if(verbose) std::cout << "Failed on global attrib " << a << std::endl;
+      return false;
+    }
+  
   return true;
 }
   

@@ -29,6 +29,21 @@ std::vector<int> AttributedGraphElement<FloatType>::getAttributeSizes() const{
   return out;
 }
 
+template<typename FloatType>
+void AttributedGraphElement<FloatType>::setZero(){
+  for(auto &attr : attributes){
+    autoView(attr_v, attr, DeviceWrite);
+    acceleratorMemSet(attr_v.data(),0,attr_v.data_len() * sizeof(FloatType));
+  }
+}
+
+template<typename FloatType>
+int AttributedGraphElement<FloatType>::totalAttribSize() const{
+  int out = 0;
+  for(auto const &a : attributes) out += a.size(0);
+  return out;
+}
+  
 
 template<typename FloatType>
 Edge<FloatType> & Edge<FloatType>::operator+=(const Edge<FloatType> &r){
@@ -62,9 +77,10 @@ void batchInsertAttrib(Matrix<FloatType> &into, const Matrix<FloatType> &from, i
 }
 
 template<typename FloatType>
-Graph<FloatType>::Graph(const GraphInitialize &init): nodes(init.nnode), edges(init.edge_map.size()), global(init.global_attr_size, init.batch_size, FloatType(0.)){
+Graph<FloatType>::Graph(const GraphInitialize &init): nodes(init.nnode), edges(init.edge_map.size()){
   for(int n=0;n<nodes.size();n++) nodes[n].initialize(init.node_attr_sizes, init.batch_size);
   for(int e=0;e<edges.size();e++) edges[e].initialize(init.edge_map[e].first, init.edge_map[e].second, init.edge_attr_sizes, init.batch_size);
+  global.initialize(init.global_attr_sizes, init.batch_size);
 }
 
 template<typename FloatType>
@@ -81,8 +97,8 @@ GraphInitialize Graph<FloatType>::getInitializer() const{
     out.edge_map[e].second = edges[e].recv_node;
   }
 
-  out.global_attr_size = global.size(0);
-  out.batch_size = global.size(1);
+  out.global_attr_sizes = global.getAttributeSizes();
+  out.batch_size = global.attributes[0].size(1);
   return out;
 }
 
@@ -95,7 +111,8 @@ void Graph<FloatType>::applyToAllAttributes(const Action &act){
   for(auto &e : edges)
     for(auto &a : e.attributes)
       act(a);
-  act(global);      
+  for(auto &a : global.attributes)
+    act(a);
 }
 
 template<typename FloatType>
@@ -116,8 +133,8 @@ void Graph<FloatType>::insertBatch(const Graph<FloatType> &from, int bidx){
   for(int n=0;n<nodes.size();n++)
     nodes[n].insertBatch(from.nodes[n],bidx);
   for(int e=0;e<edges.size();e++)
-    edges[e].insertBatch(from.edges[e],bidx);   
-  batchInsertAttrib(global, from.global, bidx);
+    edges[e].insertBatch(from.edges[e],bidx);
+  global.insertBatch(from.global, bidx);
 }
 
 template<typename FloatType>
@@ -157,27 +174,35 @@ FloatType const* unstackAttr(Matrix<FloatType> &attr, FloatType const* from_devi
   return from_device + attr_size * batch_size;
 }
 
+
+template<typename FloatType>
+FloatType* stackAttr(FloatType *to_device, const AttributedGraphElement<FloatType> &elem){
+  for(auto const &a : elem.attributes) to_device = stackAttr(to_device, a);
+  return to_device;
+}
+template<typename FloatType>
+FloatType const* unstackAttrAdd(AttributedGraphElement<FloatType> &elem, FloatType const* from_device){
+  for(auto &a : elem.attributes) from_device = unstackAttrAdd(a, from_device);
+  return from_device;
+}
+template<typename FloatType>
+FloatType const* unstackAttr(AttributedGraphElement<FloatType> &elem, FloatType const* from_device){
+  for(auto &a : elem.attributes) from_device = unstackAttr(a, from_device);
+  return from_device;
+}
+
+
 template<typename FloatType>
 int flatSize(const Matrix<FloatType> &m){
   return m.size(0)*m.size(1);
 }
 
 template<typename FloatType>
-int flatSize(const std::vector< Matrix<FloatType> > &attr){
+int flatSize(const AttributedGraphElement<FloatType> &attr){
   int out = 0;
-  for(int a=0;a<attr.size();a++)
-    out += flatSize(attr[a]);
+  for(auto const &a : attr.attributes)
+    out += flatSize(a);
   return out;
-}
-
-template<typename FloatType>
-int flatSize(const Node<FloatType> &n){
-  return flatSize(n.attributes);
-}
-
-template<typename FloatType>
-int flatSize(const Edge<FloatType> &e){
-  return flatSize(e.attributes);
 }
 
 template<typename FloatType>
@@ -192,17 +217,25 @@ int flatSize(const Graph<FloatType> &g){
 }
 
 template<typename FloatType>
-FloatType* flatten(FloatType *to_host_ptr, const Graph<FloatType> &graph){
-  for(int n=0;n<graph.nodes.size();n++)
-    for(int a=0;a<graph.nodes[n].attributes.size();a++)
-      to_host_ptr = flatten(to_host_ptr, graph.nodes[n].attributes[a]);
-  
-  for(int e=0;e<graph.edges.size();e++)
-    for(int a=0;a<graph.edges[e].attributes.size();a++)
-      to_host_ptr = flatten(to_host_ptr, graph.edges[e].attributes[a]);  
-
-  to_host_ptr = flatten(to_host_ptr, graph.global);
+FloatType* flatten(FloatType *to_host_ptr, const AttributedGraphElement<FloatType> &elem){
+  for(auto const &attr : elem.attributes)
+    to_host_ptr = flatten(to_host_ptr, attr);
   return to_host_ptr;
+}
+template<typename FloatType>
+FloatType const* unflatten(AttributedGraphElement<FloatType> &elem, FloatType const *in_host_ptr){
+  for(auto &attr : elem.attributes)
+    in_host_ptr = unflatten(attr, in_host_ptr);
+  return in_host_ptr;
+}
+
+
+
+template<typename FloatType>
+FloatType* flatten(FloatType *to_host_ptr, const Graph<FloatType> &graph){
+  for(auto const &n : graph.nodes) to_host_ptr = flatten(to_host_ptr, n);
+  for(auto const &e : graph.edges) to_host_ptr = flatten(to_host_ptr, e);
+  return flatten(to_host_ptr, graph.global);
 }
 template<typename FloatType>
 Vector<FloatType> flatten(const Graph<FloatType> &graph){
@@ -215,16 +248,9 @@ Vector<FloatType> flatten(const Graph<FloatType> &graph){
 
 template<typename FloatType>
 FloatType const* unflatten(Graph<FloatType> &graph, FloatType const *in_host_ptr){
-  for(int n=0;n<graph.nodes.size();n++)
-    for(int a=0;a<graph.nodes[n].attributes.size();a++)
-      in_host_ptr = unflatten(graph.nodes[n].attributes[a], in_host_ptr);
-  
-  for(int e=0;e<graph.edges.size();e++)
-    for(int a=0;a<graph.edges[e].attributes.size();a++)
-      in_host_ptr = unflatten(graph.edges[e].attributes[a], in_host_ptr);
-
-  in_host_ptr = unflatten(graph.global, in_host_ptr);
-  return in_host_ptr;
+  for(auto &n : graph.nodes) in_host_ptr = unflatten(n, in_host_ptr);
+  for(auto &e : graph.edges) in_host_ptr = unflatten(e, in_host_ptr);
+  return unflatten(graph.global, in_host_ptr);
 }
 template<typename FloatType>
 void unflatten(Graph<FloatType> &graph, const Vector<FloatType> &in){

@@ -3,13 +3,12 @@ Tensor<typename Config::FloatType,3> ExtractEdgeUpdateInputComponent<Config>::va
   if(!setup){
     ginit = in.getInitializer();
     nedge = ginit.edge_map.size();
-    n_node_attr = ginit.node_attr_sizes.size();
-    n_edge_attr = ginit.edge_attr_sizes.size();
-    node_attr_size_total = std::accumulate(ginit.node_attr_sizes.begin(),ginit.node_attr_sizes.end(),0);
-    edge_attr_size_total = std::accumulate(ginit.edge_attr_sizes.begin(),ginit.edge_attr_sizes.end(),0);
+    int node_attr_size_total = ginit.totalAttribSize(ginit.node_attr_sizes);
+    int edge_attr_size_total = ginit.totalAttribSize(ginit.edge_attr_sizes);
+    int global_attr_size_total =  ginit.totalAttribSize(ginit.global_attr_sizes);
     
     tens_size[0] = ginit.edge_map.size();
-    tens_size[1] = 2*node_attr_size_total + edge_attr_size_total + ginit.global_attr_size;
+    tens_size[1] = 2*node_attr_size_total + edge_attr_size_total + global_attr_size_total;
     tens_size[2] = ginit.batch_size;
 
     setup = true;
@@ -25,17 +24,14 @@ Tensor<typename Config::FloatType,3> ExtractEdgeUpdateInputComponent<Config>::va
     const Node<FloatType> &recv_node = in.nodes[ edge.recv_node ];
 
     //stack attributes of send node
-    for(int a=0;a<n_node_attr;a++)
-      to_base = stackAttr(to_base, send_node.attributes[a]);
+    to_base = stackAttr(to_base, send_node);
       
     //then receive node      
-    for(int a=0;a<n_node_attr;a++)
-      to_base = stackAttr(to_base, recv_node.attributes[a]);
+    to_base = stackAttr(to_base, recv_node);
       
     //then edge
-    for(int a=0;a<n_edge_attr;a++)
-      to_base = stackAttr(to_base, edge.attributes[a]);
-
+    to_base = stackAttr(to_base, edge);
+        
     //then global
     to_base = stackAttr(to_base, in.global);
   }
@@ -60,16 +56,13 @@ void ExtractEdgeUpdateInputComponent<Config>::deriv(Tensor<FloatType,3> &&_dCost
     Node<FloatType> &recv_node = out.nodes[ edge.recv_node ];
 
     //stack attributes of send node
-    for(int a=0;a<n_node_attr;a++)
-      from_base = unstackAttrAdd(send_node.attributes[a], from_base);
+    from_base = unstackAttrAdd(send_node, from_base);
 
     //then receive node      
-    for(int a=0;a<n_node_attr;a++)
-      from_base = unstackAttrAdd(recv_node.attributes[a], from_base);
+    from_base = unstackAttrAdd(recv_node, from_base);
 
     //then edge
-    for(int a=0;a<n_edge_attr;a++)
-      from_base = unstackAttrAdd(edge.attributes[a], from_base);
+    from_base = unstackAttrAdd(edge, from_base);
 
     //then global
     from_base = unstackAttrAdd(out.global, from_base);
@@ -78,12 +71,13 @@ void ExtractEdgeUpdateInputComponent<Config>::deriv(Tensor<FloatType,3> &&_dCost
 
 template<typename Config>
 std::array<int,3> ExtractEdgeUpdateInputComponent<Config>::outputTensorSize(const GraphInitialize &ginit){
-  int node_attr_size_total = std::accumulate(ginit.node_attr_sizes.begin(),ginit.node_attr_sizes.end(),0);
-  int edge_attr_size_total = std::accumulate(ginit.edge_attr_sizes.begin(),ginit.edge_attr_sizes.end(),0);
-    
+  int node_attr_size_total = ginit.totalAttribSize(ginit.node_attr_sizes);
+  int edge_attr_size_total = ginit.totalAttribSize(ginit.edge_attr_sizes);
+  int global_attr_size_total = ginit.totalAttribSize(ginit.global_attr_sizes);
+  
   std::array<int,3> out;    
   out[0] = ginit.edge_map.size();
-  out[1] = 2*node_attr_size_total + edge_attr_size_total + ginit.global_attr_size;
+  out[1] = 2*node_attr_size_total + edge_attr_size_total + global_attr_size_total;
   out[2] = ginit.batch_size;
   return out;
 }
@@ -93,11 +87,8 @@ template<typename Config>
 Graph<typename Config::FloatType> InsertEdgeUpdateOutputComponent<Config>::value(const Graph<FloatType> &in, const Tensor<FloatType,3> &edge_attr_update){
   if(!setup){
     ginit = in.getInitializer();
-    nedge = ginit.edge_map.size();
-    n_edge_attr = ginit.edge_attr_sizes.size();
-    edge_attr_size_total = std::accumulate(ginit.edge_attr_sizes.begin(),ginit.edge_attr_sizes.end(),0);
-    tens_size[0] = nedge;
-    tens_size[1] = edge_attr_size_total;
+    tens_size[0] = in.edges.size();
+    tens_size[1] = in.edges[0].totalAttribSize();
     tens_size[2] = ginit.batch_size;
     setup = true;
   }
@@ -108,11 +99,8 @@ Graph<typename Config::FloatType> InsertEdgeUpdateOutputComponent<Config>::value
   autoView(e_v,edge_attr_update,DeviceRead);
     
   FloatType const* from_base = e_v.data();
-  for(int edge_idx=0; edge_idx < nedge; edge_idx++){
-    Edge<FloatType> &edge = out.edges[edge_idx];
-    for(int a=0;a<n_edge_attr;a++)
-      from_base = unstackAttr(edge.attributes[a], from_base);
-  }
+  for(auto &edge : out.edges) from_base = unstackAttr(edge, from_base);
+
   return out;
 }
   
@@ -124,28 +112,20 @@ void InsertEdgeUpdateOutputComponent<Config>::deriv(Graph<FloatType> &&_dCost_by
 
   assert(setup);
   out = Tensor<FloatType,3>(tens_size);    
-  assert(bool(in.getInitializer() == ginit));
+  //assert(bool(in.getInitializer() == ginit));
   
   autoView(out_v,out,DeviceWrite);
   FloatType * to_base = out_v.data();
-  for(int edge_idx=0; edge_idx < nedge; edge_idx++){
-    const Edge<FloatType> &edge = in.edges[edge_idx];
-    for(int a=0;a<n_edge_attr;a++)
-      to_base = stackAttr(to_base, edge.attributes[a]);
-  }
-
+  for(auto const &edge : in.edges) to_base = stackAttr(to_base, edge);
+  
   //the contribution to the edges is overwritten from the input graph, but not to the other components
   dCost_by_dIn_graph = Graph<FloatType>(std::move(in));
-  for(auto &edge : dCost_by_dIn_graph.edges)
-    for(auto &attr : edge.attributes){
-      autoView(attr_v, attr, DeviceWrite);
-      acceleratorMemSet(attr_v.data(),0,attr_v.data_len() * sizeof(FloatType));
-    }
+  for(auto &edge : dCost_by_dIn_graph.edges) edge.setZero();
 }
 
 template<typename Config>
 std::array<int,3> InsertEdgeUpdateOutputComponent<Config>::inputTensorSize(const GraphInitialize &ginit){
-  int edge_attr_size_total = std::accumulate(ginit.edge_attr_sizes.begin(),ginit.edge_attr_sizes.end(),0);
+  int edge_attr_size_total = ginit.totalAttribSize(ginit.edge_attr_sizes);
     
   std::array<int,3> out;    
   out[0] = ginit.edge_map.size();

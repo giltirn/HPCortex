@@ -11,10 +11,6 @@ public:
 private:
   bool setup;
   GraphInitialize ginit;
-  int n_node_attr;
-  int node_attr_size_total;
-  int n_edge_attr;
-  int edge_attr_size_total;
   int tens_size[2];
 
 public:
@@ -47,6 +43,7 @@ public:
 private:
   bool setup;
   GraphInitialize ginit;
+  int global_attr_size_total;
 public:
   
   InsertGlobalUpdateOutputComponent(): setup(false){}

@@ -10,8 +10,11 @@ Tensor<FloatType,3> expectExtractEdgeUpdateInput(const Graph<FloatType> &in){
   int edge_attr_total = 0;
   for(int a=0;a<in.edges[0].attributes.size();a++)
     edge_attr_total += in.edges[0].attributes[a].size(0);
-  int glob_attr_total = in.global.size(0);
-  int batch_size = in.global.size(1);
+  int glob_attr_total = 0;
+  for(int a=0;a<in.global.attributes.size();a++)
+    glob_attr_total += in.global.attributes[a].size(0);
+
+  int batch_size = in.global.attributes[0].size(1);
 
   int out_size[3] = { nedge, 2*node_attr_total + edge_attr_total + glob_attr_total, batch_size };
 
@@ -44,11 +47,13 @@ Tensor<FloatType,3> expectExtractEdgeUpdateInput(const Graph<FloatType> &in){
 	  out_v(edge_idx,dim1_off +i,b) = attr_v(i,b);
       dim1_off += attr_v.size(0);
     }
-    autoView(attr_v, in.global, HostRead);
-    for(int i=0;i<attr_v.size(0);i++)
-      for(int b=0;b<batch_size;b++)
-	out_v(edge_idx,dim1_off +i,b) = attr_v(i,b);
-    dim1_off += attr_v.size(0);
+    for(int a=0;a<in.global.attributes.size();a++){    
+      autoView(attr_v, in.global.attributes[a], HostRead);
+      for(int i=0;i<attr_v.size(0);i++)
+	for(int b=0;b<batch_size;b++)
+	  out_v(edge_idx,dim1_off +i,b) = attr_v(i,b);
+      dim1_off += attr_v.size(0);
+    }
     assert(dim1_off == out_size[1]);
   }
   return out;
@@ -111,7 +116,7 @@ void testExtractEdgeUpdateInputComponent(){
   ginit.edge_attr_sizes = std::vector<int>({5});
   //edges in circle
   ginit.edge_map = std::vector<std::pair<int,int> >({  {0,1}, {1,2}, {2,0}, {1,0}, {2,1}, {0,2} });
-  ginit.global_attr_size = 2;
+  ginit.global_attr_sizes = std::vector<int>({2});
   ginit.batch_size =4;
   
   Graph<FloatType> graph(ginit);
@@ -217,7 +222,7 @@ Graph<FloatType> expectInsertEdgeUpdateOutput(const Graph<FloatType> &in, const 
   int edge_attr_total = 0;
   for(int a=0;a<in.edges[0].attributes.size();a++)
     edge_attr_total += in.edges[0].attributes[a].size(0);
-  int batch_size = in.global.size(1);
+  int batch_size = in.global.attributes[0].size(1);
 
   Graph<FloatType> out(in);
   autoView(tin_v,edge_attr_update,HostRead);
@@ -247,7 +252,7 @@ void testInsertEdgeUpdateOutput(){
   ginit.edge_attr_sizes = std::vector<int>({5,6});
   //edges in circle
   ginit.edge_map = std::vector<std::pair<int,int> >({  {0,1}, {1,2}, {2,0}, {1,0}, {2,1}, {0,2} });
-  ginit.global_attr_size = 2;
+  ginit.global_attr_sizes = std::vector<int>({2});
   ginit.batch_size =4;
   
   Graph<FloatType> graph(ginit);
@@ -281,7 +286,7 @@ void testEdgeUpdateBlock(){
   ginit.edge_attr_sizes = std::vector<int>({5,6});
   //edges in circle
   ginit.edge_map = std::vector<std::pair<int,int> >({  {0,1}, {1,2}, {2,0}, {1,0}, {2,1}, {0,2} });
-  ginit.global_attr_size = 2;
+  ginit.global_attr_sizes = std::vector<int>({2});
   ginit.batch_size =4;
   
   Graph<FloatType> graph(ginit);
