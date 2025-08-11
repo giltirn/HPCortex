@@ -18,3 +18,5 @@
 #include<layers/ReplicateLayer.hpp>
 #include<layers/SumJoinLayer.hpp>
 #include<layers/PipelineBlockLayer.hpp>
+#include<layers/ComponentLayerWrapper.hpp>
+#include<layers/GCNblock.hpp>

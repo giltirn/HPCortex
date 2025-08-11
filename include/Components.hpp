@@ -11,3 +11,4 @@
 #include "components/ScaleComponent.hpp"
 #include "components/NormComponent.hpp"
 #include "components/BatchTensorDimensionSliceComponent.hpp"
+#include "components/GNN.hpp"
