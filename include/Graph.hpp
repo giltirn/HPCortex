@@ -1,31 +1,45 @@
 #pragma once
 #include <Tensors.hpp>
 
+template<typename FloatType>
+struct AttributedGraphElement{
+  std::vector< Matrix<FloatType> > attributes; /**< Attributes, indexed as [attrib_type_idx][attrib_idx, batch_idx] */
+
+  AttributedGraphElement<FloatType> & operator+=(const AttributedGraphElement<FloatType> &r);
+
+  /**
+   * @brief Zero-initialize the attributes according to the provided sizes and batch size
+   */
+  void initialize(const std::vector<int> &attr_sizes, int batch_size);
+
+  /**
+   * @brief Return the array of attribute sizes
+   */
+
+  std::vector<int> getAttributeSizes() const;
+  
+  /**
+   * @brief Insert unbatched attribute information into this batched object
+   * @param from The unbatched node
+   * @param bidx The batch index
+   */
+  void insertBatch(const AttributedGraphElement<FloatType> &from, int bidx);
+};
+
 /**
  * @brief A graph node
  */
 template<typename FloatType>
-struct Node{
-  std::vector< Matrix<FloatType> > attributes; /**< Attributes, indexed as [attrib_type_idx][attrib_idx, batch_idx] */
-
-  Node<FloatType> & operator+=(const Node<FloatType> &r);
-
-  /**
-   * @brief Insert unbatched node information into this batched object
-   * @param from The unbatched node
-   * @param bidx The batch index
-   */
-  void insertBatch(const Node<FloatType> &from, int bidx);
+struct Node: public AttributedGraphElement<FloatType>{
 };
 
 /**
  * @brief A graph edge
  */
 template<typename FloatType>
-struct Edge{
+struct Edge: public AttributedGraphElement<FloatType>{
   int send_node;
   int recv_node;
-  std::vector< Matrix<FloatType> > attributes; /**< Attributes, indexed as [attrib_type_idx][attrib_idx, batch_idx] */
 
   Edge<FloatType> & operator+=(const Edge<FloatType> &r);
   
@@ -35,6 +49,11 @@ struct Edge{
    * @param bidx The batch index
    */
   void insertBatch(const Edge<FloatType> &from, int bidx);
+
+  /**
+   * @brief Zero-initialize the edge information and attributes according to the provided sizes and batch size
+   */
+  void initialize(int send_node, int recv_node, const std::vector<int> &attr_sizes, int batch_size);
 };
 
 /**

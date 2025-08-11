@@ -55,6 +55,8 @@ Graph<double> graphify(double x, double v, double E, double L, const GraphInitia
     autoView(n, out.global, HostWrite);
     n(0,0) = E; //energy
   }
+
+  
   return out;
 }
 

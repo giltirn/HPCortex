@@ -1,5 +1,5 @@
 template<typename FloatType>
-Node<FloatType> & Node<FloatType>::operator+=(const Node<FloatType> &r){    
+AttributedGraphElement<FloatType> & AttributedGraphElement<FloatType>::operator+=(const AttributedGraphElement<FloatType> &r){    
   int nattr = attributes.size();
   assert(r.attributes.size() == nattr);
   for(int a=0;a<nattr;a++)
@@ -8,29 +8,48 @@ Node<FloatType> & Node<FloatType>::operator+=(const Node<FloatType> &r){
 }
 
 template<typename FloatType>
-void Node<FloatType>::insertBatch(const Node<FloatType> &from, int bidx){
+void AttributedGraphElement<FloatType>::insertBatch(const AttributedGraphElement<FloatType> &from, int bidx){
   assert(from.attributes.size() == attributes.size());
   for(int a=0;a<attributes.size();a++)
     batchInsertAttrib(attributes[a], from.attributes[a], bidx);
 }
 
 template<typename FloatType>
+void AttributedGraphElement<FloatType>::initialize(const std::vector<int> &attr_sizes, int batch_size){
+  attributes.resize(attr_sizes.size());
+  for(int a=0;a<attr_sizes.size();a++)
+    attributes[a] = Matrix<FloatType>(attr_sizes[a], batch_size, FloatType(0.));
+}
+
+template<typename FloatType>
+std::vector<int> AttributedGraphElement<FloatType>::getAttributeSizes() const{
+  std::vector<int> out(attributes.size());
+  for(int a=0;a<attributes.size();a++)
+    out[a] = attributes[a].size(0);
+  return out;
+}
+
+
+template<typename FloatType>
 Edge<FloatType> & Edge<FloatType>::operator+=(const Edge<FloatType> &r){
   assert(r.send_node == send_node && r.recv_node == recv_node);
-  int nattr = attributes.size();
-  assert(r.attributes.size() == nattr);
-  for(int a=0;a<nattr;a++)
-    attributes[a] += r.attributes[a];
+  this->AttributedGraphElement<FloatType>::operator+=(r);
   return *this;
 }
 
 template<typename FloatType>
 void Edge<FloatType>::insertBatch(const Edge<FloatType> &from, int bidx){
   assert(from.send_node == send_node && from.recv_node == recv_node);
-  assert(from.attributes.size() == attributes.size());
-  for(int a=0;a<attributes.size();a++)
-    batchInsertAttrib(attributes[a], from.attributes[a], bidx);
+  this->AttributedGraphElement<FloatType>::insertBatch(from,bidx);
 }
+
+template<typename FloatType>
+void Edge<FloatType>::initialize(int send_node, int recv_node, const std::vector<int> &attr_sizes, int batch_size){
+  this->send_node = send_node;
+  this->recv_node = recv_node;
+  this->AttributedGraphElement<FloatType>::initialize(attr_sizes,batch_size);
+}
+
 
 template<typename FloatType>
 void batchInsertAttrib(Matrix<FloatType> &into, const Matrix<FloatType> &from, int bidx){
@@ -44,21 +63,8 @@ void batchInsertAttrib(Matrix<FloatType> &into, const Matrix<FloatType> &from, i
 
 template<typename FloatType>
 Graph<FloatType>::Graph(const GraphInitialize &init): nodes(init.nnode), edges(init.edge_map.size()), global(init.global_attr_size, init.batch_size, FloatType(0.)){
-  int nnode_attr = init.node_attr_sizes.size();
-  for(int n=0;n<nodes.size();n++){
-    nodes[n].attributes.resize(nnode_attr);
-    for(int a=0;a<nnode_attr;a++)
-      nodes[n].attributes[a] = Matrix<FloatType>(init.node_attr_sizes[a], init.batch_size, FloatType(0.));
-  }
-  int nedge_attr = init.edge_attr_sizes.size();
-  for(int e=0;e<edges.size();e++){
-    edges[e].send_node = init.edge_map[e].first;
-    edges[e].recv_node = init.edge_map[e].second;
-      
-    edges[e].attributes.resize(nedge_attr);
-    for(int a=0;a<nedge_attr;a++)
-      edges[e].attributes[a] = Matrix<FloatType>(init.edge_attr_sizes[a], init.batch_size, FloatType(0.));
-  }
+  for(int n=0;n<nodes.size();n++) nodes[n].initialize(init.node_attr_sizes, init.batch_size);
+  for(int e=0;e<edges.size();e++) edges[e].initialize(init.edge_map[e].first, init.edge_map[e].second, init.edge_attr_sizes, init.batch_size);
 }
 
 template<typename FloatType>
@@ -66,14 +72,9 @@ GraphInitialize Graph<FloatType>::getInitializer() const{
   GraphInitialize out;
   out.nnode = nodes.size();
 
-  out.node_attr_sizes.resize(nodes[0].attributes.size());
-  for(int a=0;a<nodes[0].attributes.size();a++)
-    out.node_attr_sizes[a] = nodes[0].attributes[a].size(0);
-
-  out.edge_attr_sizes.resize(edges[0].attributes.size());
-  for(int a=0;a<edges[0].attributes.size();a++)
-    out.edge_attr_sizes[a] = edges[0].attributes[a].size(0);
-
+  out.node_attr_sizes = nodes[0].getAttributeSizes();
+  out.edge_attr_sizes = edges[0].getAttributeSizes();
+  
   out.edge_map.resize(edges.size());
   for(int e=0;e<edges.size();e++){
     out.edge_map[e].first = edges[e].send_node;
