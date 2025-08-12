@@ -105,9 +105,22 @@ if test "x$enable_openmp" = "xyes"; then
 fi
 
 
+HPCORTEX_CXX="$CXX"
+HPCORTEX_CXXLD="$CXXLD"
+HPCORTEX_CXXFLAGS="$AM_CXXFLAGS $CXXFLAGS"
+HPCORTEX_LDFLAGS="$AM_LDFLAGS $LDFLAGS"
+HPCORTEX_LIBS=$LIBS
+
+AC_SUBST([HPCORTEX_CXX])
+AC_SUBST([HPCORTEX_CXXLD])
+AC_SUBST([HPCORTEX_CXXFLAGS])
+AC_SUBST([HPCORTEX_LDFLAGS])
+AC_SUBST([HPCORTEX_LIBS])
+
 AC_CONFIG_HEADERS([include/HPCortexConfig.h])
 
 AC_CONFIG_SRCDIR([src/dummy])
 AC_CONFIG_FILES([Makefile src/Makefile test/Makefile test/core/Makefile test/mpi/Makefile examples/Makefile benchmark/Makefile include/Makefile])
+AC_CONFIG_FILES([hpcortex-config], [chmod +x hpcortex-config])
 
 AC_OUTPUT

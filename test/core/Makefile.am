@@ -1,7 +1,7 @@
 SUBDIRS =
 AM_CPPFLAGS = -I$(top_srcdir)/include
 AM_LDFLAGS = -Wl,-rpath=$(prefix)/lib
-LDADD = -L$(top_builddir)/src -lmlcortex
+LDADD = -L$(top_builddir)/src -lhpcortex
 testdir = $(prefix)/test/core
 test_PROGRAMS = test_matrix_tensor_contract test_softmax test_activation test_components test_multihead_cross_attention test_gnn test_managed_array test_lossfunction test_skip_connection test_memorymanager test_simple_linear test_pair_split_layer test_conv1d test_scaled_dotproduct_self_attention test_dynamic_model test_accelerator test_simple_linear_2d test_serialization test_cross_decoder test_norm_layer test_multihead_self_attention test_dnn_layer test_one_hidden_layer test_optimizer test_replicate_layer test_flatten_layer test_tensor 
 test_matrix_tensor_contract_SOURCES = test_matrix_tensor_contract.cpp 

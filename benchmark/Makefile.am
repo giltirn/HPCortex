@@ -1,7 +1,7 @@
 SUBDIRS =
 AM_CPPFLAGS = -I$(top_srcdir)/include
 AM_LDFLAGS = -Wl,-rpath=$(prefix)/lib
-LDADD = -L$(top_builddir)/src -lmlcortex
+LDADD = -L$(top_builddir)/src -lhpcortex
 benchmarkdir = $(prefix)/benchmark
 benchmark_PROGRAMS = benchmark_matrixBatchTensorContractRight benchmark_dnn benchmark_matrixTensorContractComponent benchmark_activated_deriv benchmark_thin_mul_mat_mattranspose benchmark_batch3tensorContract benchmark_mul_mattranspose_thinmat benchmark_batchTensorContractToMatrix benchmark_matrixBatchTensorAxpy benchmark_decoder benchmark_multihead_self_attention 
 benchmark_matrixBatchTensorContractRight_SOURCES = benchmark_matrixBatchTensorContractRight.cpp 

@@ -1,7 +1,7 @@
 SUBDIRS =
 AM_CPPFLAGS = -I$(top_srcdir)/include
 AM_LDFLAGS = -Wl,-rpath=$(prefix)/lib
-LDADD = -L$(top_builddir)/src -lmlcortex
+LDADD = -L$(top_builddir)/src -lhpcortex
 examplesdir = $(prefix)/examples
 examples_PROGRAMS = example_gcn_spring example_transformer_encoder_decoder example_train_embedding example_dnn 
 example_gcn_spring_SOURCES = example_gcn_spring.cpp 

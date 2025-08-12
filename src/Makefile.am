@@ -9,7 +9,7 @@ sources = Init.cpp ActivationFuncs.cpp LossFunctions.cpp Accelerator.cpp Graph.c
 objects = $(sources:.cpp=.o)
 
 # Name of the shared library.
-libname = libmlcortex.so
+libname = libhpcortex.so
 
 # Default target.
 all: $(libname)

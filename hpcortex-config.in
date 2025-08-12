@@ -1,0 +1,77 @@
+#! /bin/sh
+
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+includedir=@includedir@
+
+usage()
+{
+  cat <<EOF
+Usage: hpcortex-config [OPTION]
+
+Known values for OPTION are:
+
+  --prefix     show HPCortex installation prefix
+  --cxxflags   print pre-processor and compiler flags
+  --ldflags    print library linking flags
+  --libs       print library linking information
+  --help       display this help and exit
+  --cxx        print c++ compiler (may include some flags and spaces)
+  --cxxld      print c++ linker   (may include some flags and spaces)
+
+EOF
+  
+  exit $1
+}
+
+if test $# -eq 0; then
+  usage 1
+fi
+
+cflags=false
+libs=false
+
+while test $# -gt 0; do
+  case "$1" in
+    -*=*) optarg=`echo "$1" | sed 's/[-_a-zA-Z0-9]*=//'` ;;
+    *) optarg= ;;
+  esac
+  
+  case "$1" in
+    --prefix)
+      echo $prefix
+    ;;
+       
+    --help)
+      usage 0
+    ;;
+    
+    --cxxflags)
+      echo @HPCORTEX_CXXFLAGS@ -I@prefix@/include
+    ;;
+    
+    --cxx)
+      echo @HPCORTEX_CXX@
+    ;;
+    
+    --cxxld)
+      echo @HPCORTEX_CXXLD@
+    ;;
+    
+    --ldflags)
+      echo @HPCORTEX_LDFLAGS@ -L@prefix@/lib
+    ;;
+    
+    --libs)
+      echo @HPCORTEX_LIBS@ -lhpcortex
+    ;;
+        
+    *)
+      usage
+      exit 1
+    ;;
+  esac
+  shift
+done
+
+exit 0

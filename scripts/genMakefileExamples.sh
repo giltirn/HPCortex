@@ -4,7 +4,7 @@ out=Makefile.am
 echo 'SUBDIRS =' > ${out}
 echo 'AM_CPPFLAGS = -I$(top_srcdir)/include' >> ${out}
 echo 'AM_LDFLAGS = -Wl,-rpath=$(prefix)/lib' >> ${out}
-echo 'LDADD = -L$(top_builddir)/src -lmlcortex' >> ${out}
+echo 'LDADD = -L$(top_builddir)/src -lhpcortex' >> ${out}
 echo 'examplesdir = $(prefix)/examples' >> ${out}
 
 echo -n 'examples_PROGRAMS = ' >> ${out}

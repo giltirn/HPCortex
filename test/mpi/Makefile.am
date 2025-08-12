@@ -1,7 +1,7 @@
 SUBDIRS =
 AM_CPPFLAGS = -I$(top_srcdir)/include
 AM_LDFLAGS = -Wl,-rpath=$(prefix)/lib
-LDADD = -L$(top_builddir)/src -lmlcortex
+LDADD = -L$(top_builddir)/src -lhpcortex
 testdir = $(prefix)/test/mpi
 test_PROGRAMS = test_simple_linear_pipeline test_skip_connection_pipeline test_simple_linear_pipeline_ddp test_comms test_pipeline_1d test_conv1d_pipeline test_simple_linear_ddp 
 test_simple_linear_pipeline_SOURCES = test_simple_linear_pipeline.cpp 
