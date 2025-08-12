@@ -6,11 +6,18 @@
 inline double force(double x, double k1, double k2, double L){
   return -k1 * x + k2 * (L-x);
 }
-inline double energy(double x, double v, double k1, double k2, double L, double mass){
-  return 0.5 * mass * pow(v,2) + 0.5 * k1 * pow(x,2) + 0.5 * k2 * pow(L-x,2);
+inline double kineticEnergy(double v, double mass){
+  return 0.5 * mass * pow(v,2);
+}
+inline double potentialEnergy(double x, double k1, double k2, double L){
+  return 0.5 * k1 * pow(x,2) + 0.5 * k2 * pow(L-x,2);
 }
 
-Graph<double> graphify(double x, double v, double E, double L, const GraphInitialize &ginit_unbatched){
+inline double energy(double x, double v, double k1, double k2, double L, double mass){
+  return kineticEnergy(v,mass) + potentialEnergy(x, k1, k2, L);
+}
+
+Graph<double> graphify(double x, double v, double EK, double Epot, double L, const GraphInitialize &ginit_unbatched){
   Graph<double> out(ginit_unbatched);
   //nodes
   {
@@ -53,9 +60,12 @@ Graph<double> graphify(double x, double v, double E, double L, const GraphInitia
   //global
   {
     autoView(n, out.global.attributes[0], HostWrite);
-    n(0,0) = E; //energy
+    n(0,0) = EK; //kinetic energy
   }
-
+  {
+    autoView(n, out.global.attributes[1], HostWrite);
+    n(0,0) = Epot; //potential energy
+  }
   
   return out;
 }
@@ -132,6 +142,33 @@ std::pair<double,double> normalize(std::vector<double> &tonrm){
   return std::pair<double,double>(mu,std);
 }
 
+inline double unnormalize(double v, const std::pair<double,double> &mu_sigma){
+  return v * mu_sigma.second + mu_sigma.first;
+}
+
+
+//normalize two vectors together based on the mean, std of their sym; must be the same length!
+std::pair<double,double> normalizeBySum(std::vector<double> &tonrm1, std::vector<double> &tonrm2){
+  assert(tonrm1.size() == tonrm2.size());
+  int N = tonrm1.size();
+  double mu = 0.;
+  double std = 0.;
+  for(int i=0;i<N;i++){
+    double v = tonrm1[i] + tonrm2[i];
+    mu += v;
+    std += v*v;
+  }
+  mu = mu / N;
+  std = sqrt(  std/N - mu*mu );
+  for(double &v : tonrm1)
+    v = (v - mu/2)/std;
+  for(double &v : tonrm2)
+    v = (v - mu/2)/std;
+  
+  return std::pair<double,double>(mu,std);
+}  
+
+
 struct GraphDataLoader{
   GraphInitialize ginit_unbatched;
   const std::vector< std::pair<Graph<double>, Graph<double> > > &in_out_data_train;
@@ -167,6 +204,18 @@ std::vector<double> getX(const Graph<double> &graph, int batch_idx = 0){
   }
   return out;
 }
+std::pair<double,double> getEnergies(const Graph<double> &graph, int batch_idx = 0){
+  std::pair<double,double> out;
+  {
+    autoView(a_v, graph.global.attributes[0],HostRead);
+    out.first = a_v(0,batch_idx);
+  }
+  {
+    autoView(a_v, graph.global.attributes[1],HostRead);
+    out.second = a_v(0,batch_idx);
+  }
+  return out;
+}
 
 void springSystem(){
   std::mt19937 rng(1234);
@@ -188,24 +237,23 @@ void springSystem(){
   double dt = 0.05;
   int print_freq=20;
 
-  std::vector<double> xvals(steps);
-  std::vector<double> vvals(steps);
-  std::vector<double> tvals(steps);
-  std::vector<double> Evals(steps);
+  std::vector<double> xvals(steps), vvals(steps), tvals(steps), EKvals(steps), EpotVals(steps);
 
   v += force(x,k1,k2,L) * dt/2./mass; //initialize v_t+1/2
   
   double t = 0;
   for(int step=0;step<steps;step++){
-    double E = energy(x, v, k1, k2, L, mass);
-    
+    double Epot = potentialEnergy(x,k1,k2,L);
+    double EK = kineticEnergy(v,mass);
+        
     if(step % print_freq == 0){
-      std::cout << step << " " << x << " " << E << std::endl;
+      std::cout << step << " " << x << " " << EK << " " << Epot << " " << EK+Epot << std::endl;
     }
     xvals[step] = x;
     vvals[step] = v;
     tvals[step] = t;
-    Evals[step] = E;
+    EKvals[step] = EK;
+    EpotVals[step] = Epot;
     
     x += v * dt;   
     v += force(x,k1,k2,L) * dt/mass;
@@ -213,17 +261,26 @@ void springSystem(){
   }
 
   //normalize
-  auto mu_std_x = normalize(xvals);
+  //auto mu_std_x = normalize(xvals);
+
+  //we will manually normalize the positions to lie between 0 and 1 such that the spring lengths are sensible. Currently they lie between 0 and L so we can just divide by L
+  std::pair<double,double> mu_std_x(0., L);
+  for(auto &v : xvals) v /= L;
+  double Lnorm = 1.0;
+    
   auto mu_std_v = normalize(vvals);
-  auto mu_std_E = normalize(Evals);
- 
+  
+  auto mu_std_EK = normalize(EKvals);
+  auto mu_std_Epot = normalize(EpotVals);
+  //as they are separately normalized, their sum won't be conserved, instead   EK * sigma_EK + mu_EK   +   Epot * sigma_Epot + mu_Epot    will be
+  
   //setup a GCN model
   GraphInitialize ginit;
   ginit.nnode = 3; //node 1 is the actual ball
   ginit.node_attr_sizes = std::vector<int>({1,1}); //position, velocity
   ginit.edge_attr_sizes = std::vector<int>({1}); //length
   ginit.edge_map = std::vector<std::pair<int,int> >({ {0,1}, {2,1} }); //0, 1 are send nodes, 1 is a recv node. Only receive nodes pull in edge information
-  ginit.global_attr_sizes = std::vector<int>({1}); //energy
+  ginit.global_attr_sizes = std::vector<int>({1,1}); //kinetic, potential energy
   ginit.batch_size = 16;
   
   //We want to learn a mapping between one step and the next on the trajectory
@@ -233,8 +290,8 @@ void springSystem(){
   std::vector< std::pair<Graph<double>, Graph<double> > > in_out_data;
   for(int i=0; i < steps; i+=2){
     std::pair<Graph<double>, Graph<double> > io;
-    io.first = graphify(xvals[i], vvals[i], Evals[i], L,  ginit_unbatched);
-    io.second = graphify(xvals[i+1], vvals[i+1], Evals[i+1], L,  ginit_unbatched);
+    io.first = graphify(xvals[i], vvals[i], EKvals[i], EpotVals[i], Lnorm,  ginit_unbatched);
+    io.second = graphify(xvals[i+1], vvals[i+1], EKvals[i+1], EpotVals[i+1], Lnorm,  ginit_unbatched);
     in_out_data.push_back( std::move(io) );
   }
   //Shuffle data and segment into training and validation
@@ -289,15 +346,35 @@ void springSystem(){
     
     Graph<FloatType> og = loss.predict(ing);
 
-    std::cout << "Idx " << test << std::endl;
+    std::cout << "Validation test idx " << test << std::endl;
     std::vector<double> init_x = getX(in_out_data_valid[test].first);
     std::vector<double> true_out_x = getX(in_out_data_valid[test].second);
     std::vector<double> pred_out_x = getX(og);
-    for(int n=0;n<3;n++)
-      std::cout << n << " init " << init_x[n] << " got " << pred_out_x[n] << " expect " << true_out_x[n] << " diff " << pred_out_x[n] - true_out_x[n] << std::endl;
+    for(int n=0;n<3;n++){
+      double got = unnormalize(pred_out_x[n], mu_std_x);
+      double expect = unnormalize(true_out_x[n], mu_std_x);
+      
+      std::cout << "Node " << n
+		<< " input x " << unnormalize(init_x[n], mu_std_x)
+		<< " got x " << got
+		<< " expect x " << expect << " diff " << got - expect << std::endl;
+    }
+    std::pair<double,double> Egot = getEnergies(og);
+    std::pair<double,double> Eexpect = getEnergies(in_out_data_valid[test].second);
+    
+    Egot.first = unnormalize(Egot.first, mu_std_EK);
+    Eexpect.first = unnormalize(Eexpect.first, mu_std_EK); 
+
+    Egot.second = unnormalize(Egot.second, mu_std_Epot);
+    Eexpect.second = unnormalize(Eexpect.second, mu_std_Epot); 
+
+    std::cout << "EK got " << Egot.first << " expect " << Eexpect.first << " diff " << Egot.first - Eexpect.first << std::endl;
+    std::cout << "Epot got " << Egot.second << " expect " << Eexpect.second << " diff " << Egot.second - Eexpect.second << std::endl;
+    std::cout << "Total got " << Egot.first + Egot.second << " expect " << Eexpect.first + Eexpect.second << " diff " << Egot.first + Egot.second -  Eexpect.first - Eexpect.second << std::endl;
+	
     std::cout << std::endl;
   }
- 
+  
 }
 
 int main(int argc, char** argv){
