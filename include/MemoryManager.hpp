@@ -210,3 +210,8 @@ public:
 inline std::string memPoolManagerReport(bool detailed = false){
   return MemoryManager::globalPool().report(detailed);
 }
+
+/**
+ * @brief Used to select a locale for an operation where applicable
+ */
+enum Locale { Host, Device, Auto };

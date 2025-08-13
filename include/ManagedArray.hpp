@@ -120,5 +120,6 @@ public:
 
   inline void lock() const{ MemoryManager::globalPool().lock(handle); }
   inline void unlock() const{ MemoryManager::globalPool().unlock(handle); }
-  
+
+  inline bool deviceResident() const{ return handle->device_in_sync; }
 };

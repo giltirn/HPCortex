@@ -646,7 +646,211 @@ void testConcatenateSplit(){
   std::cout << "testConcatenate passed" << std::endl;
 }
 
+void testDimensionSlice(){
+  std::mt19937 rng(1234);
+  int tens_sz[3] = {5,6,7};  
+  Tensor<double,3> tens(tens_sz);
+  uniformRandom(tens, rng);
   
+  {
+    //dim 0
+    std::vector<int> sub_idx({2,0,3});
+    Tensor<double,3> got = dimensionSlice(tens, sub_idx, 0, Host);
+
+    int expect_sz[3] = {3,6,7};
+    Tensor<double,3> expect(expect_sz);
+    {
+      autoView(e_v,expect,HostWrite);
+      autoView(f_v,tens,HostRead);
+      for(int ii=0;ii<3;ii++){
+	int idx = sub_idx[ii];
+	for(int j=0;j<6;j++)
+	  for(int k=0;k<7;k++)
+	    e_v(ii,j,k) = f_v(idx,j,k);
+      }
+    }
+    assert(equal(got,expect,true));
+
+    got = dimensionSlice(tens, sub_idx, 0, Device);
+    assert(equal(got,expect,true));
+  }
+  {
+    //dim 1
+    std::vector<int> sub_idx({1,4,2,5});
+    Tensor<double,3> got = dimensionSlice(tens, sub_idx, 1, Host);
+
+    int expect_sz[3] = {5,4,7};
+    Tensor<double,3> expect(expect_sz);
+    {
+      autoView(e_v,expect,HostWrite);
+      autoView(f_v,tens,HostRead);
+      for(int i=0;i<5;i++){
+	for(int jj=0;jj<4;jj++){
+	  int idx = sub_idx[jj];
+	  for(int k=0;k<7;k++)
+	    e_v(i,jj,k) = f_v(i,idx,k);
+	}
+      }
+    }
+    assert(equal(got,expect,true));
+
+    got = dimensionSlice(tens, sub_idx, 1, Device);
+    assert(equal(got,expect,true));
+  }
+  {
+    //dim 2
+    std::vector<int> sub_idx({6,5,4,3});
+    Tensor<double,3> got = dimensionSlice(tens, sub_idx, 2, Host);
+
+    int expect_sz[3] = {5,6,4};
+    Tensor<double,3> expect(expect_sz);
+    {
+      autoView(e_v,expect,HostWrite);
+      autoView(f_v,tens,HostRead);
+      for(int i=0;i<5;i++){
+	for(int j=0;j<6;j++){
+	  for(int kk=0;kk<4;kk++){
+	  int idx = sub_idx[kk];
+	  e_v(i,j,kk) = f_v(i,j,idx);
+	  }
+	}
+      }
+    }
+    assert(equal(got,expect,true));
+    
+    got = dimensionSlice(tens, sub_idx, 2, Device);
+    assert(equal(got,expect,true));
+  }
+  std::cout << "testDimensionSlice passed" << std::endl;
+}
+
+void testNormalize(){
+  std::mt19937 rng(1234);
+  int tens_sz[3] = {5,6,7};  
+  Tensor<double,3> tens(tens_sz);
+  uniformRandom(tens, rng);
+  
+  {
+    //dim 0
+    Tensor<double,3> got(tens);     
+    auto nrm = normalize(got, 0, Host);
+
+    Tensor<double,3> expect(tens_sz);
+    {
+      autoView(e_v,expect,HostWrite);
+      autoView(t_v,tens,HostRead);
+      for(int j=0;j<6;j++){
+	for(int k=0;k<7;k++){
+	  double mu =0, std=0;
+	  for(int i=0;i<5;i++){
+	    mu += t_v(i,j,k);
+	    std += pow(t_v(i,j,k),2);
+	  }
+	  mu /= 5;
+	  std = sqrt(std/5 - mu*mu);
+	  
+	  for(int i=0;i<5;i++)
+	    e_v(i,j,k) = (t_v(i,j,k) - mu)/std;
+	}
+      }
+    }
+
+    assert(abs_near(got,expect,1e-7,true));
+
+    unnormalize(got, 0, nrm, Host);
+    assert(abs_near(got,tens,1e-7,true));
+    
+    got = tens;
+    nrm = normalize(got, 0, Device);
+    assert(abs_near(got,expect,1e-7,true));
+
+    unnormalize(got, 0, nrm, Device);
+    assert(abs_near(got,tens,1e-7,true));    
+  }
+
+  {
+    //dim 1
+    Tensor<double,3> got(tens);     
+    auto nrm = normalize(got, 1, Host);
+
+    Tensor<double,3> expect(tens_sz);
+    {
+      autoView(e_v,expect,HostWrite);
+      autoView(t_v,tens,HostRead);
+      for(int i=0;i<5;i++){
+	for(int k=0;k<7;k++){
+	  double mu =0, std=0;
+	  for(int j=0;j<6;j++){
+	    mu += t_v(i,j,k);
+	    std += pow(t_v(i,j,k),2);
+	  }
+	  mu /= 6;
+	  std = sqrt(std/6 - mu*mu);
+	  
+	  for(int j=0;j<6;j++)
+	    e_v(i,j,k) = (t_v(i,j,k) - mu)/std;
+	}
+      }
+    }
+
+    assert(abs_near(got,expect,1e-7,true));
+
+    unnormalize(got, 1, nrm, Host);
+    assert(abs_near(got,tens,1e-7,true));
+    
+    got = tens;
+    nrm = normalize(got, 1, Device);
+    assert(abs_near(got,expect,1e-7,true));
+
+    unnormalize(got, 1, nrm, Device);
+    assert(abs_near(got,tens,1e-7,true));    
+  }
+
+
+  {
+    //dim 2
+    Tensor<double,3> got(tens);     
+    auto nrm = normalize(got, 2, Host);
+
+    Tensor<double,3> expect(tens_sz);
+    {
+      autoView(e_v,expect,HostWrite);
+      autoView(t_v,tens,HostRead);
+      for(int i=0;i<5;i++){
+	for(int j=0;j<6;j++){
+	  double mu =0, std=0;
+	  for(int k=0;k<7;k++){
+	    mu += t_v(i,j,k);
+	    std += pow(t_v(i,j,k),2);
+	  }
+	  mu /= 7;
+	  std = sqrt(std/7 - mu*mu);
+	  
+	  for(int k=0;k<7;k++)
+	    e_v(i,j,k) = (t_v(i,j,k) - mu)/std;
+	}
+      }
+    }
+
+    assert(abs_near(got,expect,1e-7,true));
+
+    unnormalize(got, 2, nrm, Host);
+    assert(abs_near(got,tens,1e-7,true));
+    
+    got = tens;
+    nrm = normalize(got, 2, Device);
+    assert(abs_near(got,expect,1e-7,true));
+
+    unnormalize(got, 2, nrm, Device);
+    assert(abs_near(got,tens,1e-7,true));    
+  }
+  
+  std::cout << "testNormalize passed" << std::endl;
+}
+  
+  
+
+
 int main(int argc, char** argv){
   initialize(argc,argv);
   
@@ -655,5 +859,7 @@ int main(int argc, char** argv){
   testTensorOffset();
   testDimensionIteration();
   testConcatenateSplit();
+  testDimensionSlice();
+  testNormalize();
   return 0;
 }

@@ -419,6 +419,27 @@ accelerator_inline size_t tensorDimensionBase(int iter_dim, int const* other_coo
       coord[d] = other_coord[i++];
   return tensorOffset<Dim>(coord, size);  
 }
+
+template<int Dim>
+accelerator_inline size_t tensorDimensionBaseLin(int iter_dim, size_t other_dim_lin, int const *size){
+  size_t out = 0;
+  size_t coeff = 1;
+  size_t rem = other_dim_lin;
+#pragma unroll
+  for(int d=Dim-1;d>=0;d--){
+    int coord_d;
+    if(d==iter_dim){
+      coord_d = 0;
+    }else{
+      coord_d = rem % size[d];
+      rem /= size[d];
+    }
+    out += coord_d * coeff;
+    coeff *= size[d];
+  }
+  return out;
+}
+
 template<int Dim>
 accelerator_inline size_t batchTensorDimensionBaseLin(int iter_dim, int batch_idx, size_t other_dim_lin, int const *size){
   size_t out = batch_idx;
@@ -590,4 +611,151 @@ double norm2(const Tensor<FloatType,Dim> &T){
   acceleratorFreeDevice(accum);
   return out;
 #endif  
+}
+
+template<int Dim, typename FloatType>
+Tensor<FloatType,Dim> dimensionSlice(const Tensor<FloatType,Dim> &from, const std::vector<int> &indices, const int dimension, Locale loc){
+  if(loc == Auto) loc = from.deviceResident() ? Device : Host;
+
+  int out_size[Dim];
+  memcpy(out_size,from.sizeArray(),Dim*sizeof(int));
+  out_size[dimension] = indices.size();
+  
+  Tensor<FloatType,Dim> out(out_size, loc == Device ? MemoryManager::Pool::DevicePool : MemoryManager::Pool::HostPool);
+  
+  size_t other_dim_vol=1;  
+  for(int d=0;d<Dim;d++)
+    if(d!=dimension)
+      other_dim_vol *= from.size(d);
+
+  int istride = tensorDimensionStride<Dim>(dimension,from.sizeArray());
+  int ostride = tensorDimensionStride<Dim>(dimension,out.sizeArray());
+
+  int const* indices_p = indices.data();
+  if(loc == Device){
+    int *idx_dev = (int *)acceleratorAllocDevice(indices.size()*sizeof(int));
+    acceleratorCopyToDevice(idx_dev, indices.data(), indices.size()*sizeof(int));
+    indices_p = idx_dev;
+  }
+    
+  int slice_dim_size = indices.size();
+  
+  autoView(out_v,out, loc == Device ? DeviceWrite : HostWrite);
+  autoView(in_v,from, loc == Device ? DeviceRead : HostRead);
+
+  #define BODY \
+    size_t off_i = tensorDimensionBaseLin<Dim>(dimension,o, in_v.sizeArray()); \
+    size_t off_o = tensorDimensionBaseLin<Dim>(dimension,o, out_v.sizeArray()); \
+    FloatType* to_p = out_v.data() + off_o; \
+    FloatType const* from_p = in_v.data() + off_i; \
+    for(int i=0;i<slice_dim_size;i++){ \
+      *to_p = *(from_p + istride * indices_p[i]); \
+      to_p += ostride; \
+    }
+     
+  if(loc == Device){
+    //std::cout << "ON DEVICE" << std::endl;
+    accelerator_for_gen(0,1,normal(), o, other_dim_vol, { BODY; });
+  }else{
+    //std::cout << "ON HOST" << std::endl;
+    thread_for(o, other_dim_vol, { BODY; });
+  }
+#undef BODY
+
+  if(loc == Device){
+    int *idx_dev = (int*)indices_p;
+    acceleratorFreeDevice(idx_dev);
+  }
+  return out;
+}
+
+template<int Dim, typename FloatType>
+normalization<FloatType,Dim-1> normalize(Tensor<FloatType,Dim> &tens, const int dimension, Locale loc, FloatType epsilon){
+  int i=0;  
+  size_t other_dim_vol=1;
+  int nrm_sz[Dim-1];
+  for(int d=0;d<Dim;d++)
+    if(d!=dimension){
+      nrm_sz[i++] = tens.size(d);
+      other_dim_vol *= tens.size(d);
+    }
+  if(loc == Auto) loc = tens.deviceResident() ? Device : Host;
+  
+  normalization<FloatType,Dim-1> out(nrm_sz, epsilon, loc == Device ? MemoryManager::Pool::DevicePool : MemoryManager::Pool::HostPool);
+
+  int stride = tensorDimensionStride<Dim>(dimension,tens.sizeArray());
+  int norm_dim_size = tens.size(dimension);
+  
+  autoView(tens_v,tens, loc == Device ? DeviceReadWrite : HostReadWrite);
+  autoView(mu_v,out.mean, loc == Device ? DeviceWrite : HostWrite);
+  autoView(std_v,out.std, loc == Device ? DeviceWrite : HostWrite);
+
+  #define BODY \
+    size_t off = tensorDimensionBaseLin<Dim>(dimension,o, tens_v.sizeArray()); \
+    FloatType* tens_p = tens_v.data() + off; \
+    \
+    FloatType mean = 0., std=0.;	         \
+    for(int i=0;i<norm_dim_size;i++){ \
+       FloatType ii = *tens_p; tens_p += stride; \
+       mean += ii; \
+       std += ii*ii; \
+     } \
+     mean = mean / norm_dim_size; \
+     std = sqrt( std / norm_dim_size - mean*mean );	\
+     \
+     tens_p = tens_v.data() + off; \
+     for(int i=0;i<norm_dim_size;i++){ \
+	*tens_p = ( (*tens_p) - mean ) / std; \
+	tens_p += stride; \
+     }\
+     mu_v.data()[o] = mean; \
+     std_v.data()[o] = std;
+     
+  if(loc == Device){
+    //std::cout << "ON DEVICE" << std::endl;
+    accelerator_for_gen(0,1,normal(), o, other_dim_vol, { BODY; });
+  }else{
+    //std::cout << "ON HOST" << std::endl;
+    thread_for(o, other_dim_vol, { BODY; });
+  }
+#undef BODY
+  return out;
+}
+
+template<int Dim, typename FloatType>
+void unnormalize(Tensor<FloatType,Dim> &tens, const int dimension, const normalization<FloatType,Dim-1> &nrm, Locale loc){
+  if(loc == Auto) loc = tens.deviceResident() ? Device : Host;
+
+  size_t other_dim_vol=1;  
+  for(int d=0;d<Dim;d++)
+    if(d!=dimension)
+      other_dim_vol *= tens.size(d);
+
+  int stride = tensorDimensionStride<Dim>(dimension,tens.sizeArray());
+  int norm_dim_size = tens.size(dimension);
+  
+  autoView(tens_v,tens, loc == Device ? DeviceReadWrite : HostReadWrite);
+  autoView(mu_v,nrm.mean, loc == Device ? DeviceRead : HostRead);
+  autoView(std_v,nrm.std, loc == Device ? DeviceRead : HostRead);
+
+  #define BODY \
+    size_t off = tensorDimensionBaseLin<Dim>(dimension,o, tens_v.sizeArray()); \
+    FloatType* tens_p = tens_v.data() + off; \
+    \
+    FloatType mean = mu_v.data()[o], std = std_v.data()[o];	\
+     \
+     tens_p = tens_v.data() + off; \
+     for(int i=0;i<norm_dim_size;i++){ \
+	*tens_p = (*tens_p) * std + mean; \
+	tens_p += stride; \
+     }
+     
+  if(loc == Device){
+    //std::cout << "ON DEVICE" << std::endl;
+    accelerator_for_gen(0,1,normal(), o, other_dim_vol, { BODY; });
+  }else{
+    //std::cout << "ON HOST" << std::endl;
+    thread_for(o, other_dim_vol, { BODY; });
+  }
+#undef BODY
 }

@@ -39,7 +39,16 @@ accelerator_inline void tensorOffsetUnmap(int * coord, int const* dims, size_t o
  */
 template<int Dim>
 accelerator_inline size_t tensorDimensionStride(int iter_dim, int const* size);
-  
+
+/**
+ * @brief Compute the linear (pointer) offset for the base element for iterating over a specific dimension of a tensor of dimension "Dim"
+ * @param iter_dim The dimension that will be iterated over
+ * @param other_dim_lin The coordinates in dimensions apart from iter_dim expressed as a lexicographic linear index in descending order, e.g. z + size_z * (y + size_y * x)
+ * @param size The tensor dimension (array of size Dim)
+ */
+template<int Dim>
+accelerator_inline size_t tensorDimensionBaseLin(int iter_dim, size_t other_dim_lin, int const *size);
+
 /**
  * @brief Compute the linear (pointer) offset for the base element for iterating over a specific dimension of a tensor of dimension "Dim"
  * @param iter_dim The dimension that will be iterated over
@@ -407,6 +416,10 @@ public:
    */  
   Tensor<FloatType,Dim-1> peekLastDimension(const int idx) const;
 
+  /**
+   * @brief Return true if the data is resident and up-to-date on the device
+   */
+  inline bool deviceResident() const{ return vals.deviceResident(); }
 };
 
 #undef _1D_TENSOR_ONLY
@@ -471,6 +484,49 @@ Matrix<FloatType> peekColumns(const Matrix<FloatType> &m, int col_start, int col
  */
 template<typename FloatType>
 void pokeColumns(Matrix<FloatType> &into, int col_start, int col_end, const Matrix<FloatType> &cols);
+
+/**
+ * @brief Extract a slice/subset of a tensor based on indices in a given dimension, 
+ *        e.g. for a 3-tensor X and dimension=1, return  X[:,indices,:]
+ * @param from The tensor to slice
+ * @param indices The indices along the slice dimension to retain
+ * @param dimension The dimension along which to slice
+ * @param loc The locale in which the operation is performed. If set to Auto (default) it will be performed on the device if from is device-resident, else on the host
+ */
+template<int Dim, typename FloatType>
+Tensor<FloatType,Dim> dimensionSlice(const Tensor<FloatType,Dim> &from, const std::vector<int> &indices, const int dimension, Locale loc = Auto);
+
+/**
+ * @brief A struct to contain normalization factors, allowing for unnormalization
+ */
+template<typename FloatType, int Dim>
+struct normalization{
+  Tensor<FloatType,Dim> mean;
+  Tensor<FloatType,Dim> std;
+  FloatType epsilon;
+
+  normalization(int const* tens_sz, FloatType epsilon, MemoryManager::Pool pool): mean(tens_sz,0.,pool), std(tens_sz,0.,pool), epsilon(epsilon) {}    
+};
+
+/**
+ * @brief Normalize a tensor along a specific dimension. The normalization factors (mean, std) will be returned for each orthogonal dimension
+ * @param tens The tensor to normalize
+ * @param dimension The dimension along which to normalize
+ * @param loc The locale on which the operation is performed. If set to Auto (default), it will be performed on the device if the tensor is device-resident, else on the host
+ * @param epsilon A small offset for numerical stability
+ */
+template<int Dim, typename FloatType>
+normalization<FloatType,Dim-1> normalize(Tensor<FloatType,Dim> &tens, const int dimension, Locale loc = Auto, FloatType epsilon = FloatType(0.));
+
+/**
+ * @brief Unnormalize a tensor along a specific dimension using the pre-computed normalization factors (mean, std)
+ * @param tens The tensor to normalize
+ * @param dimension The dimension along which to normalize
+ * @param nrm The precomputed normalization factors
+ * @param loc The locale on which the operation is performed. If set to Auto (default), it will be performed on the device if the tensor is device-resident, else on the host
+ */
+template<int Dim, typename FloatType>
+void unnormalize(Tensor<FloatType,Dim> &tens, const int dimension, const normalization<FloatType,Dim-1> &nrm, Locale loc = Auto);
 
 /**
  * @brief Output a vector to a stream
