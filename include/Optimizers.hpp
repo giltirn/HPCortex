@@ -1,9 +1,11 @@
 #pragma once
 #include <random>
 #include <algorithm>
+#include <limits>
 #include <Tensors.hpp>
 #include <Comms.hpp>
 #include <DDP.hpp>
+#include <Timing.hpp>
 
 //LRscheduler must have the following method:
 //FloatType operator()(const int epoch) const    :  return the learning rate for the given epoch
@@ -152,6 +154,9 @@ std::vector<typename LossWrappedModelType::FloatType> train(LossWrappedModelType
     optimizer.epochStart(epoch, do_print);
     std::random_shuffle ( didx.begin(), didx.end(), [&](const int l){ return dist(gen); }  );
 
+    FloatType lmax=std::numeric_limits<FloatType>::lowest(),  lmin = std::numeric_limits<FloatType>::max(),  lavg = 0.;
+    auto ts=now();
+    
     for(int block=0;block<nblocks;block++){
       int blocksize_actual = std::min(nbatch - block*blocksize, blocksize);
 
@@ -170,7 +175,10 @@ std::vector<typename LossWrappedModelType::FloatType> train(LossWrappedModelType
       ddpAverage(&loss,1,false); //no need to bcast the loss to the pipeline ranks
       ddpAverage(deriv,true); //share the deriv over all pipeline ranks
            
-      if(do_print) std::cout << epoch << "-" << block << " : "<< loss << std::endl;
+      //if(do_print) std::cout << epoch << "-" << block << " : "<< loss << std::endl;
+      lmax = std::max(lmax,loss);
+      lmin = std::min(lmin,loss);
+      lavg += loss;
       
       FloatType eps;
       Vector<FloatType> direction = optimizer.descentProfile(eps,deriv);
@@ -179,6 +187,8 @@ std::vector<typename LossWrappedModelType::FloatType> train(LossWrappedModelType
 
       losses[block+nblocks*epoch] = loss;
     }
+    lavg /= nblocks;
+    if(do_print) std::cout << "Epoch : " << epoch << " time : " << since(ts) <<"s " << " loss min: " << lmin << " avg: " << lavg << " max: " << lmax << std::endl;    
   }
   return losses;
 }
