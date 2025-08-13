@@ -96,7 +96,25 @@ Tensor<FloatType,Dim-1> Tensor<FloatType,Dim>::peekLastDimension(const int idx) 
   return out;
 }
 
+template<typename FloatType, int Dim>
+template<typename FloatTypeOut>
+Tensor<FloatTypeOut,Dim> Tensor<FloatType,Dim>::convertFloatType(Locale loc) const{
+  if(loc == Auto && deviceResident()) loc = Device;
 
+  Tensor<FloatTypeOut,Dim> out(this->sizeArray(),loc == Device ? MemoryManager::Pool::DevicePool : MemoryManager::Pool::HostPool);
+  
+  autoView(t_v,(*this),loc == Device ? DeviceRead : HostRead);
+  autoView(out_v,out, loc == Device ? DeviceWrite : HostWrite);
+
+#define BODY out_v.data()[i] = (FloatTypeOut)t_v.data()[i];
+  if(loc == Device){  
+    accelerator_for_gen(0,1,normal(),i,t_v.data_len(),{ BODY; });
+  }else{
+    thread_for(i,t_v.data_len(),{ BODY; });
+  }
+#undef BODY
+  return out;
+}
 
 template<typename FloatType>
 std::ostream & operator<<(std::ostream &os, const Vector<FloatType> &v){
@@ -163,6 +181,29 @@ void pokeColumns(Matrix<FloatType> &into, int col_start, int col_end, const Matr
       int j = jj + col_start;
       t_v(i,j) = cols_v(i,jj);
     });
+}
+
+template<typename FloatType>
+Matrix<FloatType> transpose(const Matrix<FloatType> &m, Locale loc){
+  if(loc == Auto && m.deviceResident()) loc = Device;
+
+  int out_sz[2] = { m.size(1), m.size(0) };
+  Matrix<FloatType> out(out_sz,loc == Device ? MemoryManager::Pool::DevicePool : MemoryManager::Pool::HostPool);
+  
+  autoView(in_v,m,loc == Device ? DeviceRead : HostRead);
+  autoView(out_v,out, loc == Device ? DeviceWrite : HostWrite);
+
+#define BODY \
+  int i = s / in_v.size(1), j = s % in_v.size(1); \
+  out_v(j,i) = in_v(i,j);
+  
+  if(loc == Device){  
+    accelerator_for_gen(0,1,normal(),s,in_v.data_len(),{ BODY; });
+  }else{
+    thread_for(s,in_v.data_len(),{ BODY; });
+  }
+#undef BODY
+  return out;
 }
 
 template<typename FloatType>
@@ -614,12 +655,12 @@ double norm2(const Tensor<FloatType,Dim> &T){
 }
 
 template<int Dim, typename FloatType>
-Tensor<FloatType,Dim> dimensionSlice(const Tensor<FloatType,Dim> &from, const std::vector<int> &indices, const int dimension, Locale loc){
+Tensor<FloatType,Dim> dimensionSlice(const Tensor<FloatType,Dim> &from, int const* indices, int nidx, const int dimension, Locale loc){
   if(loc == Auto) loc = from.deviceResident() ? Device : Host;
 
   int out_size[Dim];
   memcpy(out_size,from.sizeArray(),Dim*sizeof(int));
-  out_size[dimension] = indices.size();
+  out_size[dimension] = nidx;
   
   Tensor<FloatType,Dim> out(out_size, loc == Device ? MemoryManager::Pool::DevicePool : MemoryManager::Pool::HostPool);
   
@@ -631,14 +672,14 @@ Tensor<FloatType,Dim> dimensionSlice(const Tensor<FloatType,Dim> &from, const st
   int istride = tensorDimensionStride<Dim>(dimension,from.sizeArray());
   int ostride = tensorDimensionStride<Dim>(dimension,out.sizeArray());
 
-  int const* indices_p = indices.data();
+  int const* indices_p = indices;
   if(loc == Device){
-    int *idx_dev = (int *)acceleratorAllocDevice(indices.size()*sizeof(int));
-    acceleratorCopyToDevice(idx_dev, indices.data(), indices.size()*sizeof(int));
+    int *idx_dev = (int *)acceleratorAllocDevice(nidx*sizeof(int));
+    acceleratorCopyToDevice(idx_dev, indices, nidx*sizeof(int));
     indices_p = idx_dev;
   }
     
-  int slice_dim_size = indices.size();
+  int slice_dim_size = nidx;
   
   autoView(out_v,out, loc == Device ? DeviceWrite : HostWrite);
   autoView(in_v,from, loc == Device ? DeviceRead : HostRead);
@@ -668,7 +709,14 @@ Tensor<FloatType,Dim> dimensionSlice(const Tensor<FloatType,Dim> &from, const st
   }
   return out;
 }
+  
 
+
+template<int Dim, typename FloatType>
+Tensor<FloatType,Dim> dimensionSlice(const Tensor<FloatType,Dim> &from, const std::vector<int> &indices, const int dimension, Locale loc){
+  return dimensionSlice(from, indices.data(), indices.size(), dimension, loc);
+}
+  
 template<int Dim, typename FloatType>
 normalization<FloatType,Dim-1> normalize(Tensor<FloatType,Dim> &tens, const int dimension, Locale loc, FloatType epsilon){
   int i=0;  
@@ -759,3 +807,5 @@ void unnormalize(Tensor<FloatType,Dim> &tens, const int dimension, const normali
   }
 #undef BODY
 }
+
+
