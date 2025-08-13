@@ -131,66 +131,65 @@ void BatchTensorDNNcomponent<Config,TensDim,ActivationFunc>::deriv(Vector<FloatT
 
 template<typename Config, int TensDim, typename ActivationFunc>
 void BatchTensorDNNcomponent<Config,TensDim,ActivationFunc>::update(int off, const Vector<FloatType> &new_params){
-  autoView(new_params_v,new_params,DeviceRead);
-  int p = off;
+  autoView(new_params_v, new_params,DeviceRead);
+  FloatType const* dp = new_params_v.data() + off;
   {
-    autoView(weights_v,weights,DeviceWrite);
-    accelerator_for3d(dummy1,1,j,weights.size(1),i,weights.size(0),64,{
-	int pp = p + j + weights_v.size(1)*i;
-	weights_v(i,j) = new_params_v(pp);
+    autoView(weights_v,weights,DeviceWrite);    
+    accelerator_for_gen(1,0,splitBlock<32>(),o,weights_v.data_len(), {
+	weights_v.data()[o] = dp[o];
       });
-    p += weights.size(0)*weights.size(1);
   }
+
   if(use_bias){
+    dp += weights.data_len();
+    
     autoView(bias_v,bias,DeviceWrite);
-    accelerator_for2d(dummy1,1,i,weights.size(0),64,{
-	int pp = p + i;
-	bias_v(i) = new_params_v(pp);
-      });
+    accelerator_for_gen(1,0,splitBlock<32>(),o,bias.size(0), {
+	bias_v.data()[o] = dp[o];
+      });	
   }
 }
 
 template<typename Config, int TensDim, typename ActivationFunc>
 void BatchTensorDNNcomponent<Config,TensDim,ActivationFunc>::step(int off, const Vector<FloatType> &derivs, FloatType eps){
   autoView(derivs_v,derivs,DeviceRead);
-  int p = off;
+  FloatType const* dp = derivs_v.data() + off;
   {
-    autoView(weights_v,weights,DeviceReadWrite);
-    accelerator_for3d(dummy1,1,j,weights.size(1),i,weights.size(0),64,{
-	int pp = p + j + weights_v.size(1)*i;
-	weights_v(i,j) -= derivs_v(pp)*eps;
-    });
-    p += weights.size(0)*weights.size(1);
+    autoView(weights_v,weights,DeviceReadWrite);    
+    accelerator_for_gen(1,0,splitBlock<32>(),o,weights_v.data_len(), {
+	weights_v.data()[o] -= dp[o]*eps;
+      });
   }
+
   if(use_bias){
+    dp += weights.data_len();
+    
     autoView(bias_v,bias,DeviceReadWrite);
-    accelerator_for2d(dummy1,1,i,weights.size(0),64,{
-      int pp = p + i;
-      bias_v(i) -= derivs_v(pp)*eps;
-    });
+    accelerator_for_gen(1,0,splitBlock<32>(),o,bias.size(0), {
+	bias_v.data()[o] -= dp[o]*eps;
+      });	
   }
 }
-
-
 
 template<typename Config, int TensDim, typename ActivationFunc>
 void BatchTensorDNNcomponent<Config,TensDim,ActivationFunc>::getParams(Vector<FloatType> &into, int off) const{
   autoView(into_v,into,DeviceReadWrite);
-  int p = off;
+  FloatType * dp = into_v.data() + off;
+  
   {
-    autoView(weights_v,weights,DeviceRead);
-    accelerator_for3d(dummy1,1,j,weights.size(1),i,weights.size(0),64,{
-	int pp = p + j + weights_v.size(1)*i;
-	into_v(pp) = weights_v(i,j);
-    });
-    p += weights.size(0)*weights.size(1);
+    autoView(weights_v,weights,DeviceRead);    
+    accelerator_for_gen(1,0,splitBlock<32>(),o,weights_v.data_len(), {
+	dp[o] = weights_v.data()[o];
+      });
   }
+
   if(use_bias){
+    dp += weights.data_len();
+    
     autoView(bias_v,bias,DeviceRead);
-    accelerator_for2d(dummy1,1,i,weights.size(0),64,{
-      int pp = p + i;
-      into_v(pp) = bias_v(i);
-    });
+    accelerator_for_gen(1,0,splitBlock<32>(),o,bias.size(0), {
+	dp[o] = bias_v.data()[o];
+      });	
   }
 }
 
