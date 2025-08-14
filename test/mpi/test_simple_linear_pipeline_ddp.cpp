@@ -67,7 +67,8 @@ void testSimpleLinearPipelineDDP(){
   AdamOptimizer<FloatType,DecayScheduler<FloatType> > opt(ap,lr);
 
   //Train pipeline + DDP
-  train(cost, data, opt, nepoch, pipeline_batch_size);
+  XYpairDataLoader<FloatType,1,1> loader(data);
+  train(cost, loader, opt, nepoch, pipeline_batch_size);
   Vector<FloatType> final_p = cost.getParams();
   std::vector<Vector<FloatType> > predict(ndata);
   for(int i=0;i<ndata;i++) predict[i] = cost.predict(data[i].x, pipeline_batch_size);
@@ -75,7 +76,7 @@ void testSimpleLinearPipelineDDP(){
   std::cout << "Training rank local model for comparison" << std::endl;  
   communicators().disableParallelism();
   communicators().reportSetup();
-  train(full_cost, data, opt, nepoch, glob_batch_size, communicators().worldRank() != 0);
+  train(full_cost, loader, opt, nepoch, glob_batch_size, communicators().worldRank() != 0);
   Vector<FloatType> expect_p = full_cost.getParams();
 
   MPI_Barrier(MPI_COMM_WORLD);

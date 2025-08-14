@@ -37,72 +37,64 @@ struct decomp;
 #define accelerator_inline __host__ __device__ __forceinline__
 //inline
 
-extern int acceleratorAbortOnGpuError;
 extern cudaStream_t copyStream; //stream for async copies
 extern cudaStream_t computeStream; //stream for computation
+
+inline void errorCheck(char const *loc, cudaError_t err){
+  if(err != cudaSuccess){
+    printf("In %s, caught CUDA error: %s\n", loc, cudaGetErrorString( err )); fflush(stdout);
+    assert(0);
+  }
+}
 
 #define accelerator_barrier(dummy)					\
   {									\
     cudaStreamSynchronize(computeStream);				\
     cudaError err = cudaGetLastError();					\
-    if ( cudaSuccess != err ) {						\
+    if ( err != cudaSuccess ) {						\
       printf("accelerator_barrier(): Cuda error %s \n",			\
 	     cudaGetErrorString( err ));				\
       printf("File %s Line %d\n",__FILE__,__LINE__);			\
       fflush(stdout);							\
-      if (acceleratorAbortOnGpuError) assert(err==cudaSuccess);		\
+      assert(0);		\
     }									\
   }
 
 inline void *acceleratorAllocHost(size_t bytes)
 {
   void *ptr=NULL;
-  auto err = cudaMallocHost((void **)&ptr,bytes);
-  if( err != cudaSuccess ) {
-    ptr = (void *) NULL;
-    printf(" cudaMallocHost failed for %lu %s \n",bytes,cudaGetErrorString(err));
-    assert(0);
-  }
+  errorCheck("acceleratorAllocHost", cudaMallocHost((void **)&ptr,bytes));
   return ptr;
 }
 inline void *acceleratorAllocShared(size_t bytes)
 {
   void *ptr=NULL;
-  auto err = cudaMallocManaged((void **)&ptr,bytes);
-  if( err != cudaSuccess ) {
-    ptr = (void *) NULL;
-    printf(" cudaMallocManaged failed for %lu %s \n",bytes,cudaGetErrorString(err));
-    assert(0);
-  }
+  errorCheck("acceleratorAllocShared", cudaMallocManaged((void **)&ptr,bytes));
   return ptr;
 };
 inline void *acceleratorAllocDevice(size_t bytes)
 {
   void *ptr=NULL;
-  auto err = cudaMalloc((void **)&ptr,bytes);
-  if( err != cudaSuccess ) {
-    ptr = (void *) NULL;
-    printf(" cudaMalloc failed for %lu %s \n",bytes,cudaGetErrorString(err));
-  }
+  errorCheck("acceleratorAllocDevice", cudaMalloc((void **)&ptr,bytes));
   return ptr;
 };
 
-inline void acceleratorFreeShared(void *ptr){ cudaFree(ptr);};
-inline void acceleratorFreeDevice(void *ptr){ cudaFree(ptr);};
-inline void acceleratorFreeHost(void *ptr){ cudaFree(ptr);};
-inline void acceleratorCopyToDevice(void* to, void const* from,size_t bytes)  { cudaMemcpy(to,from,bytes, cudaMemcpyHostToDevice);}
-inline void acceleratorCopyFromDevice(void* to, void const* from,size_t bytes){ cudaMemcpy(to,from,bytes, cudaMemcpyDeviceToHost);}
-inline void acceleratorCopyToDeviceAsync(void* to, void const* from, size_t bytes, cudaStream_t stream = copyStream) { cudaMemcpyAsync(to,from,bytes, cudaMemcpyHostToDevice, stream);}
-inline void acceleratorCopyFromDeviceAsync(void* to, void const* from, size_t bytes, cudaStream_t stream = copyStream) { cudaMemcpyAsync(to,from,bytes, cudaMemcpyDeviceToHost, stream);}
-inline void acceleratorMemSet(void *base,int value,size_t bytes) { cudaMemset(base,value,bytes);}
+inline void acceleratorFreeShared(void *ptr){ errorCheck("acceleratorFreeShared", cudaFree(ptr));};
+inline void acceleratorFreeDevice(void *ptr){ errorCheck("acceleratorFreeDevice", cudaFree(ptr));};
+inline void acceleratorFreeHost(void *ptr){ errorCheck("acceleratorFreeHost", cudaFree(ptr));};
+inline void acceleratorCopyToDevice(void* to, void const* from,size_t bytes)  { errorCheck("acceleratorCopyToDevice",cudaMemcpy(to,from,bytes, cudaMemcpyHostToDevice));}
+inline void acceleratorCopyFromDevice(void* to, void const* from,size_t bytes){ errorCheck("acceleratorCopyFromDevice", cudaMemcpy(to,from,bytes, cudaMemcpyDeviceToHost));}
+inline void acceleratorCopyToDeviceAsync(void* to, void const* from, size_t bytes, cudaStream_t stream = copyStream) { errorCheck("acceleratorCopyToDeviceAsync",cudaMemcpyAsync(to,from,bytes, cudaMemcpyHostToDevice, stream));}
+inline void acceleratorCopyFromDeviceAsync(void* to, void const* from, size_t bytes, cudaStream_t stream = copyStream) { errorCheck("acceleratorCopyFromDeviceAsync", cudaMemcpyAsync(to,from,bytes, cudaMemcpyDeviceToHost, stream));}
+inline void acceleratorMemSet(void *base,int value,size_t bytes) { errorCheck("acceleratorMemSet",cudaMemset(base,value,bytes));}
 inline void acceleratorCopyDeviceToDevice(void* to, void const* from, size_t bytes){
-  cudaMemcpy(to,from,bytes, cudaMemcpyDeviceToDevice);
+  errorCheck("acceleratorCopyDeviceToDevice",cudaMemcpy(to,from,bytes, cudaMemcpyDeviceToDevice));
 }
 inline void acceleratorCopyDeviceToDeviceAsynch(void* to, void const* from, size_t bytes) // Asynch
 {
-  cudaMemcpyAsync(to,from,bytes, cudaMemcpyDeviceToDevice,copyStream);
+  errorCheck("acceleratorCopyDeviceToDeviceAsynch",cudaMemcpyAsync(to,from,bytes, cudaMemcpyDeviceToDevice,copyStream));
 }
-inline void acceleratorCopySynchronize(void) { cudaStreamSynchronize(copyStream); };
+inline void acceleratorCopySynchronize(void) { errorCheck("acceleratorCopySynchronize",cudaStreamSynchronize(copyStream)); }
 
 accelerator_inline void acceleratorSynchronizeBlock(){
 #ifdef SIMT_ACTIVE //workaround

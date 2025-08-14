@@ -11,21 +11,31 @@ void testSimpleLinear(){
   Matrix<FloatType> winit(1,1,0.0);
   Vector<FloatType> binit(1,0.0);
 
-  int ndata = 100;
-  std::vector<XYpair<FloatType,1,1> > data(ndata);
-  for(int i=0;i<ndata;i++){
-    FloatType eps = 2.0/(ndata - 1);
+  int ndata_train = 100, ndata_valid=33;
+  std::vector<XYpair<FloatType,1,1> > train_data(ndata_train);
+  for(int i=0;i<ndata_train;i++){
+    FloatType eps = 2.0/(ndata_train - 1);
     FloatType x = -1.0 + i*eps; //normalize x to within +-1
 
-    data[i].x = Vector<FloatType>(1,x);
-    data[i].y = Vector<FloatType>(1,0.2*x + 0.3);
+    train_data[i].x = Vector<FloatType>(1,x);
+    train_data[i].y = Vector<FloatType>(1,0.2*x + 0.3);
   }
-    
+
+  std::vector<XYpair<FloatType,1,1> > valid_data(ndata_valid);
+  for(int i=0;i<ndata_valid;i++){
+    FloatType eps = 2.0/(ndata_valid - 1);
+    FloatType x = -1.0 + i*eps;
+
+    valid_data[i].x = Vector<FloatType>(1,x);
+    valid_data[i].y = Vector<FloatType>(1,0.2*x + 0.3);
+  }
+  
   auto model = mse_cost( dnn_layer(winit, binit,input_layer<Config>()) );
   DecayScheduler<FloatType> lr(0.01, 0.1);
   GradientDescentOptimizer<FloatType, DecayScheduler<FloatType> > opt(lr);
-  
-  train(model, data, opt, nepoch, 1);
+  XYpairDataLoader<FloatType,1,1> train_loader(train_data);
+  XYpairDataLoader<FloatType,1,1> valid_loader(valid_data);
+  train(model, train_loader, valid_loader, opt, nepoch, 1);
 
   std::cout << "Final params" << std::endl;
   Vector<FloatType> final_p = model.getParams();

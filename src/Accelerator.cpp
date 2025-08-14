@@ -12,7 +12,6 @@
 #warning "Compiling with CUDA support"
 cudaStream_t copyStream;
 cudaStream_t computeStream;
-int  acceleratorAbortOnGpuError=1;
 
 void acceleratorInit(void){
   int nDevices = 1;

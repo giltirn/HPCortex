@@ -32,8 +32,8 @@ void testSimpleLinearDDP(){
     auto model = mse_cost( dnn_layer(winit, binit,input_layer<Config>()) );
     DecayScheduler<FloatType> lr(0.01, 0.1);
     GradientDescentOptimizer<FloatType, DecayScheduler<FloatType> > opt(lr);
-    
-    train(model, data, opt, nepoch, 1);
+    XYpairDataLoader<FloatType,1,1> loader(data);
+    train(model, loader, opt, nepoch, 1);
     params_global = model.getParams();
   }
   
@@ -45,8 +45,8 @@ void testSimpleLinearDDP(){
     auto model = mse_cost( dnn_layer(winit, binit,input_layer<Config>()) );
     DecayScheduler<FloatType> lr(0.01, 0.1);
     GradientDescentOptimizer<FloatType, DecayScheduler<FloatType> > opt(lr);
-    
-    train(model, data, opt, nepoch, ddp_eff_batch_size);
+    XYpairDataLoader<FloatType,1,1> loader(data);
+    train(model, loader, opt, nepoch, ddp_eff_batch_size);
     params_local = model.getParams();
   }
 

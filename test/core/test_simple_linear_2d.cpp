@@ -52,8 +52,8 @@ void testSimpleLinear2D(){
   DecayScheduler<FloatType> lr(0.01, 0.1);  
   AdamParams<FloatType> ap;
   AdamOptimizer<FloatType, DecayScheduler<FloatType> > opt(ap, lr);
-  
-  train(model, data, opt, nepoch, batch_size);
+  XYpairDataLoader<FloatType,2,2> loader(data);
+  train(model, loader, opt, nepoch, batch_size);
 
   std::cout << "Final params" << std::endl;
   Vector<FloatType> final_p = model.getParams();

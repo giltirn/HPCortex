@@ -117,81 +117,38 @@ public:
   FloatType operator()(const int epoch) const{ return eps * 1./(1. + decay_rate * epoch); }
 };
 
-//DataLoaders are expected to contain the following methods:
-//size_t size() const   :  return the total amount of data
-//BatchType batch(int const* indices, int batch_size) const   : return the batch with batch size and indices as specified. BatchType must contain members 'x' and 'y', which are taken as the inputs to the model's loss function
+/**
+ * @brief Train a model using DDP, whereby batches of data are distributed over ranks of the DDP communicator and trained in parallel
+ * @param loss_func The model wrapper in a loss-function wrapper supporting calls to compute the loss and the loss derivative given a input/output data batch
+ * @param data The training data loader, the spec for which is provided below
+ * @param optimizer The optimizer
+ * @param nepoch The number of epochs
+ * @param batch_size The batch size
+ * @param suppress_logging Optionally suppress logging output
+ * @return The complete loss history for all batches / epochs
+ *
+ * DataLoaders are expected to contain the following methods:
+ *    size_t size() const   :  return the total amount of data
+ *    BatchType batch(int const* indices, int batch_size) const   : return the batch with batch size and indices as specified. BatchType must contain members 'x' and 'y', which are taken as the inputs to the model's loss function
+ */
 template<typename DataLoader, typename LossWrappedModelType, typename Optimizer>
-std::vector<typename LossWrappedModelType::FloatType> train(LossWrappedModelType &loss_func, const DataLoader &data, Optimizer &optimizer, int nepoch, int batch_size, bool suppress_logging = false){
-  typedef typename LossWrappedModelType::FloatType FloatType;
-  std::default_random_engine gen(1234); //important that every rank shuffles in the same way
+std::vector<typename LossWrappedModelType::FloatType> train(LossWrappedModelType &loss_func, const DataLoader &data, Optimizer &optimizer, int nepoch, int batch_size, bool suppress_logging = false);
 
-  //We want to divide the data evenly over batches. This means we may need to discard some data
-  if(batch_size > data.size())
-    batch_size = data.size();
+/**
+ * @brief Train and validate model using DDP, whereby batches of data are distributed over ranks of the DDP communicator and trained in parallel
+ * @param loss_func The model wrapper in a loss-function wrapper supporting calls to compute the loss and the loss derivative given a input/output data batch
+ * @param train_data The training data loader (cf above for spec)
+ * @param valid_data The validation data loader
+ * @param optimizer The optimizer
+ * @param nepoch The number of epochs
+ * @param batch_size The batch size
+ * @param suppress_logging Optionally suppress logging output
+ * @return The complete loss history for all batches / epochs for training (first) and validation (second)
+ */
+template<typename DataLoader, typename LossWrappedModelType, typename Optimizer>
+std::pair<std::vector<typename LossWrappedModelType::FloatType>, std::vector<typename LossWrappedModelType::FloatType> >
+train(LossWrappedModelType &loss_func, const DataLoader &train_data, const DataLoader &valid_data, Optimizer &optimizer, int nepoch, int batch_size, bool suppress_logging = false);
 
-  int nbatch = data.size() / batch_size;
-  int ndata = nbatch * batch_size;
-  std::uniform_int_distribution<int> dist(0,ndata-1);
-  
-  std::vector<int> didx(ndata);
-  for(int i=0;i<ndata;i++) didx[i] = i;
-
-  int nparam = loss_func.nparams();
-
-  //For DDP we solve blocks of batches in parallel
-  int blocksize = communicators().ddpNrank();
-  int nblocks = (nbatch + blocksize - 1) / blocksize; //round up
-  int me = communicators().ddpRank(); //all ranks in a pipeline will have the same value for the ddp rank, but only the pipeline leader should communicate
-
-  bool do_print = me == 0 && communicators().isPipelineLeader() && !suppress_logging ;
-
-  if(do_print) std::cout << "Training with " << ndata << " data samples divided into " << nbatch << " batches of size " << batch_size
-			 << " using DDP over " << blocksize << " ranks with " << nblocks << " iterations per epoch" << std::endl;
-  
-  std::vector<FloatType> losses(nblocks*nepoch);
-    
-  for(int epoch=0;epoch<nepoch;epoch++){
-    optimizer.epochStart(epoch, do_print);
-    std::random_shuffle ( didx.begin(), didx.end(), [&](const int l){ return dist(gen); }  );
-
-    FloatType lmax=std::numeric_limits<FloatType>::lowest(),  lmin = std::numeric_limits<FloatType>::max(),  lavg = 0.;
-    auto ts=now();
-    
-    for(int block=0;block<nblocks;block++){
-      int blocksize_actual = std::min(nbatch - block*blocksize, blocksize);
-
-      FloatType loss = 0;
-      Vector<FloatType> deriv(nparam, 0.);
-      
-      if(me < blocksize_actual){ //if not enough data to have all ranks do work in this block
-	int bidx = block*blocksize + me; //which batch are we doing?
-
-	//Get the batch
-	auto bxy = data.batch(didx.data() + bidx*batch_size, batch_size);
-
-	loss = loss_func.loss(bxy.x, bxy.y, DerivYes);
-	deriv = loss_func.deriv();
-      }
-      ddpAverage(&loss,1,false); //no need to bcast the loss to the pipeline ranks
-      ddpAverage(deriv,true); //share the deriv over all pipeline ranks
-           
-      //if(do_print) std::cout << epoch << "-" << block << " : "<< loss << std::endl;
-      lmax = std::max(lmax,loss);
-      lmin = std::min(lmin,loss);
-      lavg += loss;
-      
-      FloatType eps;
-      Vector<FloatType> direction = optimizer.descentProfile(eps,deriv);
-      
-      loss_func.step( direction, eps );
-
-      losses[block+nblocks*epoch] = loss;
-    }
-    lavg /= nblocks;
-    if(do_print) std::cout << "Epoch : " << epoch << " time : " << since(ts) <<"s " << " loss min: " << lmin << " avg: " << lavg << " max: " << lmax << std::endl;    
-  }
-  return losses;
-}
 
 
 template<typename FloatType, int DimX, int DimY>
@@ -240,12 +197,6 @@ public:
   }
 };
 
-template<typename FloatType, int DimX, int DimY, typename LossWrappedModelType, typename Optimizer>
-std::vector<FloatType> train(LossWrappedModelType &loss_func, const std::vector<XYpair<FloatType,DimX,DimY> > &data, Optimizer &optimizer, int nepoch, int batch_size, bool suppress_logging = false){
-  XYpairDataLoader<FloatType,DimX,DimY> loader(data);
-  return train(loss_func, loader, optimizer, nepoch, batch_size, suppress_logging);
-}
-
-
+#include "implementation/Optimizers.tcc"
 
 

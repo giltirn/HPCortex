@@ -73,8 +73,8 @@ void testOneHiddenLayer(){
   DecayScheduler<FloatType> lr(0.001, 0.1);
   AdamParams<FloatType> ap;
   AdamOptimizer<FloatType, DecayScheduler<FloatType> > opt(ap,lr);
-  
-  train(model, data, opt, nepoch, batch_size);
+  XYpairDataLoader<FloatType,1,1> loader(data);
+  train(model, loader, opt, nepoch, batch_size);
 
   std::cout << "Final params" << std::endl;
   Vector<FloatType> final_p = model.getParams();
