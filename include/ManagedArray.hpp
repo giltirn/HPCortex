@@ -53,15 +53,11 @@ public:
 	handle = MemoryManager::globalPool().allocate(_size * sizeof(FloatType), MemoryManager::Pool::DevicePool);
 	autoView(tv, (*this), DeviceWrite);
 	autoView(rv, r, DeviceRead);
-
-	accelerator_for(i, _size, {
-	    tv[i] = rv[i];
-	  });
+	acceleratorCopyDeviceToDevice(tv.data(),rv.data(),_size * sizeof(FloatType));
       }else{
 	handle = MemoryManager::globalPool().allocate(_size * sizeof(FloatType), MemoryManager::Pool::HostPool);
 	autoView(tv, (*this), HostWrite);
 	autoView(rv, r, HostRead);
-	
 	memcpy(tv.data(), rv.data(), _size*sizeof(FloatType));
       }
     }
@@ -105,8 +101,10 @@ public:
   void fill(FloatType init, MemoryManager::Pool assign_pool = MemoryManager::Pool::DevicePool){
     if(assign_pool == MemoryManager::Pool::DevicePool){
       autoView(hv, (*this), DeviceWrite);
-      {
-	accelerator_for(i, _size, {
+      if(init == FloatType(0.)){
+	acceleratorMemSet(hv.data(),0,_size*sizeof(FloatType));
+      }else{
+	accelerator_for_gen(1,0, splitBlock<32>(), i, _size, {
 	    hv[i] = init;
 	  });
       }
