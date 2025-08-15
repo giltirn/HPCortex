@@ -3,6 +3,7 @@
 
 /**
  * @brief A class to wrap "basic" components (those that are default-constructible and without trainable parameters) as a layer
+ *        These components must not require internal buffer storage, and their "value" function must not accept EnableDeriv argument
  */
 template<typename Config, typename _InputType, typename ComponentType, typename BelowStore>
 class BasicComponentLayerWrapper{
@@ -25,7 +26,7 @@ public:
   BasicComponentLayerWrapper(const BasicComponentLayerWrapper &r) = delete;
 
   LayerOutputType value(const InputType &x, EnableDeriv enable_deriv = DerivNo){
-    return cpt.value(leaf.v.value(x));    
+    return cpt.value(leaf.v.value(x, enable_deriv));    
   }
 
   //input_above_deriv_return is the derivative of the cost with respect to the inputs
@@ -67,6 +68,7 @@ auto LAYER_FUNC_NAME(U &&u){ \
 
 /**
  * @brief A class to wrap "basic" components (those that are default-constructible and without trainable parameters) that merge two inputs as a layer
+ *        These components must not require internal buffer storage, and their "value" function must accept two arguments corresponding to the outputs of the leaf chains
  */
 template<typename Config, typename _InputType, typename ComponentType, typename BelowStore1, typename BelowStore2>
 class BasicMergeComponentLayerWrapper{
