@@ -714,6 +714,30 @@ void batchTensorSplit(Tensor<FloatType,Dim>* const* out, int Ntens, const Tensor
 template<int Dim, typename FloatType>
 double norm2(const Tensor<FloatType,Dim> &T);
 
+
+/**
+ * @brief Interpret a batched-tensor (last dim is the batch index) as an array of matrices with the provided row and column dimensions 
+ *        The output data are rearranged such that these matrices are contiguous in row-major, suitable for BLAS libraries
+ * @param rowdim The dimension of the input tensor that is interpreted as the output matrix row dimension
+ * @param coldim The dimension of the input tensor that is interpreted as the output matrix column dimension
+ * @param tens The input tensor
+ * @return An array of contiguous matrices in row-major format
+ */
+template<typename FloatType, int Dim>
+Vector<FloatType> transformBatchMatrix(int rowdim, int coldim, const Tensor<FloatType,Dim> &tens);
+
+/**
+ * @brief Perform the inverse operation of transformBatchMatrix, taking an array of matrices with the provided row and column dimensions and interpreting them as a batched-tensor (last dim is the batch index)
+ * @param rowdim The dimension of the output tensor that is interpreted as the output matrix row dimension
+ * @param coldim The dimension of the output tensor that is interpreted as the output matrix column dimension
+ * @param tens The output tensor, setup prior to the call to the appropriate dimension
+ * @param from An array of contiguous matrices in row-major format
+ */
+template<typename FloatType, int Dim>
+void untransformBatchMatrix(int rowdim, int coldim, Tensor<FloatType,Dim> &tens, Vector<FloatType> &from);
+
+
+
 #include "implementation/Tensors.tcc"
 
 // #ifndef TENSORS_EXTERN_TEMPLATE_INST

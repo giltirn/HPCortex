@@ -809,3 +809,205 @@ void unnormalize(Tensor<FloatType,Dim> &tens, const int dimension, const normali
 }
 
 
+template<typename FloatType, int Dim>
+void untransformBatchMatrix(int rowdim, int coldim, Tensor<FloatType,Dim> &tens, Vector<FloatType> &from){
+  assert(rowdim != coldim);
+  autoView(tens_v,tens,DeviceWrite);
+  autoView(from_v,from,DeviceRead);
+  
+  accelerator_for_gen(1,0,splitBlock<32>(), i, tens.data_len(),{
+      int coord[Dim];
+      tensorOffsetUnmap<Dim>(coord, tens_v.sizeArray(), i);
+
+      int o=0;
+      for(int d=0;d<Dim;d++) if(d != rowdim && d != coldim) o = o * tens_v.size(d) + coord[d];
+    
+      int off = coord[coldim] + tens_v.size(coldim)*( coord[rowdim] + tens_v.size(rowdim) * o );
+      tens_v.data()[i] = from_v(off);
+    });
+}
+template<typename FloatType>
+void untransformBatchMatrix(int rowdim, int coldim, Tensor<FloatType,3> &tens, Vector<FloatType> &from){
+  assert(rowdim == !coldim);
+  autoView(tens_v,tens,DeviceWrite);
+  autoView(from_v,from,DeviceRead);
+
+  int ni = tens.size(0);
+  int nj = tens.size(1);
+  int nb = tens.size(2);
+  int nrows_out = tens.size(rowdim);
+  int ncols_out = tens.size(coldim);
+
+  if(rowdim == 0){
+    constexpr int jblocksz = 32;
+    constexpr int bblocksz = 32;
+    constexpr int nthr = jblocksz;
+    int nbblocks = (nb + bblocksz -1)/bblocksz;
+    int njblocks = (nj + jblocksz -1)/jblocksz;
+    
+    accelerator_for_4d_gen(1,3,shm(jblocksz*(bblocksz+1)*sizeof(FloatType)), t, nthr,i,ni,bblock,nbblocks,jblock,njblocks,{
+	FloatType *bstore = (FloatType*)shared;
+	int jbase = jblock * jblocksz;
+	int jblocksz_actual = nj - jbase < jblocksz ? nj - jbase : jblocksz;
+	int bbase = bblock * bblocksz;
+	int bblocksz_actual = nb - bbase < bblocksz ? nb - bbase : bblocksz;
+	
+	//load a block jsize=nthr  bsize=bblocksz  into shm
+	for(int bb=0;bb<bblocksz_actual;bb++){
+	  int b = bb + bbase;
+	  //load nthr consecutive j for fixed b
+	  if(t < jblocksz_actual){
+	    FloatType const* fp = from_v.data() + t + jbase + nj*(i + ni*b);  //off = j + nj * (i + ni * b);
+	    bstore[t + (nthr+1)*bb] = *fp;
+	  }
+	}
+	acceleratorSynchronizeBlock();
+
+	for(int jj=0;jj<jblocksz_actual;jj++){	    
+	  //parallel write of bsize=bblock	  
+	  if(t < bblocksz_actual){ //assume nthr >= bblocksz
+	    int b = bbase + t;
+	    tens_v(i,jbase+jj,b) = bstore[jj + (nthr+1)*t];	     
+	  }
+	}
+      });
+  }else{
+    constexpr int iblocksz = 32;
+    constexpr int bblocksz = 32;
+    constexpr int nthr = iblocksz;
+    int nbblocks = (nb + bblocksz -1)/bblocksz;
+    int niblocks = (ni + iblocksz -1)/iblocksz;
+    
+    accelerator_for_4d_gen(1,3,shm(iblocksz*(bblocksz+1)*sizeof(FloatType)), t, nthr,j,nj,bblock,nbblocks,iblock,niblocks,{
+	FloatType *bstore = (FloatType*)shared;
+	int ibase = iblock * iblocksz;
+	int iblocksz_actual = ni - ibase < iblocksz ? ni - ibase : iblocksz;
+	int bbase = bblock * bblocksz;
+	int bblocksz_actual = nb - bbase < bblocksz ? nb - bbase : bblocksz;
+	
+	//load a block isize=nthr  bsize=bblocksz  into shm
+	for(int bb=0;bb<bblocksz_actual;bb++){
+	  int b = bb + bbase;
+	  //load nthr consecutive i for fixed b
+	  if(t < iblocksz_actual){
+	    FloatType const* fp = from_v.data() + t + ibase + ni*(j + nj*b);  //off = i + ni * (j + nj * b);
+	    bstore[t + (nthr+1)*bb] = *fp;
+	  }
+	}
+	acceleratorSynchronizeBlock();
+
+	for(int ii=0;ii<iblocksz_actual;ii++){	    
+	  //parallel write of bsize=bblock	  
+	  if(t < bblocksz_actual){ //assume nthr >= bblocksz
+	    int b = bbase + t;
+	    tens_v(ibase+ii,j,b) = bstore[ii + (nthr+1)*t];	     
+	  }
+	}
+      });
+    
+
+  }
+}
+
+template<typename FloatType, int Dim>
+Vector<FloatType> transformBatchMatrix(int rowdim, int coldim, const Tensor<FloatType,Dim> &tens){
+  assert(rowdim != coldim);
+  Vector<FloatType> into(tens.data_len());
+  autoView(tens_v,tens,DeviceRead);
+  autoView(into_v,into,DeviceWrite);
+  
+  accelerator_for_gen(1,0,splitBlock<32>(), i, tens.data_len(),{
+      int coord[Dim];
+      tensorOffsetUnmap<Dim>(coord, tens_v.sizeArray(), i);
+
+      int o=0;
+      for(int d=0;d<Dim;d++) if(d != rowdim && d != coldim) o = o * tens_v.size(d) + coord[d];
+    
+      int off = coord[coldim] + tens_v.size(coldim)*( coord[rowdim] + tens_v.size(rowdim) * o );
+      into_v(off) = tens_v.data()[i];
+    });
+
+  return into;
+}
+template<typename FloatType>
+Vector<FloatType> transformBatchMatrix(int rowdim, int coldim, const Tensor<FloatType,3> &tens){
+  assert(rowdim == !coldim);
+  Vector<FloatType> into(tens.data_len());
+  autoView(tens_v,tens,DeviceRead);
+  autoView(into_v,into,DeviceWrite);
+
+  int ni = tens.size(0);
+  int nj = tens.size(1);
+  int nb = tens.size(2);
+  int nrows_out = tens.size(rowdim);
+  int ncols_out = tens.size(coldim);
+
+  if(rowdim == 0){
+    constexpr int jblocksz = 32;
+    constexpr int bblocksz = 32;
+    constexpr int nthr = bblocksz;
+    int nbblocks = (nb + bblocksz -1)/bblocksz;
+    int njblocks = (nj + jblocksz -1)/jblocksz;
+    
+    accelerator_for_4d_gen(1,3,shm(bblocksz*(jblocksz+1)*sizeof(FloatType)), t, nthr,i,ni,bblock,nbblocks,jblock,njblocks,{
+	FloatType *bstore = (FloatType*)shared;
+	int jbase = jblock * jblocksz;
+	int jblocksz_actual = nj - jbase < jblocksz ? nj - jbase : jblocksz;
+	int bbase = bblock * bblocksz;
+	int bblocksz_actual = nb - bbase < bblocksz ? nb - bbase : bblocksz;
+	
+	//load a block bsize=nthr  jsize=jblocksz  into shm
+	for(int jj=0;jj<jblocksz_actual;jj++){
+	  int j = jj + jbase;
+	  //load nthr consecutive b for fixed j
+	  if(t < bblocksz_actual){
+	    int b = bbase + t;
+	    bstore[t + (nthr+1)*jj] = tens_v(i,j,b);
+	  }
+	}
+	acceleratorSynchronizeBlock();
+
+	for(int bb=0;bb<bblocksz_actual;bb++){	    
+	  //parallel write of jsize=jblock
+	  int b = bb + bbase;
+	  if(t < jblocksz_actual){ //assume nthr >= jblocksz
+	    into_v.data()[t + jbase + nj*(i + ni*b)] = bstore[bb + (nthr+1)*t]  ;  //off = j + nj * (i + ni * b);
+	  }
+	}
+      });
+  }else{
+    constexpr int iblocksz = 32;
+    constexpr int bblocksz = 32;
+    constexpr int nthr = bblocksz;
+    int nbblocks = (nb + bblocksz -1)/bblocksz;
+    int niblocks = (ni + iblocksz -1)/iblocksz;
+    
+    accelerator_for_4d_gen(1,3,shm(bblocksz*(iblocksz+1)*sizeof(FloatType)), t, nthr,j,nj,bblock,nbblocks,iblock,niblocks,{
+	FloatType *bstore = (FloatType*)shared;
+	int ibase = iblock * iblocksz;
+	int iblocksz_actual = ni - ibase < iblocksz ? ni - ibase : iblocksz;
+	int bbase = bblock * bblocksz;
+	int bblocksz_actual = nb - bbase < bblocksz ? nb - bbase : bblocksz;
+	
+	//load a block bsize=nthr  isize=iblocksz  into shm
+	for(int ii=0;ii<iblocksz_actual;ii++){
+	  int i = ii + ibase;
+	  //load nthr consecutive b for fixed i
+	  if(t < bblocksz_actual){
+	    int b = bbase + t;
+	    bstore[t + (nthr+1)*ii] = tens_v(i,j,b);
+	  }
+	}
+	acceleratorSynchronizeBlock();
+
+	for(int bb=0;bb<bblocksz_actual;bb++){	    
+	  //parallel write of isize=iblock
+	  int b = bb + bbase;
+	  if(t < iblocksz_actual){ //assume nthr >= jblocksz
+	    into_v.data()[t + ibase + ni*(j + nj*b)] = bstore[bb + (nthr+1)*t]  ;  //off = i + ni * (j + nj * b);
+	  }
+	}
+      });
+  }
+  return into;
+}
