@@ -4,7 +4,7 @@ AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_builddir)/include
 AM_CXXFLAGS = -fPIC
 
 # List your C++ source files here.
-sources = Init.cpp ActivationFuncs.cpp LossFunctions.cpp Accelerator.cpp Graph.cpp DDP.cpp Tensors.cpp Serialization.cpp Comms.cpp MemoryManager.cpp LayerIOcontainer.cpp
+sources = Init.cpp ActivationFuncs.cpp LossFunctions.cpp Accelerator.cpp Graph.cpp DDP.cpp Tensors.cpp Serialization.cpp BLAS.cpp Comms.cpp MemoryManager.cpp LayerIOcontainer.cpp
 # Convert .cpp sources to object files.
 objects = $(sources:.cpp=.o)
 

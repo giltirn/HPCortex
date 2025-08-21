@@ -1,6 +1,7 @@
 #pragma once
 #include <Tensors.hpp>
 #include <Accelerator.hpp>
+#include <BLAS.hpp>
 #include <Performance.hpp>
 
 ////////////////////////////// Matrix linalg //////////////////////////////////////////////////

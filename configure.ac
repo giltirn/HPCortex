@@ -104,6 +104,47 @@ if test "x$enable_openmp" = "xyes"; then
      AC_MSG_FAILURE([OpenMP support was requested, but your compiler does not appear to support it])])
 fi
 
+# Check for the --enable-cublas option
+AC_ARG_ENABLE([cublas],
+  [AS_HELP_STRING([--enable-cublas],
+    [Enable CuBLAS support for high-performance matrix operations])],
+  [:],
+  [enable_cublas=no])
+
+if test "x$enable_cublas" != "xno"; then
+  AC_MSG_NOTICE([Enabling CuBLAS support])
+
+  if test "x$enable_cuda" != "xyes"; then
+    AC_MSG_FAILURE([--enable-cublas option requires compiling with CUDA support])
+  fi
+
+  if test "x$enable_cublas" != "xyes"; then
+    #If not directly "yes", treat it as a path to the cuda installation
+    CXXFLAGS="$CXXFLAGS -I$enable_cublas/include"
+    LDFLAGS="$LDFLAGS -I$enable_cublas/lib64"
+  fi
+
+  LDFLAGS+=" -lcublas"
+
+  AC_COMPILE_IFELSE(
+    [
+      AC_LANG_PROGRAM(
+        [[#include<cublas_v2.h>]],
+        [[cublasHandle_t handle; cublasCreate(&handle);]]
+      )
+    ],
+    [
+      AC_MSG_RESULT([CuBLAS support available])
+      AC_DEFINE([USE_CUBLAS],[1],[Use CuBLAS])
+      AC_DEFINE([USE_BLAS],[1],[Use BLAS])
+    ],
+    [AC_MSG_RESULT([CuBLAS support not available])
+     AC_MSG_FAILURE([CuBLAS support was requested, but the test code did not compile])]
+  )
+
+
+fi
+
 
 HPCORTEX_CXX="$CXX"
 HPCORTEX_CXXLD="$CXXLD"

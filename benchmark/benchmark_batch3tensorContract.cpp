@@ -1,5 +1,6 @@
 #include<HPCortex.hpp>
 #include<Testing.hpp>
+#include<cublas_v2.h>
 
 #ifdef USE_GPU
 
@@ -758,19 +759,66 @@ Tensor<FloatType,3> batch3tensorContract_v8(const Tensor<FloatType,3> &A, const 
   return out;
 }
 
+template<typename FloatType>
+Tensor<FloatType,3> batch3tensorContract_v9(const Tensor<FloatType,3> &A, const Tensor<FloatType,3> &B, int contract_dimA, int contract_dimB, FloatType nrm){
+#ifdef USE_BLAS
+  Vector<FloatType> Abatch = transformBatchMatrix(contract_dimA, !contract_dimA, A); //A[!contract_dim_A, contract_dim_A] in column major
+  Vector<FloatType> Bbatch = transformBatchMatrix(!contract_dimB, contract_dimB, B); //B[contract_dim_B, !contract_dim_B]
+  int nbatch = A.size(2);
+  
+  int m = A.size(!contract_dimA);
+  int n = B.size(!contract_dimB);
+  int k = A.size(contract_dimA);
+  FloatType beta = 0.;
+  int lda = A.size(!contract_dimA); //column major,  leading dimension is number of rows
+  int ldb = B.size(contract_dimB);
 
+  int omat_sz = A.size(!contract_dimA) * B.size(!contract_dimB);
+  int ldc = A.size(!contract_dimA); //C[ A.size(!contract_dim_A), B.size(!contract_dim_B) ] in column major
+  Vector<FloatType> Cbatch(omat_sz * nbatch);
+
+  int Astride = A.size(!contract_dimA)*A.size(contract_dimA);
+  int Bstride = B.size(!contract_dimB)*B.size(contract_dimB);
+  int Cstride = omat_sz;
+  {
+    autoView(Cbatch_v,Cbatch,DeviceWrite);
+    autoView(Abatch_v,Abatch,DeviceRead);
+    autoView(Bbatch_v,Bbatch,DeviceRead);
+    
+    batchedGEMM(NoTranspose, NoTranspose, 
+		m, n, k,
+		&nrm,
+		Abatch_v.data(), lda, Astride,
+		Bbatch_v.data(), ldb, Bstride,
+		&beta,
+		Cbatch_v.data(), ldc, Cstride,
+		nbatch);
+  }
+  //C_{ijb} = \sum_k A_{kib} B_{jkb} * nrm
+  Tensor<FloatType,3> C(A.size(!contract_dimA),B.size(!contract_dimB),A.size(2));
+  untransformBatchMatrix(1,0,C, Cbatch);
+  return C;
+#else
+  return batch3tensorContract(A,B,contract_dimA,contract_dimB,nrm);
+#endif
+}
+  
 
 int main(int argc, char** argv){
   initialize(argc,argv);
   std::mt19937 rng(1234);
 
-  std::vector<int> contract_dim_sizes = { 2, 5,  8, 16, 64, 256, 512 };
-  std::vector<int> batch_sizes = {1, 5, 8 , 16, 32, 64};
-  std::vector<int> other_dim_sizes = { 2, 5, 8, 16, 64, 256, 512 };
+  std::vector<int> contract_dim_sizes = { 2, 5,  8, 16, 32, 33, 64, 256, 512 };
+  std::vector<int> batch_sizes = {1, 5, 8 , 16, 32, 33, 64};
+  std::vector<int> other_dim_sizes = { 2, 5, 8, 16, 32, 33, 64, 256, 512 };
 
-  // std::vector<int> contract_dim_sizes = { 512 };
-  // std::vector<int> batch_sizes = { 32};
-  // std::vector<int> other_dim_sizes = { 512 };
+  // std::vector<int> contract_dim_sizes = {32,64, 128};
+  // std::vector<int> batch_sizes = {16, 32, 64};
+  // std::vector<int> other_dim_sizes = { 16, 32, 64, 128, 256 };
+  
+  // std::vector<int> contract_dim_sizes = { 32 };
+  // std::vector<int> batch_sizes = { 64};
+  // std::vector<int> other_dim_sizes = { 256 };
   
   
   for(int contract_dim_A=0; contract_dim_A<1; contract_dim_A++){
@@ -784,13 +832,15 @@ int main(int argc, char** argv){
 	    int bsz[3] = { other_dim_size, other_dim_size, batch_size };
 	    bsz[contract_dim_B] = contract_dim_size;
 
+	    size_t FLOPS = size_t(other_dim_size) * size_t(other_dim_size) *size_t(batch_size) * size_t(contract_dim_size)*2  +   size_t(other_dim_size) * size_t(other_dim_size) *size_t(batch_size);
+	    
 #if 1
 	    {
 	      Tensor<double,3> a(asz), b(bsz);
 	      uniformRandom(a,rng);
 	      uniformRandom(b,rng);
 	      
-	      Tensor<double,3> cgot = batch3tensorContract_v8(a,b,contract_dim_A,contract_dim_B,3.141);
+	      Tensor<double,3> cgot = batch3tensorContract_v9(a,b,contract_dim_A,contract_dim_B,3.141);
 	      Tensor<double,3> ctest = batch3tensorContractBase(a,b,contract_dim_A,contract_dim_B,3.141);
 	      assert(abs_near(cgot,ctest,1e-5,true));
 	    }
@@ -805,7 +855,7 @@ int main(int argc, char** argv){
 	    Tensor<float,3> c;
 	    benchmark(mu, sigma, 100, 1, [&]{
 	      profileStart();
-	      c = batch3tensorContract_v8(a,b,contract_dim_A,contract_dim_B,3.141f);
+	      c = batch3tensorContract_v9(a,b,contract_dim_A,contract_dim_B,3.141f);
 	      profileStop();
 	    }, []{});
 
@@ -813,17 +863,18 @@ int main(int argc, char** argv){
 	    double mu_base, sigma_base;
 	    benchmark(mu_base, sigma_base, 100, 1, [&]{
 	      profileStart();
-	      c = batch3tensorContractBase(a,b,contract_dim_A,contract_dim_B,3.141f);
+	      c = batch3tensorContract(a,b,contract_dim_A,contract_dim_B,3.141f);
 	      profileStop();
 	    }, []{});
 
-	    std::cout << "contract_dim_A:" << contract_dim_A << " contract_dim_B:" << contract_dim_B << "\tother_dim_size:" << other_dim_size << "\tcontract_dim_size:" << contract_dim_size << "\tbatch_size:" << batch_size << "\tresult: " << mu/1e-6 << "+-" << sigma/1e-6 << "us" << " base: " << mu_base/1e-6 << "+-" << sigma_base/1e-6 << "us" << std::endl;
+	    std::cout << "contract_dim_A:" << contract_dim_A << " contract_dim_B:" << contract_dim_B << "\tother_dim_size:" << other_dim_size << "\tcontract_dim_size:" << contract_dim_size << "\tbatch_size:" << batch_size << "\tresult: " << mu/1e-6 << "+-" << sigma/1e-6 << "us (" << FLOPS/mu/1e9  << " Gflops) base: " << mu_base/1e-6 << "+-" << sigma_base/1e-6 << "us (" << FLOPS/mu_base/1e9 << " Gflops)" << std::endl;
 #endif
 	  }
 	}
       }
     }
   }
+ 
   return 0;
 }
 

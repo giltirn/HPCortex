@@ -3,6 +3,7 @@
 #include <Init.hpp>
 #include <Comms.hpp>
 #include <Accelerator.hpp>
+#include <BLAS.hpp>
 #include <Random.hpp>
 #include <Performance.hpp>
 #include <ModelConfig.hpp>

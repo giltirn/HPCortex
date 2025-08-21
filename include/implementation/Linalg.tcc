@@ -277,6 +277,54 @@ Matrix<FloatType> axpyMatThinMat(const Matrix<FloatType> &a, const Matrix<FloatT
 
 template<typename FloatType>
 Tensor<FloatType,3> batch3tensorContract(const Tensor<FloatType,3> &A, const Tensor<FloatType,3> &B, int contract_dimA, int contract_dimB, FloatType nrm, FLOPScounter *flops){
+
+  //BLAS version -- optimal for all but small tensor sizes, for which the kernel launch overheads are dominant
+#ifdef USE_BLAS
+  
+  Vector<FloatType> Abatch = transformBatchMatrix(contract_dimA, !contract_dimA, A); //A[!contract_dim_A, contract_dim_A] in column major
+  Vector<FloatType> Bbatch = transformBatchMatrix(!contract_dimB, contract_dimB, B); //B[contract_dim_B, !contract_dim_B]
+  int nbatch = A.size(2);
+  
+  int m = A.size(!contract_dimA);
+  int n = B.size(!contract_dimB);
+  int k = A.size(contract_dimA);
+  FloatType beta = 0.;
+  int lda = A.size(!contract_dimA); //column major,  leading dimension is number of rows
+  int ldb = B.size(contract_dimB);
+
+  int omat_sz = A.size(!contract_dimA) * B.size(!contract_dimB);
+  int ldc = A.size(!contract_dimA); //C[ A.size(!contract_dim_A), B.size(!contract_dim_B) ] in column major
+  Vector<FloatType> Cbatch(omat_sz * nbatch);
+
+  int Astride = A.size(!contract_dimA)*A.size(contract_dimA);
+  int Bstride = B.size(!contract_dimB)*B.size(contract_dimB);
+  int Cstride = omat_sz;
+  {
+    autoView(Cbatch_v,Cbatch,DeviceWrite);
+    autoView(Abatch_v,Abatch,DeviceRead);
+    autoView(Bbatch_v,Bbatch,DeviceRead);
+    
+    batchedGEMM(NoTranspose, NoTranspose, 
+		m, n, k,
+		&nrm,
+		Abatch_v.data(), lda, Astride,
+		Bbatch_v.data(), ldb, Bstride,
+		&beta,
+		Cbatch_v.data(), ldc, Cstride,
+		nbatch);
+  }
+  //C_{ijb} = \sum_k A_{kib} B_{jkb} * nrm
+  Tensor<FloatType,3> C(A.size(!contract_dimA),B.size(!contract_dimB),A.size(2));
+  untransformBatchMatrix(1,0,C, Cbatch);
+
+  if(flops != nullptr && !flops->locked())
+    flops->add(C.size(0)*C.size(1)*C.size(2) * A.size(contract_dimA)*2 + C.size(0)*C.size(1)*C.size(2));
+  
+  return C;
+
+  
+#else
+  
   assert(A.size(2) == B.size(2));
   size_t batch_size = A.size(2);
 
@@ -303,7 +351,7 @@ Tensor<FloatType,3> batch3tensorContract(const Tensor<FloatType,3> &A, const Ten
   size_t bstride = Bstride[1-contract_dimB];
   
   if(flops != nullptr && !flops->locked())
-    flops->add(sizes_out[0]*sizes_out[1]*batch_size * sizek*2);
+    flops->add(sizes_out[0]*sizes_out[1]*batch_size * sizek*2  + sizes_out[0]*sizes_out[1]*batch_size);
     
   {
     autoView(out_v,out,DeviceWrite);
@@ -325,6 +373,8 @@ Tensor<FloatType,3> batch3tensorContract(const Tensor<FloatType,3> &A, const Ten
       });
   }
   return out;
+
+#endif //USE_BLAS
 }
 
   
