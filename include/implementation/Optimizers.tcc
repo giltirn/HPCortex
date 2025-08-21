@@ -85,6 +85,7 @@ train(LossWrappedModelType &loss_func, const DataLoader &train_data, DataLoader 
     }
     lavg_train /= nblocks_ddp_train;
     double train_time = since(ts);
+    double train_Tflops = nbatch_train * double(loss_func.FLOPS(0) + loss_func.FLOPS(1) + 2*loss_func.nparams())/1.0e12 / train_time;
     
     //////////// end train epoch ///////////////
     
@@ -113,13 +114,15 @@ train(LossWrappedModelType &loss_func, const DataLoader &train_data, DataLoader 
       }
       lavg_valid /= nblocks_ddp_valid;
       double valid_time = since(ts);
+      double valid_Tflops = nbatch_valid * double(loss_func.FLOPS(0))/1.0e12 / valid_time;
+      
       //////////// end validate epoch ///////////////
       
       if(do_print) std::cout << "Epoch : " << epoch << std::endl
-			     << "training time : " << train_time <<"s " << " loss min: " << lmin_train << " avg: " << lavg_train << " max: " << lmax_train << std::endl
-			     << "validation time : " << valid_time <<"s " << " loss min: " << lmin_valid << " avg: " << lavg_valid << " max: " << lmax_valid << std::endl;
+			     << "training time : " << train_time <<"s (" << train_Tflops << " Tflops) loss min: " << lmin_train << " avg: " << lavg_train << " max: " << lmax_train << std::endl
+			     << "validation time : " << valid_time <<"s (" << valid_Tflops << " Tflops) loss min: " << lmin_valid << " avg: " << lavg_valid << " max: " << lmax_valid << std::endl;
     }else{ //if not validating, just print info on the training losses    
-      if(do_print) std::cout << "Epoch : " << epoch << " time : " << train_time <<"s " << " loss min: " << lmin_train << " avg: " << lavg_train << " max: " << lmax_train << std::endl;    
+      if(do_print) std::cout << "Epoch : " << epoch << " time : " << train_time <<"s ("<< train_Tflops << " Tflops) loss min: " << lmin_train << " avg: " << lavg_train << " max: " << lmax_train << std::endl;    
     }
   }//epoch
       

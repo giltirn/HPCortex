@@ -102,7 +102,7 @@ void ScaleComponent<Config,TensDim>::deriv(Vector<FloatType> &cost_deriv, int of
     int p_gamma = off;
     int p_beta = use_affine ? off + scale_dim_size : off;
    
-    accelerator_for2d(j, scale_dim_size, o, other_dim_vol, 1, {
+    accelerator_for_2d_gen(1,1,splitBlock<64>(), j, scale_dim_size, o, other_dim_vol, {
 	size_t off_0oj = batchTensorDimensionBaseLin<TensDim>(_scale_dim, 0,o, dcost_by_dOut_v.sizeArray()) + j*_stride;
 	FloatType* dcost_by_dOut_p = dcost_by_dOut_v.data() + off_0oj;
 	FloatType* in_p = in_v.data() + off_0oj;

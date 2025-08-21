@@ -63,6 +63,10 @@ public:
   size_t FLOPS(int value_or_deriv) const{ return value_or_deriv == 0 ? value_FLOPS.value() : deriv_FLOPS.value(); }
 
   inline int nparams() const{ return nparams_val; }
+
+  inline void resizeInputBuffer(size_t to){
+    in_buf.resize(to);
+  }
 };
 
 #include "implementation/ScaleComponent.tcc"
