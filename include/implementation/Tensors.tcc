@@ -1011,3 +1011,100 @@ Vector<FloatType> transformBatchMatrix(int rowdim, int coldim, const Tensor<Floa
   }
   return into;
 }
+
+template<typename FloatType, int Dim>
+Vector<FloatType> transformBatchVector(int vecdim, const Tensor<FloatType,Dim> &tens){
+  assert(vecdim != Dim-1); //batch dim
+  Vector<FloatType> into(tens.data_len());
+  autoView(tens_v,tens,DeviceRead);
+  autoView(into_v,into,DeviceWrite);
+
+  int stride = tensorDimensionStride<Dim>(vecdim, tens.sizeArray());
+  int other_size_lin=1;
+  for(int i=0;i<Dim-1;i++)
+    if(i != vecdim) other_size_lin *= tens.size(i);
+  int batch_size = tens.size(Dim-1);
+
+  constexpr int bblocksize = 32;
+  int bblocks = (batch_size + bblocksize -1)/bblocksize;
+
+  int isize = tens.size(vecdim);
+  constexpr int iblocksize = 32;
+  int iblocks = (isize + iblocksize -1)/iblocksize;
+  
+  accelerator_for_4d_gen(1,3,shm( (bblocksize+1)*iblocksize*sizeof(FloatType)), t, bblocksize, bblock, bblocks, bi, iblocks, o, other_size_lin,{
+      FloatType* bstore = (FloatType*)shared;
+      int ioff = bi*iblocksize;
+      int iblocksize_actual = min(isize - ioff,iblocksize);
+
+      int boff = bblock*bblocksize;
+      int bblocksize_actual = min(batch_size - boff,bblocksize);
+      
+      FloatType* tens_p = tens_v.data() + batchTensorDimensionBaseLin<Dim>(vecdim, t + boff, o, tens_v.sizeArray());
+      
+      //parallel load batch_size data into shared
+      for(int ii=0;ii<iblocksize_actual;ii++){      
+	int i = ii + ioff;
+	if(t < bblocksize_actual) bstore[t + (bblocksize+1)*ii] = *(tens_p + i*stride);
+      }
+      acceleratorSynchronizeBlock();
+
+      //parallel write iblocksize into output
+      for(int bb=0;bb<bblocksize_actual;bb++){
+	int ii=t;
+	while( ii < iblocksize_actual){
+	  into_v( ii + ioff + isize*(bb + boff + batch_size*o) ) = bstore[bb + (bblocksize+1)*ii ];	  
+	  ii += bblocksize;
+	}
+      }
+
+    });
+  
+  return into;
+}
+template<typename FloatType, int Dim>
+void untransformBatchVector(int vecdim, Tensor<FloatType,Dim> &tens, const Vector<FloatType> &from){
+  assert(vecdim != Dim-1); //batch dim
+  autoView(tens_v,tens,DeviceWrite);
+  autoView(from_v,from,DeviceRead);
+
+  int stride = tensorDimensionStride<Dim>(vecdim, tens.sizeArray());
+  int other_size_lin=1;
+  for(int i=0;i<Dim-1;i++)
+    if(i != vecdim) other_size_lin *= tens.size(i);
+  int batch_size = tens.size(Dim-1);
+  int isize = tens_v.size(vecdim);
+  
+  constexpr int iblocksz = 32;
+  int iblocks = (isize + iblocksz -1)/iblocksz;
+
+  constexpr int bblocksz = 32;
+  int bblocks = (batch_size + bblocksz - 1)/bblocksz;
+  
+  accelerator_for_4d_gen(1,3,shm( (iblocksz+1)*bblocksz*sizeof(FloatType)), t, iblocksz, bi,iblocks,  bblock, bblocks, o, other_size_lin,{
+      FloatType* bstore = (FloatType*)shared;
+      int ioff = bi*iblocksz;
+      int iblocksz_actual = min(isize - ioff, iblocksz);
+
+      int boff = bblock*bblocksz;
+      int bblocksz_actual = min(batch_size - boff, bblocksz);
+
+      //parallel load iblocksz data into shared
+      for(int bb=0;bb<bblocksz_actual;bb++)
+	if(t < iblocksz_actual) bstore[t + (iblocksz+1)*bb] = from_v( t + ioff + isize*(bb + boff + batch_size*o ) );
+
+      acceleratorSynchronizeBlock();
+      
+      FloatType* tens_p = tens_v.data() + batchTensorDimensionBaseLin<Dim>(vecdim, boff, o, tens_v.sizeArray());
+
+      //parallel write bblocksz into output
+      for(int ii=0;ii<iblocksz_actual;ii++){
+	int bb =t;
+	while( bb < bblocksz_actual){
+	  *(tens_p + bb + (ii + ioff)*stride) = bstore[ii + (iblocksz+1)*bb];
+	  bb+=iblocksz;
+	}
+      }
+	  
+    });
+}

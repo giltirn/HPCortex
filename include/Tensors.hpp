@@ -736,8 +736,26 @@ Vector<FloatType> transformBatchMatrix(int rowdim, int coldim, const Tensor<Floa
 template<typename FloatType, int Dim>
 void untransformBatchMatrix(int rowdim, int coldim, Tensor<FloatType,Dim> &tens, Vector<FloatType> &from);
 
+/**
+ * @brief Interpret a batched-tensor (last dim is the batch index) as an array of vectors with the provided vector dimension
+ *        The output data are rearranged such that these matrices are contiguous in row-major, suitable for BLAS libraries
+ * @param vecdim The dimension of the input tensor that is interpreted as the output vector dimension
+ * @param tens The input tensor
+ * @return An array of contiguous vectors
+ */
+template<typename FloatType, int Dim>
+Vector<FloatType> transformBatchVector(int vecdim, const Tensor<FloatType,Dim> &tens);
 
 
+/**
+ * @brief Perform the inverse operation of transformBatchVector, taking an array of vectors with the provided vector dimension and interpreting them as a batched-tensor (last dim is the batch index)
+ * @param vecdim The dimension of the output tensor that is interpreted as the vector dimension
+ * @param tens The output tensor, setup prior to the call to the appropriate dimension
+ * @param from An array of contiguous vectors
+ */
+template<typename FloatType, int Dim>
+void untransformBatchVector(int vecdim, Tensor<FloatType,Dim> &tens, const Vector<FloatType> &from);
+  
 #include "implementation/Tensors.tcc"
 
 // #ifndef TENSORS_EXTERN_TEMPLATE_INST

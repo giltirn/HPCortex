@@ -83,8 +83,77 @@ void testTransformBatchMatrix(){
   std::cout << "testTransformBatchMatrix passed" << std::endl;
 }
 
+void testTransformBatchVector(){
+  std::mt19937 rng(1234);
+  typedef double FloatType;
+
+  std::vector<int> batch_sizes = {1,4,5,8,32,64};
+  std::vector<int> vec_sizes = { 2,3,4,5,8,32,64,128,256 };
+  std::vector<int> other_sizes = {1,2,4,5,8,32,64};
+
+  for(int vecsz : vec_sizes){
+    for(int other_size : other_sizes){
+      for(int batch_size : batch_sizes){
+	std::cout << "vec_size: " << vecsz << " other_size: " << other_size << " batch_size: " << batch_size << std::endl;
+
+	{
+	  int sz[3] = {vecsz,other_size,batch_size};
+	  Tensor<FloatType,3> tens(sz);
+	  uniformRandom(tens,rng);
+	
+	  Vector<FloatType> got = transformBatchVector(0,tens);
+	  {
+	    autoView(tens_v,tens,HostRead);
+	    autoView(got_v,got,HostRead);
+	  
+	    for(int o=0;o<sz[1];o++){
+	      for(int b=0;b<sz[2];b++){
+		int off = (b +sz[2]*o)*vecsz;
+		FloatType const* vec = got_v.data() + off;
+		for(int r=0;r<sz[0];r++)
+		  assert(vec[r] == tens_v(r,o,b));
+	      }
+	    }
+	  }
+	  Tensor<FloatType,3> bak(sz);
+	  untransformBatchVector(0,bak, got);
+	  assert(equal(bak,tens,true));
+	}
+      
+	{
+	  int sz[3] = {other_size,vecsz,batch_size};
+	  Tensor<FloatType,3> tens(sz);
+	  uniformRandom(tens,rng);
+	
+	  Vector<FloatType> got = transformBatchVector(1,tens);
+	  {
+	    autoView(tens_v,tens,HostRead);
+	    autoView(got_v,got,HostRead);
+      
+	    for(int o=0;o<sz[0];o++){
+	      for(int b=0;b<sz[2];b++){
+		int off = (b +sz[2]*o)*vecsz;
+		FloatType const* vec = got_v.data() + off;
+		for(int r=0;r<sz[1];r++)
+		  assert(vec[r] == tens_v(o,r,b));
+	      }
+	    }
+      
+	    Tensor<FloatType,3> bak(sz);
+	    untransformBatchVector(1,bak, got);
+	    assert(equal(bak,tens,true));
+	  }
+	}
+      }
+    }
+  }
+  std::cout << "testTransformBatchVector passed" << std::endl;
+}
+
+
 int main(int argc, char** argv){
   initialize(argc,argv);
   testTransformBatchMatrix();
+  testTransformBatchVector();
   return 0;
 }

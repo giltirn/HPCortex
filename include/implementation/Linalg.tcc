@@ -610,6 +610,45 @@ inline void batchTensorContractToMatrix_p(FloatType* out_p, const Matrix<FloatTy
 //out_{jb} = \sum_i X_{...,i,...,b}A_{ij} 
 template<typename FloatType,int Dim>
 Tensor<FloatType,Dim> matrixBatchTensorContractRight(const Tensor<FloatType,Dim> &X, const Matrix<FloatType> &A, const int contract_dim, FLOPScounter *flops){
+#ifdef USE_BLAS
+  Vector<FloatType> Xvec = transformBatchVector(contract_dim,X);
+  
+  int out_dims[Dim];
+  memcpy(out_dims,X.sizeArray(),Dim*sizeof(int));
+  out_dims[contract_dim] = A.size(1);
+  
+  size_t other_size = 1; //dimensions other than the dimensions along which the vector resides
+  for(int d=0;d<Dim;d++)
+    if(d!= contract_dim)
+      other_size *= X.size(d);
+     
+  int sizei = A.size(0);  //contract over
+  int sizej = A.size(1);
+  if(flops != nullptr && !flops->locked())
+    flops->add(other_size*X.size(Dim-1)*sizej*(1+2*(sizei-1) ));
+    
+  Vector<FloatType> ovec(other_size * sizej);
+
+  {
+    autoView(Xvec_v, Xvec, DeviceRead);
+    autoView(A_v, A, DeviceRead);
+    autoView(ovec_v, ovec, DeviceWrite);
+
+    //x_oi A_ij
+    rmGEMM(NoTranspose, NoTranspose,
+	   other_size, sizej, sizei,
+	   FloatType(1.0),
+	   Xvec_v.data(), sizei,
+	   A_v.data(), sizej,
+	   FloatType(0.0),
+	   ovec_v.data());
+  }
+  
+  Tensor<FloatType,Dim> out(out_dims);
+  untransformBatchVector(contract_dim, out, ovec);  
+  return out;
+#else
+  
   int out_dims[Dim];
   memcpy(out_dims,X.sizeArray(),Dim*sizeof(int));
   out_dims[contract_dim] = A.size(1);
@@ -630,7 +669,7 @@ Tensor<FloatType,Dim> matrixBatchTensorContractRight(const Tensor<FloatType,Dim>
   size_t stride = tensorDimensionStride<Dim>(contract_dim, X.sizeArray());
 
   if(flops != nullptr && !flops->locked())
-    flops->add(other_size*batch_size*sizej*(2+2*(sizei-1) ));
+    flops->add(other_size*batch_size*sizej*(1+2*(sizei-1) ));
   
   Tensor<FloatType,Dim> out(out_dims); 
   {
@@ -638,8 +677,7 @@ Tensor<FloatType,Dim> matrixBatchTensorContractRight(const Tensor<FloatType,Dim>
     autoView(A_v, A, DeviceRead);
     autoView(out_v, out, DeviceWrite);
 
-#ifdef USE_GPU
-    
+#  ifdef USE_GPU
     int iblocksz = 64;
     int iblocks = (sizei + iblocksz -1)/iblocksz;
 
@@ -695,7 +733,7 @@ Tensor<FloatType,Dim> matrixBatchTensorContractRight(const Tensor<FloatType,Dim>
 	
       });  
 
-#else
+#  else
     
     accelerator_for3d(b, batch_size, j, sizej, o, other_size, 1, { 
 	size_t out_poff = batchTensorDimensionBaseLin<Dim>(contract_dim, b, o, out_v.sizeArray());
@@ -712,12 +750,10 @@ Tensor<FloatType,Dim> matrixBatchTensorContractRight(const Tensor<FloatType,Dim>
 	out_v.data()[out_poff + j*stride] = v;
       });
 
-#endif
-
-
-    
+#  endif   
   }
   return out;
+#endif
 }
 
 //out_{jb} = \sum_i X_{i,b}A_{ij} = \sum_i X_{i,b}A_{ij}
