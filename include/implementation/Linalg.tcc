@@ -298,7 +298,7 @@ Matrix<FloatType> axpyMatThinMat(const Matrix<FloatType> &a, const Matrix<FloatT
   assert(c.size(0) == sizei);
   assert(b.size(0) == sizej);
   if(flops != nullptr && !flops->locked()) //a_ij b_jk + c_i
-    flops->add(sizei*sizek*sizej*2 + sizei);
+    flops->add(sizei*sizek*sizej*2);
     
   Matrix<FloatType> out(sizei,sizek);
 
@@ -329,7 +329,7 @@ Matrix<FloatType> axpyMatThinMat(const Matrix<FloatType> &a, const Matrix<FloatT
   int size2 = b.size(1);
 
   if(flops != nullptr && !flops->locked()) //a_ij b_jk + c_i
-    flops->add(size0*size2*size1*2 + size0);
+    flops->add(size0*size2*size1*2);
     
   Matrix<FloatType> out(size0,size2);
   {
