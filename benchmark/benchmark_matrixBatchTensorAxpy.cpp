@@ -461,6 +461,61 @@ Tensor<FloatType,Dim> matrixBatchTensorAxpy_v5(const Matrix<FloatType> &A, const
 
 
 
+//A_{ij} X_{..., j, ..., b}  + Y_i
+template<typename FloatType,int Dim>
+Tensor<FloatType,Dim> matrixBatchTensorAxpy_v6(const Matrix<FloatType> &A, const Tensor<FloatType,Dim> &X, const Vector<FloatType> &Y, const int contract_dim){
+#ifdef USE_BLAS
+  int sizei = A.size(0);
+  int sizej = A.size(1);
+
+  int out_dims[Dim];
+  memcpy(out_dims,X.sizeArray(),Dim*sizeof(int));
+  out_dims[contract_dim] = sizei;
+  
+  assert(X.size(contract_dim) == sizej);
+  assert(contract_dim != Dim-1); //not the batch dimension
+
+  size_t other_size = 1;
+  for(int d=0;d<Dim;d++)
+    if(d!= contract_dim)
+      other_size *= X.size(d);
+
+  size_t out_size_lin = other_size * sizei;
+  
+  //A_ij X'_oj = X'_oj A^T_ji -> out_oi
+  Vector<FloatType> outv(out_size_lin); //out_oi
+  {
+    Vector<FloatType> Xvec = transformBatchVector(contract_dim,X); //X'_oj
+
+    autoView(A_v,A,DeviceRead);
+    autoView(Xvec_v,Xvec,DeviceRead);
+    autoView(outv_v,outv,DeviceWrite);
+
+    autoView(Y_v,Y,DeviceRead);
+    accelerator_for_2d_gen(1,1,splitBlock<32>(), i, sizei, o, other_size,
+			   {
+			     outv_v(i+sizei*o) = Y_v(i);
+			   });
+
+  
+    rmGEMM(NoTranspose,Transpose,
+	   other_size, sizei, sizej,
+	   FloatType(1.0),
+	   Xvec_v.data(), sizej,
+	   A_v.data(), sizej,
+	   FloatType(1.0), //initialized out to Y_i, so add
+	   outv_v.data());
+  }
+  Tensor<FloatType,Dim> out(out_dims);
+  untransformBatchVector(contract_dim,out,outv);
+  return out;
+#else
+  return matrixBatchTensorAxpy(A, X, Y, contract_dim);
+#endif
+}
+  
+
+
 int main(int argc, char** argv){
   initialize(argc,argv);
   std::mt19937 rng(1234);
@@ -479,16 +534,33 @@ int main(int argc, char** argv){
     for(auto other_dim_size : other_dim_sizes){
       for(auto matrix_dim : matrix_dims){
 	for(auto batch_size : batch_sizes){
+  
+	  int tsize[3];
+	  tsize[2] = batch_size;
+	  tsize[contract_dim] = matrix_dim;
+	  tsize[1-contract_dim] = other_dim_size;
+
+	  {
+	    Matrix<double> a(matrix_dim, matrix_dim);
+	    uniformRandom(a,rng);
+	    
+	    Vector<double> y(matrix_dim);
+	    uniformRandom(y,rng);
+	    
+	    Tensor<double,3> x(tsize);
+	    uniformRandom(x, rng);
+	    
+	    Tensor<double,3> c = matrixBatchTensorAxpy_v6(a,x,y,contract_dim);
+	    Tensor<double,3> ctest = matrixBatchTensorAxpyBase(a,x,y,contract_dim);
+	    assert(abs_near(c,ctest,1e-6,true));
+	  }
+
+
 	  Matrix<float> a(matrix_dim, matrix_dim);
 	  uniformRandom(a,rng);
 
 	  Vector<float> y(matrix_dim);
 	  uniformRandom(y,rng);
-	  
-	  int tsize[3];
-	  tsize[2] = batch_size;
-	  tsize[contract_dim] = matrix_dim;
-	  tsize[1-contract_dim] = other_dim_size;
 	  
 	  Tensor<float,3> x(tsize);
 	  uniformRandom(x, rng);
@@ -498,22 +570,21 @@ int main(int argc, char** argv){
 	  Tensor<float,3> c;
 	  benchmark(mu, sigma, 100, 1, [&]{
 	    profileStart();
-	    c = matrixBatchTensorAxpy_v5(a,x,y,contract_dim);
+	    c = matrixBatchTensorAxpy_v6(a,x,y,contract_dim);
 	    profileStop();
 	  }, []{});
-
-	  Tensor<float,3> ctest = matrixBatchTensorAxpyBase(a,x,y,contract_dim);
-	  assert(abs_near(c,ctest,1e-4f,true));
 	  
 	  double mu_base, sigma_base;
 	  benchmark(mu_base, sigma_base, 100, 1, [&]{
 	    profileStart();
-	    c = matrixBatchTensorAxpyBase(a,x,y,contract_dim);
+	    c = matrixBatchTensorAxpy(a,x,y,contract_dim);
 	    profileStop();
 	  }, []{});
 
-	  
-	  std::cout << "contract_dim:" << contract_dim << "\tother_dim_size:" << other_dim_size << "\tmatrix_dim:" << matrix_dim << "\tbatch_size:" << batch_size << "\tresult: " << mu/1e-6 << "+-" << sigma/1e-6 << "us" << " base: " << mu_base/1e-6 << "+-" << sigma_base/1e-6 << "us" << std::endl;
+
+	  size_t FLOPS = size_t(other_dim_size)*size_t(matrix_dim)*size_t(batch_size)*size_t(1 + 2*(matrix_dim-1));
+	  	  
+	  std::cout << "contract_dim:" << contract_dim << "\tother_dim_size:" << other_dim_size << "\tmatrix_dim:" << matrix_dim << "\tbatch_size:" << batch_size << "\tresult: " << mu/1e-6 << "+-" << sigma/1e-6 << "us (" << FLOPS/mu/1e9 << " Gflops) base: " << mu_base/1e-6 << "+-" << sigma_base/1e-6 << "us (" << FLOPS/mu_base/1e9 << " Gflops)" << std::endl;
 	}
       }
     }

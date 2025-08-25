@@ -136,6 +136,7 @@ Tensor<FloatType,Dim> matrixBatchTensorContractRight_v2(const Tensor<FloatType,D
 
 template<typename FloatType,int Dim>
 Tensor<FloatType,Dim> matrixBatchTensorContractRight_v3(const Tensor<FloatType,Dim> &X, const Matrix<FloatType> &A, const int contract_dim){
+#ifdef USE_BLAS
   int out_dims[Dim];
   memcpy(out_dims,X.sizeArray(),Dim*sizeof(int));
   out_dims[contract_dim] = A.size(1);
@@ -197,11 +198,15 @@ Tensor<FloatType,Dim> matrixBatchTensorContractRight_v3(const Tensor<FloatType,D
 
   }
   return out;
+#else
+  return matrixBatchTensorContractRight(X,A,contract_dim);
+#endif 
 }
 
 
 template<typename FloatType,int Dim>
-Tensor<FloatType,Dim> matrixBatchTensorContractRight_v4(const Tensor<FloatType,Dim> &X, const Matrix<FloatType> &A, const int contract_dim){  
+Tensor<FloatType,Dim> matrixBatchTensorContractRight_v4(const Tensor<FloatType,Dim> &X, const Matrix<FloatType> &A, const int contract_dim){
+#ifdef USE_BLAS
   Vector<FloatType> Xvec = transformBatchVector(contract_dim,X);
 
   {
@@ -258,12 +263,16 @@ Tensor<FloatType,Dim> matrixBatchTensorContractRight_v4(const Tensor<FloatType,D
   Tensor<FloatType,Dim> out(out_dims);
   untransformBatchVector(contract_dim, out, ovec);  
   return out;
+#else
+  return matrixBatchTensorContractRight(X,A,contract_dim);
+#endif 
 }
 
 
 
 template<typename FloatType,int Dim>
-Tensor<FloatType,Dim> matrixBatchTensorContractRight_v5(const Tensor<FloatType,Dim> &X, const Matrix<FloatType> &A, const int contract_dim){  
+Tensor<FloatType,Dim> matrixBatchTensorContractRight_v5(const Tensor<FloatType,Dim> &X, const Matrix<FloatType> &A, const int contract_dim){
+#ifdef USE_BLAS
   Vector<FloatType> Xvec = transformBatchVector(contract_dim,X);
   
   int out_dims[Dim];
@@ -298,6 +307,9 @@ Tensor<FloatType,Dim> matrixBatchTensorContractRight_v5(const Tensor<FloatType,D
   Tensor<FloatType,Dim> out(out_dims);
   untransformBatchVector(contract_dim, out, ovec);  
   return out;
+#else
+  return matrixBatchTensorContractRight(X,A,contract_dim);
+#endif
 }
 
 int main(int argc, char** argv){

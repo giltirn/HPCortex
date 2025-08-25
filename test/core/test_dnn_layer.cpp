@@ -136,7 +136,7 @@ void testBatchTensorDNNcomponentAndLayer(){
     uniformRandom(weights,rng);
 
     for(int use_bias = 0; use_bias < 1; use_bias++){
-      std::cout << (use_bias ? "WITH" : "WITHOUT") << " bias" << std::endl;
+      std::cout << (use_bias ? "WITH" : "WITHOUT") << " bias, contract_dim=" << contract_dim << std::endl;
       
       std::unique_ptr< BatchTensorDNNcomponent<Config,4, ActivationFunc>  > cpt;
       if(use_bias)

@@ -198,7 +198,8 @@ void benchmarkCompareMatrixTensorDNN(){
 
 int main(int argc, char** argv){
   initialize(argc,argv);
-  benchmarkTensorDNN();
+  benchmarkMatrixDNN();
+  //benchmarkTensorDNN();
   //benchmarkCompareMatrixTensorDNN();
   return 0;
 }

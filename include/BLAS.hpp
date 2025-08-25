@@ -110,12 +110,12 @@ void GEMM(BLASop transa, BLASop transb,
  *        Computes   alpha * op(A) * op(B) + beta * C 
  * @param transa operation performed on A
  * @param transb operation performed on B
- * @param m sows of C
- * @param n solumns of C
+ * @param m rows of C
+ * @param n columns of C
  * @param k size of contraction dimension
  * @param alpha coefficient
  * @param A pointer to matrix A
- * @param Acols cols columns of matrix A
+ * @param Acols columns of matrix A
  * @param B pointer to matrix B
  * @param Bcols columns of matrix B
  * @param beta coefficient

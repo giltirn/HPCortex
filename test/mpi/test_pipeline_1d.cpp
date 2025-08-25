@@ -197,7 +197,7 @@ void testPipelineLayer(){
     //check FLOPS
     size_t ef = expect_model.FLOPS(0);
     size_t gf = got_model.FLOPS(0);
-    if(rank == 0) assert(ef == gf);
+    if(rank == 0) if(ef != gf){ std::cout << "Value FLOPS mismatch, got " << gf << " expect " << ef << std::endl;  assert(0); }
     
     ef = expect_model.FLOPS(1);
     gf = got_model.FLOPS(1);

@@ -144,6 +144,36 @@ void testTransformBatchVector(){
 	    assert(equal(bak,tens,true));
 	  }
 	}
+
+
+	{
+	  int sz[4] = {vecsz,other_size,other_size,batch_size};
+	  Tensor<FloatType,4> tens(sz);
+	  uniformRandom(tens,rng);
+	
+	  Vector<FloatType> got = transformBatchVector(0,tens);
+	  {
+	    autoView(tens_v,tens,HostRead);
+	    autoView(got_v,got,HostRead);
+	  
+	    for(int o=0;o<sz[1];o++){
+	      for(int p=0;p<sz[2];p++){		
+		for(int b=0;b<sz[3];b++){
+		  int off = (b +sz[3]*(p + sz[2]*o))*vecsz;
+		  FloatType const* vec = got_v.data() + off;
+		  for(int r=0;r<sz[0];r++)
+		    assert(vec[r] == tens_v(r,o,p,b));
+		}
+	      }
+	    }
+	  }
+	  Tensor<FloatType,4> bak(sz);
+	  untransformBatchVector(0,bak, got);
+	  assert(equal(bak,tens,true));
+	}
+
+
+	
       }
     }
   }

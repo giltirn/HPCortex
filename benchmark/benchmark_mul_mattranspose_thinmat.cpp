@@ -1,8 +1,11 @@
-#ifdef USE_GPU
-
 #include<HPCortex.hpp>
 #include<Testing.hpp>
+
+#ifdef USE_GPU
+
+#ifdef USE_CUDA
 #include<cuda_pipeline.h>
+#endif
 
 template<typename FloatType>
 Matrix<FloatType> mulMatTransposeThinMatBase(const Matrix<FloatType> &a, const Matrix<FloatType> &b){
@@ -37,7 +40,7 @@ Matrix<FloatType> mulMatTransposeThinMat_v2(const Matrix<FloatType> &a, const Ma
   autoView(a_v,a,DeviceRead);
   autoView(b_v,b,DeviceRead);
 
-  int iblocksize = 8;
+  constexpr int iblocksize = 8;
   int iblocks = (sizei + iblocksize - 1)/iblocksize;
   
   accelerator_for3d(k, sizek, ii, iblocksize, bi, iblocks,    iblocksize,{
@@ -107,7 +110,7 @@ Matrix<FloatType> mulMatTransposeThinMat_v4(const Matrix<FloatType> &a, const Ma
   int jblocksize = 32;
   
   if(sizek < jblocksize){  
-    int iblocksize = 8;
+    constexpr int iblocksize = 8;
     int iblocks = (sizei + iblocksize - 1)/iblocksize;
   
     accelerator_for3d(k, sizek, ii, iblocksize, bi, iblocks,    iblocksize,{
@@ -250,7 +253,7 @@ Matrix<FloatType> mulMatTransposeThinMat_v8(const Matrix<FloatType> &a, const Ma
   autoView(b_v,b,DeviceRead);
 
   int jblocksize = 64;
-  int blocki = 16;
+  constexpr int blocki = 16;
   
   accelerator_for2d_shm(k, sizek,i,sizei, blocki,   blocki*jblocksize*sizeof(FloatType), {
       extern __shared__ FloatType shared[];
@@ -279,6 +282,7 @@ Matrix<FloatType> mulMatTransposeThinMat_v8(const Matrix<FloatType> &a, const Ma
 
 template<typename FloatType>
 Matrix<FloatType> mulMatTransposeThinMat_v9(const Matrix<FloatType> &a, const Matrix<FloatType> &b){
+#ifdef USE_CUDA
   int sizei = a.size(1);
   int sizej = a.size(0);
   int sizek = b.size(1);
@@ -337,11 +341,13 @@ Matrix<FloatType> mulMatTransposeThinMat_v9(const Matrix<FloatType> &a, const Ma
       c_v(i,k) = v;
     });
   return c;
+#endif
 }
 
 //390us
 template<typename FloatType>
 Matrix<FloatType> mulMatTransposeThinMat_v10(const Matrix<FloatType> &a, const Matrix<FloatType> &b){
+#ifdef USE_CUDA
   int sizei = a.size(1);
   int sizej = a.size(0);
   int sizek = b.size(1);
@@ -408,6 +414,7 @@ Matrix<FloatType> mulMatTransposeThinMat_v10(const Matrix<FloatType> &a, const M
       c_v(i,k) = v;
     });
   return c;
+#endif
 }
 
 
@@ -761,7 +768,31 @@ Matrix<FloatType> mulMatTransposeThinMat_v15(const Matrix<FloatType> &a, const M
 }
 
 
-
+//C_ik = \sum_j A_ji B_jk
+template<typename FloatType>
+Matrix<FloatType> mulMatTransposeThinMat_v16(const Matrix<FloatType> &a, const Matrix<FloatType> &b){
+#ifdef USE_BLAS
+  int sizei = a.size(1);
+  int sizej = a.size(0);
+  int sizek = b.size(1);
+  assert(b.size(0) == sizej);
+  
+  Matrix<FloatType> c(sizei,sizek);
+  autoView(c_v,c,DeviceWrite);
+  autoView(a_v,a,DeviceRead);
+  autoView(b_v,b,DeviceRead);
+  rmGEMM(Transpose,NoTranspose,
+	 sizei,sizek,sizej,
+	 FloatType(1.0),
+	 a_v.data(), sizei,
+	 b_v.data(), sizek,
+	 FloatType(0.0),
+	 c_v.data());
+  return c;
+#else
+  return mulMatTransposeThinMat(a,b);
+#endif
+}
 
 
 int main(int argc, char** argv){
@@ -779,25 +810,45 @@ int main(int argc, char** argv){
       for(auto batch_size : batch_sizes){ 
 
 	//C_ik = \sum_j A_ji B_jk for nk small-ish (batch size)
+	{
+	  Matrix<double> a(size0, size1);
+	  Matrix<double> b(size0, batch_size);
+	  uniformRandom(a,rng);
+	  uniformRandom(b,rng);
+	  
+	  Matrix<double> c = mulMatTransposeThinMat_v16(a,b);
+	  Matrix<double> ctest = mulMatTransposeThinMatBase(a,b);
+	  assert(abs_near(c,ctest,1e-6,true));
+	}
+
+	
 	Matrix<float> a(size0, size1);
 	Matrix<float> b(size0, batch_size);
 	uniformRandom(a,rng);
 	uniformRandom(b,rng);
 
-	Matrix<float> c = mulMatTransposeThinMat_v15(a,b);
-	Matrix<float> ctest = mulMatTransposeThinMatBase(a,b);
-	assert(abs_near(c,ctest,1e-3f,true));
+	Matrix<float> c;
       
 	double mu, sigma;
 
 	profileStart();
 	benchmark(mu, sigma, 100, 1, [&]{
-	  c = mulMatTransposeThinMat_v15(a,b);
-	  //c = mulMatTransposeThinMatBase(a,b);
+	  c = mulMatTransposeThinMat_v16(a,b);
 	}, []{});
 	profileStop();
-   
-	std::cout << "arows:" << size0 << " acols:" << size1 << "\tbatch: " << batch_size << "\tresult: " << mu/1e-6 << "us " << sigma/1e-6 << "us" << std::endl;
+
+	double mu_base, sigma_base;
+	
+	profileStart();
+	benchmark(mu_base, sigma_base, 100, 1, [&]{
+	  c = mulMatTransposeThinMat(a,b);
+	}, []{});
+	profileStop();
+
+	size_t FLOPS = size_t(size0)*size_t(size1)*size_t(batch_size)*2;
+	
+	std::cout << "arows:" << size0 << " acols:" << size1 << "\tbatch: " << batch_size << "\tresult: " << mu/1e-6 << " +/- " << sigma/1e-6 << "us (" << FLOPS/mu/1e9 << " Gflops) base: "
+		  << mu_base/1e-6 << " +/- " << sigma_base/1e-6 << "us (" << FLOPS/mu_base/1e9 << " Gflops)" << std::endl;
       }      
     }
   }

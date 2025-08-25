@@ -1,6 +1,27 @@
 // C_jk = \sum_i  A_ji B_ki     for ni small-ish (batch size)  pointer version; pointer must be device writable
 template<typename FloatType>
 void thinMulMatMatTranspose_p(FloatType* out_p, const Matrix<FloatType> &a, const Matrix<FloatType> &b, FLOPScounter *flops){
+#ifdef USE_BLAS
+  int szj = a.size(0);
+  int szi = a.size(1);
+  int szk = b.size(0);
+  assert(b.size(1) == szi);
+
+  if(flops != nullptr && !flops->locked())
+    flops->add(szj*szk*szi*2);
+    
+  autoView(a_v,a,DeviceRead);
+  autoView(b_v,b,DeviceRead);
+
+  rmGEMM(NoTranspose,Transpose,
+	 szj,szk,szi,
+	 FloatType(1.0),
+	 a_v.data(), szi,
+	 b_v.data(), szi,
+	 FloatType(0.0),
+	 out_p);
+#else
+  
   int szj = a.size(0);
   int szi = a.size(1);
   int szk = b.size(0);
@@ -12,7 +33,7 @@ void thinMulMatMatTranspose_p(FloatType* out_p, const Matrix<FloatType> &a, cons
   autoView(a_v,a,DeviceRead);
   autoView(b_v,b,DeviceRead);
 
-#ifdef USE_GPU 
+#  ifdef USE_GPU 
   int jblocksize = 8;
   int jblocks = (szj + jblocksize-1)/jblocksize;
 
@@ -80,7 +101,7 @@ void thinMulMatMatTranspose_p(FloatType* out_p, const Matrix<FloatType> &a, cons
 	 
     });
 
-#else  
+#  else  
     
   accelerator_for3d(dummy,1, k,szk,j,szj,   64,{
       FloatType v = a_v(j,0) * b_v(k,0);
@@ -89,6 +110,7 @@ void thinMulMatMatTranspose_p(FloatType* out_p, const Matrix<FloatType> &a, cons
       out_p[k+szk*j] = v;
     });
   
+#  endif
 #endif
 }
 
@@ -106,6 +128,29 @@ Matrix<FloatType> thinMulMatMatTranspose(const Matrix<FloatType> &a, const Matri
 //C_ik = \sum_j A_ji B_jk for nk small-ish (batch size)
 template<typename FloatType>
 Matrix<FloatType> mulMatTransposeThinMat(const Matrix<FloatType> &a, const Matrix<FloatType> &b, FLOPScounter *flops){
+#ifdef USE_BLAS
+  int sizei = a.size(1);
+  int sizej = a.size(0);
+  int sizek = b.size(1);
+  assert(b.size(0) == sizej);
+
+  if(flops != nullptr && !flops->locked())
+    flops->add(sizei*sizek*sizej*2);
+    
+  Matrix<FloatType> c(sizei,sizek);
+  autoView(c_v,c,DeviceWrite);
+  autoView(a_v,a,DeviceRead);
+  autoView(b_v,b,DeviceRead);
+  rmGEMM(Transpose,NoTranspose,
+	 sizei,sizek,sizej,
+	 FloatType(1.0),
+	 a_v.data(), sizei,
+	 b_v.data(), sizek,
+	 FloatType(0.0),
+	 c_v.data());
+  return c;
+#else
+  
   int sizei = a.size(1);
   int sizej = a.size(0);
   int sizek = b.size(1);
@@ -114,7 +159,7 @@ Matrix<FloatType> mulMatTransposeThinMat(const Matrix<FloatType> &a, const Matri
   if(flops != nullptr && !flops->locked())
     flops->add(sizei*sizek*sizej*2);
       
-#ifdef USE_GPU
+#  ifdef USE_GPU
   
   if(sizej < 300){
     Matrix<FloatType> c(sizei,sizek);
@@ -194,7 +239,7 @@ Matrix<FloatType> mulMatTransposeThinMat(const Matrix<FloatType> &a, const Matri
       });
     return c;
   }
-#else
+#  else
   Matrix<FloatType> c(sizei,sizek);
   autoView(c_v,c,DeviceWrite);
   autoView(a_v,a,DeviceRead);
@@ -208,8 +253,9 @@ Matrix<FloatType> mulMatTransposeThinMat(const Matrix<FloatType> &a, const Matri
     });
 
   return c;
+#  endif
+
 #endif
-  
 }
 
 
@@ -244,14 +290,46 @@ Matrix<FloatType> computeThinMatOuterProd(const Matrix<FloatType> &above_deriv, 
 //matrix a * b + c with b having a modest number of columns
 template<typename FloatType>
 Matrix<FloatType> axpyMatThinMat(const Matrix<FloatType> &a, const Matrix<FloatType> &b, const Vector<FloatType> &c, FLOPScounter *flops){
+#ifdef USE_BLAS
+  int sizei = a.size(0);
+  int sizej = a.size(1);
+  int sizek = b.size(1);
+
+  assert(c.size(0) == sizei);
+  assert(b.size(0) == sizej);
+  if(flops != nullptr && !flops->locked()) //a_ij b_jk + c_i
+    flops->add(sizei*sizek*sizej*2 + sizei);
+    
+  Matrix<FloatType> out(sizei,sizek);
+
+  autoView(out_v,out,DeviceWrite);
+  autoView(c_v,c,DeviceRead);
+ 
+  accelerator_for_2d_gen(1,1,splitBlock<32>(), k,sizek,i,sizei,{
+      out_v(i,k) = c_v(i);
+    });
+  
+  autoView(a_v,a,DeviceRead);
+  autoView(b_v,b,DeviceRead);
+  
+  rmGEMM(NoTranspose,NoTranspose,
+	 sizei,sizek,sizej,
+	 FloatType(1.0),
+	 a_v.data(), sizej,
+	 b_v.data(), sizek,
+	 FloatType(1.0),
+	 out_v.data());
+  return out;
+#else
+  
   int size0 = a.size(0);
   assert(c.size(0) == size0);
   int size1 = a.size(1);
   assert(b.size(0) == size1);
   int size2 = b.size(1);
 
-  if(flops != nullptr && !flops->locked())
-    flops->add(size0*size2*size1*2);
+  if(flops != nullptr && !flops->locked()) //a_ij b_jk + c_i
+    flops->add(size0*size2*size1*2 + size0);
     
   Matrix<FloatType> out(size0,size2);
   {
@@ -269,6 +347,7 @@ Matrix<FloatType> axpyMatThinMat(const Matrix<FloatType> &a, const Matrix<FloatT
       });      
   }
   return out;
+#endif
 }
 
 
@@ -377,10 +456,61 @@ Tensor<FloatType,3> batch3tensorContract(const Tensor<FloatType,3> &A, const Ten
 #endif //USE_BLAS
 }
 
-  
+
 //A_{ij} X_{..., j, ..., b}  + Y_i
 template<typename FloatType,int Dim>
 Tensor<FloatType,Dim> matrixBatchTensorAxpy(const Matrix<FloatType> &A, const Tensor<FloatType,Dim> &X, const Vector<FloatType> &Y, const int contract_dim, FLOPScounter *flops){
+#ifdef USE_BLAS
+  int sizei = A.size(0);
+  int sizej = A.size(1);
+
+  int out_dims[Dim];
+  memcpy(out_dims,X.sizeArray(),Dim*sizeof(int));
+  out_dims[contract_dim] = sizei;
+  
+  assert(X.size(contract_dim) == sizej);
+  assert(contract_dim != Dim-1); //not the batch dimension
+
+  size_t other_size = 1;
+  for(int d=0;d<Dim;d++)
+    if(d!= contract_dim)
+      other_size *= X.size(d);
+  size_t out_size_lin = other_size * sizei;
+        
+  if(flops != nullptr && !flops->locked())
+    flops->add(other_size*sizei*(2 + 2*(sizej-1)));
+  
+  //A_ij X'_oj = X'_oj A^T_ji -> out_oi
+  Vector<FloatType> outv(out_size_lin); //out_oi
+  {
+    Vector<FloatType> Xvec = transformBatchVector(contract_dim,X); //X'_oj
+
+    autoView(A_v,A,DeviceRead);
+    autoView(Xvec_v,Xvec,DeviceRead);
+    autoView(outv_v,outv,DeviceWrite);
+
+    autoView(Y_v,Y,DeviceRead);
+    accelerator_for_2d_gen(1,1,splitBlock<32>(), i, sizei, o, other_size,
+			   {
+			     outv_v(i+sizei*o) = Y_v(i);
+			   });
+
+  
+    rmGEMM(NoTranspose,Transpose,
+	   other_size, sizei, sizej,
+	   FloatType(1.0),
+	   Xvec_v.data(), sizej,
+	   A_v.data(), sizej,
+	   FloatType(1.0), //initialized out to Y_i, so add
+	   outv_v.data());
+  }
+  Tensor<FloatType,Dim> out(out_dims);
+  untransformBatchVector(contract_dim,out,outv);
+  return out;
+
+#else
+
+  
   int out_dims[Dim];
   memcpy(out_dims,X.sizeArray(),Dim*sizeof(int));
   out_dims[contract_dim] = A.size(0);
@@ -410,7 +540,7 @@ Tensor<FloatType,Dim> matrixBatchTensorAxpy(const Matrix<FloatType> &A, const Te
     autoView(A_v, A, DeviceRead);
     autoView(out_v, out, DeviceWrite);
   
-#ifdef USE_GPU
+#  ifdef USE_GPU
     int jblocksz = 64;
     int jblocks = (_sizej + jblocksz -1)/jblocksz;
 
@@ -467,7 +597,7 @@ Tensor<FloatType,Dim> matrixBatchTensorAxpy(const Matrix<FloatType> &A, const Te
       });
   
 
-#else
+#  else
  
     accelerator_for_3d_gen(1,2,normal(), b, batch_size, i, _sizei, o, other_size, {
 	size_t off_X = batchTensorDimensionBaseLin<Dim>(_contract_dim, b, o, X_v.sizeArray());
@@ -485,12 +615,20 @@ Tensor<FloatType,Dim> matrixBatchTensorAxpy(const Matrix<FloatType> &A, const Te
 	out_v.data()[off_out + _stride*i] = out_oib  + Y_v(i);
       });
 
-#endif
+#  endif
     
   }
   return out;
+#endif
 }
-  
+
+
+template<typename FloatType>
+Matrix<FloatType> matrixBatchTensorAxpy(const Matrix<FloatType> &A, const Matrix<FloatType> &X, const Vector<FloatType> &Y, const int contract_dim, FLOPScounter *flops){
+  assert(contract_dim == 0);
+  return axpyMatThinMat(A,X,Y,flops);
+}
+
 //out_jk =  \sum_{b,...} A_{..,j,.., b} B_{..,k,...b}
 //Both tensors must have the same dimension, and the sizes of dimensions other that preserve_dim must all be equal
 //preserve_dim:  the index of the dimension that is preserved in the output matrix (that of j, k in the above)
@@ -625,7 +763,7 @@ Tensor<FloatType,Dim> matrixBatchTensorContractRight(const Tensor<FloatType,Dim>
   int sizei = A.size(0);  //contract over
   int sizej = A.size(1);
   if(flops != nullptr && !flops->locked())
-    flops->add(other_size*X.size(Dim-1)*sizej*(1+2*(sizei-1) ));
+    flops->add(other_size*sizej*(1+2*(sizei-1) ));
     
   Vector<FloatType> ovec(other_size * sizej);
 
@@ -769,6 +907,47 @@ inline Tensor<FloatType,2> matrixBatchTensorContractRight(const Tensor<FloatType
 //A_{ij} X_{..., j, ..., b}
 template<typename FloatType,int Dim>
 Tensor<FloatType,Dim> matrixBatchTensorContractLeft(const Matrix<FloatType> &A, const Tensor<FloatType,Dim> &X, const int contract_dim, FLOPScounter *flops){
+#ifdef USE_BLAS
+    Vector<FloatType> Xvec = transformBatchVector(contract_dim,X);
+
+  int sizei = A.size(0);  //contract over
+  int sizej = A.size(1);
+
+  int out_dims[Dim];
+  memcpy(out_dims,X.sizeArray(),Dim*sizeof(int));
+  out_dims[contract_dim] = sizei;
+  
+  size_t other_size = 1; //dimensions other than the dimensions along which the vector resides
+  for(int d=0;d<Dim;d++)
+    if(d!= contract_dim)
+      other_size *= X.size(d);
+  
+  if(flops != nullptr && !flops->locked())
+    flops->add(sizei*other_size*(1+2*(sizej-1)));
+  
+  Vector<FloatType> ovec(other_size * sizei);
+
+  {
+    autoView(Xvec_v, Xvec, DeviceRead);
+    autoView(A_v, A, DeviceRead);
+    autoView(ovec_v, ovec, DeviceWrite);
+
+    //c_oj = A_ij x_oj = x_oj A_ji^T
+    rmGEMM(NoTranspose, Transpose,
+	   other_size, sizei, sizej,
+	   FloatType(1.0),
+	   Xvec_v.data(), sizej,
+	   A_v.data(), sizej,	   
+	   FloatType(0.0),
+	   ovec_v.data());
+  }
+  
+  Tensor<FloatType,Dim> out(out_dims);
+  untransformBatchVector(contract_dim, out, ovec);
+  
+  return out;
+#else
+  
   int out_dims[Dim];
   memcpy(out_dims,X.sizeArray(),Dim*sizeof(int));
   out_dims[contract_dim] = A.size(0);
@@ -789,7 +968,7 @@ Tensor<FloatType,Dim> matrixBatchTensorContractLeft(const Matrix<FloatType> &A, 
   size_t _stride = tensorDimensionStride<Dim>(contract_dim, X.sizeArray());
 
   if(flops != nullptr && !flops->locked())
-    flops->add(batch_size*_sizei*other_size*_sizej*2);
+    flops->add(batch_size*_sizei*other_size*(1+ (2*_sizej-1)));
   
   Tensor<FloatType,Dim> out(out_dims); 
   {
@@ -797,7 +976,7 @@ Tensor<FloatType,Dim> matrixBatchTensorContractLeft(const Matrix<FloatType> &A, 
     autoView(A_v, A, DeviceRead);
     autoView(out_v, out, DeviceWrite);
   
-#ifdef USE_GPU
+#  ifdef USE_GPU
     int jblocksz = 64;
     int jblocks = (_sizej + jblocksz -1)/jblocksz;
 
@@ -854,7 +1033,7 @@ Tensor<FloatType,Dim> matrixBatchTensorContractLeft(const Matrix<FloatType> &A, 
       });
   
 
-#else
+#  else
 
     accelerator_for3d(b, batch_size, i, _sizei, o, other_size,    1, {
 	size_t off_X = batchTensorDimensionBaseLin<Dim>(_contract_dim, b, o, X_v.sizeArray());
@@ -872,8 +1051,9 @@ Tensor<FloatType,Dim> matrixBatchTensorContractLeft(const Matrix<FloatType> &A, 
 	out_v.data()[off_out + _stride*i] = out_oib;
       });
 
-#endif
+#  endif
     
   }
   return out;
+#endif
 }

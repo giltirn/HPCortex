@@ -42,7 +42,7 @@ void batchTensorContractToMatrix_p_Base(FloatType* out_p, const Tensor<FloatType
   autoView(A_v,A,DeviceRead);
   autoView(B_v,B,DeviceRead);
 
-  accelerator_for3d(dummy,1, jk, sizej*sizek, o, other_size, 64,{ 
+  accelerator_for_2d_gen(1,1,splitBlock<64>(), jk, sizej*sizek, o, other_size, { 
       int k = jk % sizek;
       int j = jk / sizek;  //jk = k+sizek*j
       //Sum over batch index, neighboring in memory
@@ -273,12 +273,37 @@ void batchTensorContractToMatrix_p_v4(FloatType* out_p, const Tensor<FloatType,D
 
 
 
+//somehow this is much slower on V100 due to the *GEMM* taking a long time!
+//out_jk =  \sum_{b,...} A_{..,j,.., b} B_{..,k,...b}
+template<typename FloatType, int Dim>
+void batchTensorContractToMatrix_p_v5(FloatType* out_p, const Tensor<FloatType,Dim> &A, const Tensor<FloatType,Dim> &B, const int preserve_dim){
+#ifdef USE_BLAS
+  int sizej = A.size(preserve_dim);
+  int sizek = B.size(preserve_dim);
+  size_t other_size = 1;
+  for(int d=0;d<Dim;d++)
+    if(d != preserve_dim){
+      other_size *= A.size(d);
+      assert(A.size(d) == B.size(d));
+    }
+  
+  Vector<FloatType> Avec = transformBatchVector(preserve_dim, A); //A'_oj
+  Vector<FloatType> Bvec = transformBatchVector(preserve_dim, B); //B'_ok
 
-
-
-
-
-
+  //out_jk = \sum_o A'^T_jo B'_ok
+  autoView(Avec_v,Avec,DeviceRead);
+  autoView(Bvec_v,Bvec,DeviceRead);
+  rmGEMM(Transpose,NoTranspose,
+	 sizej, sizek, other_size,
+	 FloatType(1.0), 
+	 Avec_v.data(), sizej,
+	 Bvec_v.data(), sizek,
+	 FloatType(0.0),
+	 out_p);
+#else
+  batchTensorContractToMatrix_p(out_p,A,B,preserve_dim);
+#endif
+}
 
 
 
@@ -286,9 +311,14 @@ int main(int argc, char** argv){
   initialize(argc,argv);
   std::mt19937 rng(1234);
 
-  std::vector<int> matrix_dims = { 2, 5, 8, 16, 64, 256, 512 };
-  std::vector<int> batch_sizes = {1, 5, 8, 16, 32, 64};
-  std::vector<int> other_dim_sizes = { 2, 5, 8, 16, 64, 256, 512, 1024 };
+  // std::vector<int> other_dim_sizes = { 2, 5, 8, 16, 64, 256, 512, 1024 };
+  // std::vector<int> matrix_dims = { 2, 5, 8, 16, 64, 256, 512 };
+  // std::vector<int> batch_sizes = {1, 5, 8, 16, 32, 64};
+
+  std::vector<int> other_dim_sizes = { 512 };
+  std::vector<int> matrix_dims = { 512 };
+  std::vector<int> batch_sizes = { 64};
+
   
   for(int preserve_dim=0; preserve_dim<2; preserve_dim++){
     for(auto other_dim_size : other_dim_sizes){
@@ -312,7 +342,7 @@ int main(int argc, char** argv){
 	    Matrix<double> out(matrix_dim, matrix_dim, 0.);
 	    {
 	      autoView(op,out,DeviceReadWrite);
-	      batchTensorContractToMatrix_p_v4(op.data(),A,B,preserve_dim);
+	      batchTensorContractToMatrix_p_v5(op.data(),A,B,preserve_dim);
 	    }
 
 	    Matrix<double> outtest(matrix_dim, matrix_dim, 0.);
@@ -336,7 +366,7 @@ int main(int argc, char** argv){
 	  benchmark(mu_base, sigma_base, 100, 1, [&]{
 	    profileStart();
 	    autoView(op,out,DeviceReadWrite);
-	    batchTensorContractToMatrix_p_v2(op.data(),A,B,preserve_dim);
+	    batchTensorContractToMatrix_p_v5(op.data(),A,B,preserve_dim);
 	    profileStop();
 	  }, [&]{
 	    out = Matrix<float>(matrix_dim, matrix_dim, 0.);
@@ -347,7 +377,7 @@ int main(int argc, char** argv){
 	  benchmark(mu, sigma, 100, 1, [&]{
 	    profileStart();
 	    autoView(op,out,DeviceReadWrite);
-	    batchTensorContractToMatrix_p_v4(op.data(),A,B,preserve_dim);
+	    batchTensorContractToMatrix_p(op.data(),A,B,preserve_dim);
 	    profileStop();
 	  }, [&]{
 	    out = Matrix<float>(matrix_dim, matrix_dim, 0.);
