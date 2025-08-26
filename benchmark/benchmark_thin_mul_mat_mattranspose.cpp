@@ -138,9 +138,8 @@ Matrix<FloatType> thinMulMatMatTranspose_v4(const Matrix<FloatType> &a, const Ma
   assert(iblocksize % kblocksize == 0 && iblocksize/kblocksize == 2);
   
   accelerator_for3d_shm(jk,jblocksize*kblocksize, bk, kblocks,bj,jblocks,   1, (jblocksize + kblocksize) * iblocksize*sizeof(FloatType),  {
-      extern __shared__ FloatType shared[];
-      FloatType *abuf = shared;
-      FloatType *bbuf = shared + jblocksize * iblocksize;
+      FloatType *abuf = (FloatType*)shared;
+      FloatType *bbuf = (FloatType*)shared + jblocksize * iblocksize;
       
       //jk = kk+kblocksize*jj
       int kk = jk % kblocksize;

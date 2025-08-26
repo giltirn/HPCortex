@@ -339,6 +339,8 @@ inline void labelRegionBegin(char const* label){
 inline void labelRegionEnd(){
 }
 
+using sycl::min;
+
 template<int d6>
 struct SyclItemPos;
 
@@ -495,6 +497,8 @@ inline void atomicAdd(FloatType *p, const FloatType v){
 inline void acceleratorSynchronizeBlock(){
 #pragma omp barrier
 }
+
+using std::min;
 
 struct decompCoordPolicyThread{
   typedef int itemPosContainerType[6];

@@ -71,7 +71,7 @@ Matrix<FloatType> mulMatTransposeThinMat_v3(const Matrix<FloatType> &a, const Ma
   int jblocks = (sizej + jblocksize-1)/jblocksize;
   
   accelerator_for2d_shm(k, sizek,i,sizei,   1,  jblocksize*sizeof(FloatType),  {
-      extern __shared__ FloatType shared[];
+      FloatType* sharedp = (FloatType*)shared;
       FloatType v = 0.;
       for(int bj=0;bj<jblocks;bj++){	  
 	int jstart = bj * jblocksize;
@@ -80,11 +80,11 @@ Matrix<FloatType> mulMatTransposeThinMat_v3(const Matrix<FloatType> &a, const Ma
 	int jblocksize_actual = jlessthan - jstart;
 
 	if(k < jblocksize_actual) //range of k is always >= jblocksize
-	  shared[k] = a_v(jstart + k,i);
+	  sharedp[k] = a_v(jstart + k,i);
 	acceleratorSynchronizeBlock();
 	
 	for(int j=jstart;j<jlessthan;j++){	
-	  v += shared[j-jstart] * b_v(j,k);
+	  v += sharedp[j-jstart] * b_v(j,k);
 	}
 	acceleratorSynchronizeBlock();
       }
@@ -126,7 +126,7 @@ Matrix<FloatType> mulMatTransposeThinMat_v4(const Matrix<FloatType> &a, const Ma
     int jblocks = (sizej + jblocksize-1)/jblocksize;
   
     accelerator_for2d_shm(k, sizek,i,sizei,   1,  jblocksize*sizeof(FloatType),  {
-	extern __shared__ FloatType shared[];
+	FloatType* sharedp = (FloatType*)shared;
 	FloatType v = 0.;
 	for(int bj=0;bj<jblocks;bj++){	  
 	  int jstart = bj * jblocksize;
@@ -135,11 +135,11 @@ Matrix<FloatType> mulMatTransposeThinMat_v4(const Matrix<FloatType> &a, const Ma
 	  int jblocksize_actual = jlessthan - jstart;
 
 	  if(k < jblocksize_actual) //range of k is always >= jblocksize
-	    shared[k] = a_v(jstart + k,i);
+	    sharedp[k] = a_v(jstart + k,i);
 	  acceleratorSynchronizeBlock();
 	
 	  for(int j=jstart;j<jlessthan;j++){	
-	    v += shared[j-jstart] * b_v(j,k);
+	    v += sharedp[j-jstart] * b_v(j,k);
 	  }
 	  acceleratorSynchronizeBlock();
 	}
@@ -185,15 +185,15 @@ Matrix<FloatType> mulMatTransposeThinMat_v6(const Matrix<FloatType> &a, const Ma
   autoView(b_v,b,DeviceRead);
   
   accelerator_for2d_shm(k, sizek,i,sizei, 1,   sizej*sizeof(FloatType), {
-      extern __shared__ FloatType shared[];
+      FloatType* sharedp = (FloatType*)shared;
       for(int j=k;j<sizej;j+=sizek){
-	shared[j] = a_v(j,i);
+	sharedp[j] = a_v(j,i);
       }
       acceleratorSynchronizeBlock();
       
       FloatType v = shared[0] * b_v(0,k);
       for(int j=1;j<sizej;j++)
-	v += shared[j] * b_v(j,k);
+	v += sharedp[j] * b_v(j,k);
       c_v(i,k) = v;
 
       acceleratorSynchronizeBlock();
@@ -217,19 +217,19 @@ Matrix<FloatType> mulMatTransposeThinMat_v7(const Matrix<FloatType> &a, const Ma
   int jblocksize = 64;
   
   accelerator_for2d_shm(k, sizek,i,sizei, 1,   jblocksize*sizeof(FloatType), {
-      extern __shared__ FloatType shared[];
+      FloatType* sharedp = (FloatType*)shared;
       FloatType v = 0.;
       for(int jbase=0; jbase < sizej; jbase += jblocksize){
 	int rem = sizej - jbase;
 	int jblocksize_actual = rem < jblocksize ? rem : jblocksize;
 	
 	for(int jj=k;jj<jblocksize_actual;jj+=sizek){
-	  shared[jj] = a_v(jj + jbase,i);
+	  sharedp[jj] = a_v(jj + jbase,i);
 	}
 	acceleratorSynchronizeBlock();
 	
 	for(int jj=0;jj<jblocksize_actual;jj++)
-	  v += shared[jj] * b_v(jj+jbase,k);
+	  v += sharedp[jj] * b_v(jj+jbase,k);
 
 	acceleratorSynchronizeBlock();
       }
@@ -256,8 +256,7 @@ Matrix<FloatType> mulMatTransposeThinMat_v8(const Matrix<FloatType> &a, const Ma
   constexpr int blocki = 16;
   
   accelerator_for2d_shm(k, sizek,i,sizei, blocki,   blocki*jblocksize*sizeof(FloatType), {
-      extern __shared__ FloatType shared[];
-      FloatType *shared_p = shared + threadIdx.y*jblocksize;
+      FloatType *shared_p = (FloatType*)shared + i*jblocksize;
       
       FloatType v = 0.;
       for(int jbase=0; jbase < sizej; jbase += jblocksize){
@@ -442,7 +441,7 @@ Matrix<FloatType> mulMatTransposeThinMat_v11(const Matrix<FloatType> &a, const M
 
  
   accelerator_for3d_shm(kk, kthr, bj, njblocks, bi,niblocks, 1,   iblocksize*jblocksize*sizeof(FloatType), {
-      extern __shared__ FloatType shared[];
+      FloatType* sharedp = (FloatType*)shared;
       int ibase = iblocksize * bi;
       int irem = sizei - ibase;
       int icount = irem < iblocksize ? irem : iblocksize;
@@ -456,15 +455,9 @@ Matrix<FloatType> mulMatTransposeThinMat_v11(const Matrix<FloatType> &a, const M
 	int j = jbase + jj;
 
 	for(int ii=0;ii<icount;ii++)
-	  shared[jj + jblocksize*ii] = a_v(j,ii + ibase);
+	  sharedp[jj + jblocksize*ii] = a_v(j,ii + ibase);
       }
-	
-      // if(kk==0){
-      // 	for(int ii=0;ii<icount;ii++)
-      // 	  for(int jj=0;jj<jcount;jj++)
-      // 	    shared[jj + jblocksize*ii] = a_v(jj+jbase,ii + ibase);
-      // }	
-      
+       	
       acceleratorSynchronizeBlock();
 
       if(kk < sizek){
@@ -472,7 +465,7 @@ Matrix<FloatType> mulMatTransposeThinMat_v11(const Matrix<FloatType> &a, const M
 	  FloatType v = 0.;
 	  for(int jj=0;jj<jcount;jj++){
 	    //v += a_v(jj+jbase, ii+ibase) * b_v(jj+jbase,kk);
-	    v += shared[jj + jblocksize*ii] * b_v(jj+jbase,kk);
+	    v += sharedp[jj + jblocksize*ii] * b_v(jj+jbase,kk);
 	  }  
 	  atomicAdd(&c_v(ii+ibase,kk), v);
 	}
@@ -505,7 +498,7 @@ Matrix<FloatType> mulMatTransposeThinMat_v12(const Matrix<FloatType> &a, const M
 
  
   accelerator_for3d_shm(kk, kthr, bj, njblocks, bi,niblocks, 1,   iblocksize*jblocksize*sizeof(FloatType), {
-      extern __shared__ FloatType shared[];
+      FloatType* sharedp = (FloatType*)shared;
       int ibase = iblocksize * bi;
       int irem = sizei - ibase;
       int icount = irem < iblocksize ? irem : iblocksize;
@@ -519,7 +512,7 @@ Matrix<FloatType> mulMatTransposeThinMat_v12(const Matrix<FloatType> &a, const M
 	int i = ibase + ii;
 
 	for(int jj=0;jj<jcount;jj++)
-	  shared[jj + jblocksize*ii] = a_v(jj+jbase, i);	
+	  sharedp[jj + jblocksize*ii] = a_v(jj+jbase, i);	
       }
 	     
       acceleratorSynchronizeBlock();
@@ -528,7 +521,7 @@ Matrix<FloatType> mulMatTransposeThinMat_v12(const Matrix<FloatType> &a, const M
 	for(int ii=0;ii<icount;ii++){
 	  FloatType v = 0.;
 	  for(int jj=0;jj<jcount;jj++){
-	    v += shared[jj + jblocksize*ii] * b_v(jj+jbase,kk);
+	    v += sharedp[jj + jblocksize*ii] * b_v(jj+jbase,kk);
 	  }  
 	  atomicAdd(&c_v(ii+ibase,kk), v);
 	}
@@ -561,7 +554,7 @@ Matrix<FloatType> mulMatTransposeThinMat_v13(const Matrix<FloatType> &a, const M
 
  
   accelerator_for3d_shm(kk, kthr, bj, njblocks, bi,niblocks, 1,   iblocksize*(jblocksize+1)*sizeof(FloatType), {
-      extern __shared__ FloatType shared[];
+      FloatType* sharedp = (FloatType*)shared;
       int ibase = iblocksize * bi;
       int irem = sizei - ibase;
       int icount = irem < iblocksize ? irem : iblocksize;
@@ -577,13 +570,7 @@ Matrix<FloatType> mulMatTransposeThinMat_v13(const Matrix<FloatType> &a, const M
 	int i = ibase + ii;
 
 	for(int jj=0;jj<jcount;jj++)
-	  shared[jj + istride*ii] = a_v(jj+jbase, i);
-	
-	// for(int jj=0;jj<jcount;jj++)
-	//   __pipeline_memcpy_async(shared + jj + jblocksize*ii,  &a_v(jj + jbase,i), sizeof(FloatType));
-
-	// __pipeline_commit();
-	// __pipeline_wait_prior(0);
+	  sharedp[jj + istride*ii] = a_v(jj+jbase, i);
       }
 	     
       acceleratorSynchronizeBlock();
@@ -592,7 +579,7 @@ Matrix<FloatType> mulMatTransposeThinMat_v13(const Matrix<FloatType> &a, const M
 	for(int ii=0;ii<icount;ii++){
 	  FloatType v = 0.;
 	  for(int jj=0;jj<jcount;jj++){
-	    v += shared[jj + istride*ii] * b_v(jj+jbase,kk);
+	    v += sharedp[jj + istride*ii] * b_v(jj+jbase,kk);
 	  }  
 	  atomicAdd(&c_v(ii+ibase,kk), v);
 	}
@@ -629,10 +616,8 @@ Matrix<FloatType> mulMatTransposeThinMat_v14(const Matrix<FloatType> &a, const M
   accelerator_for3d_shm(kk, kthr, bjk, nkblocks*njblocks, bi,niblocks, 1,   (iblocksize*jblocksize + jblocksize*kblocksize)*sizeof(FloatType), {
       int bk = bjk % nkblocks;
       int bj = bjk / nkblocks;
-      
-      extern __shared__ FloatType shared[];
-      FloatType* shared_a = shared;
-      FloatType* shared_b = shared + iblocksize*jblocksize;
+      FloatType* shared_a = (FloatType*)shared;
+      FloatType* shared_b = (FloatType*)shared + iblocksize*jblocksize;
       
       int ibase = iblocksize * bi;
       int irem = sizei - ibase;
@@ -720,9 +705,8 @@ Matrix<FloatType> mulMatTransposeThinMat_v15(const Matrix<FloatType> &a, const M
 	int bk = bjk % nkblocks;
 	int bj = bjk / nkblocks;
       
-	extern __shared__ FloatType shared[];
-	FloatType* shared_a = shared;
-	FloatType* shared_b = shared + iblocksize*jblocksize;
+	FloatType* shared_a = (FloatType*)shared;
+	FloatType* shared_b = (FloatType*)shared + iblocksize*jblocksize;
       
 	int ibase = iblocksize * bi;
 	int irem = sizei - ibase;

@@ -52,4 +52,9 @@ Tensor<FloatType,Dim> matrixBatchTensorContractRight(const Tensor<FloatType,Dim>
 template<typename FloatType,int Dim>
 Tensor<FloatType,Dim> matrixBatchTensorContractLeft(const Matrix<FloatType> &A, const Tensor<FloatType,Dim> &X, const int contract_dim, FLOPScounter *flops = nullptr);
 
+#include "implementation/Linalg_CPU_GPU.tcc"
+#include "implementation/Linalg_CPU.tcc"
+#include "implementation/Linalg_GPU.tcc"
+#include "implementation/Linalg_BLAS.tcc"
+#include "implementation/Linalg_GPU_BLAS.tcc"
 #include "implementation/Linalg.tcc"
