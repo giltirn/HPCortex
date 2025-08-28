@@ -115,14 +115,13 @@ void batchedGEMV(BLASop trans,
 				    batchCount) == CUBLAS_STATUS_SUCCESS  );
 }
 
-
 void batchedGEMV(BLASop trans,
 		 int m, int n,
 		 const float           *alpha,
 		 const float           *const Aarray[], int lda,
 		 const float           *const xarray[], int incx,
 		 const float           *beta,
-		 float           *const yarray[], int incy,
+		 float           * yarray[], int incy,
 		 int batchCount){
   assert( cublasSgemvBatched(getcuBLAShandle(), cublasOpLookup(trans),
 			     m, n,
@@ -140,7 +139,7 @@ void batchedGEMV(BLASop trans,
 		 const double           *const Aarray[], int lda,
 		 const double           *const xarray[], int incx,
 		 const double           *beta,
-		 double           *const yarray[], int incy,
+		 double           * yarray[], int incy,
 		 int batchCount){
   assert( cublasDgemvBatched(getcuBLAShandle(), cublasOpLookup(trans),
 			     m, n,
