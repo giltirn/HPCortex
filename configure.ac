@@ -146,6 +146,50 @@ if test "x$enable_cublas" != "xno"; then
 fi
 
 
+# Check for the --enable-onemkl option
+AC_ARG_ENABLE([onemkl],
+  [AS_HELP_STRING([--enable-onemkl],
+    [Enable OneMKL support for high-performance matrix operations])],
+  [:],
+  [enable_onemkl=no])
+
+if test "x$enable_onemkl" != "xno"; then
+  AC_MSG_NOTICE([Enabling OneMKL support])
+
+  if test "x$enable_sycl" != "xyes"; then
+    AC_MSG_FAILURE([--enable-onemkl option requires compiling with OneMKL support])
+  fi
+
+  if test "x$enable_onemkl" != "xyes"; then
+    #If not directly "yes", treat it as a path to the cuda installation
+    CXXFLAGS="$CXXFLAGS -I$enable_onemkl/include"
+    LDFLAGS="$LDFLAGS -I$enable_onemkl/lib64"
+  fi
+
+  CXXFLAGS+=" -qmkl=sequential -DMKL_ILP64"
+  LDFLAGS+=" -qmkl=sequential"
+
+  AC_LINK_IFELSE(
+    [
+      AC_LANG_PROGRAM(
+	[[#undef VERSION \ 
+          #include<oneapi/mkl.hpp>]],
+	  [[]]
+      )
+    ],
+    [
+      AC_MSG_RESULT([Onemkl support available])
+      AC_DEFINE([USE_ONEMKL],[1],[Use Onemkl])
+      AC_DEFINE([USE_BLAS],[1],[Use BLAS])
+    ],
+    [AC_MSG_RESULT([OneMKL support not available])
+     AC_MSG_FAILURE([OneMKL support was requested, but the test code did not compile])]
+  )
+
+
+fi
+
+
 HPCORTEX_CXX="$CXX"
 HPCORTEX_CXXLD="$CXXLD"
 HPCORTEX_CXXFLAGS="$AM_CXXFLAGS $CXXFLAGS"

@@ -312,23 +312,113 @@ Tensor<FloatType,Dim> matrixBatchTensorContractRight_v5(const Tensor<FloatType,D
 #endif
 }
 
+
+
+template<typename FloatType,int Dim>
+Tensor<FloatType,Dim> matrixBatchTensorContractRight_itl(const Tensor<FloatType,Dim> &X, const Matrix<FloatType> &A, const int contract_dim){ 
+  int out_dims[Dim];
+  memcpy(out_dims,X.sizeArray(),Dim*sizeof(int));
+  out_dims[contract_dim] = A.size(1);
+
+  assert(X.size(contract_dim) == A.size(0));
+  assert(contract_dim != Dim-1); //not the batch dimension
+
+  size_t other_size = 1;
+  for(int d=0;d<Dim-1;d++)
+    if(d!= contract_dim)
+      other_size *= X.size(d);
+
+  int batch_size = X.size(Dim-1);
+  
+  int sizei = A.size(0);
+  int sizej = A.size(1);
+
+  size_t stride = tensorDimensionStride<Dim>(contract_dim, X.sizeArray());
+
+  Tensor<FloatType,Dim> out(out_dims); 
+  {
+    autoView(X_v, X, DeviceRead);
+    autoView(A_v, A, DeviceRead);
+    autoView(out_v, out, DeviceWrite);
+
+    constexpr int iblocksz = 64;
+    int iblocks = (sizei + iblocksz -1)/iblocksz;
+
+    constexpr int oblocksz = 4;
+    int oblocks = (other_size + oblocksz - 1)/oblocksz;
+    
+    accelerator_for3d_shm(b, batch_size, j, sizej, bo, oblocks,    1, (iblocksz*sizeof(FloatType) + 2*oblocksz*sizeof(size_t)  ), {
+	size_t* off_X_o = (size_t*)shared;
+	size_t* off_out_o = (size_t*)(shared + oblocksz*sizeof(size_t));
+	FloatType* shared_A = (FloatType*)(shared + 2*oblocksz*sizeof(size_t));
+	
+	//Compute offsets
+	int oblocksz_actual = min(int(other_size - bo*oblocksz), oblocksz);
+	int oo=b;
+	while(oo < oblocksz_actual){
+	  int o = oo + bo*oblocksz;
+	  off_X_o[oo] = batchTensorDimensionBaseLin<Dim>(contract_dim, 0, o, X_v.sizeArray());
+	  off_out_o[oo] = batchTensorDimensionBaseLin<Dim>(contract_dim, 0, o, out_v.sizeArray());
+	  oo += batch_size;
+	}
+	acceleratorSynchronizeBlock();
+	
+	FloatType out_ojb[oblocksz] = {0.};
+	int ibase = 0;
+	for(int bi=0;bi<iblocks;bi++){
+	  int iblocksz_actual = min(sizei - ibase , iblocksz);
+
+	  //Load A_v(:,j) in parallel
+	  int ii=b;
+	  while(ii<iblocksz_actual){
+	    shared_A[ii] = A_v(ibase+ii,j);
+	    ii+= batch_size;
+	  }
+	  acceleratorSynchronizeBlock();
+
+	  for(int oo=0;oo<oblocksz_actual;oo++){	  
+	    FloatType *X_p = X_v.data() + off_X_o[oo] + b + stride*ibase;
+	  
+	    for(int ii=0;ii<iblocksz_actual;ii++){
+	      out_ojb[oo] += shared_A[ii] * (*X_p);
+	      X_p += stride;
+	    }
+	  }
+
+	  acceleratorSynchronizeBlock();
+	  
+	  ibase += iblocksz;
+	}
+
+	for(int oo=0;oo<oblocksz_actual;oo++){	
+	  out_v.data()[off_out_o[oo] + b + stride*j] = out_ojb[oo];
+	}
+	
+      });  
+
+
+  }
+  return out;
+}
+
+
 int main(int argc, char** argv){
   initialize(argc,argv);
   std::mt19937 rng(1234);
 
  
-  std::vector<int> other_dim_sizes = { 2, 5, 8, 16, 64, 256, 512 };
-  std::vector<int> matrix_dims = { 2, 5,  8, 16, 64, 256, 512 };
-  std::vector<int> batch_sizes = {1, 5, 8 , 16, 32, 64};
+  // std::vector<int> other_dim_sizes = { 2, 5, 8, 16, 64, 256, 512 };
+  // std::vector<int> matrix_dims = { 2, 5,  8, 16, 64, 256, 512 };
+  // std::vector<int> batch_sizes = {1, 5, 8 , 16, 32, 64};
 
 
   // std::vector<int> other_dim_sizes = { 64 };
   // std::vector<int> matrix_dims = { 512 };
   // std::vector<int> batch_sizes = { 64};
 
-  // std::vector<int> other_dim_sizes = { 256 };
-  // std::vector<int> matrix_dims = { 256 };
-  // std::vector<int> batch_sizes = { 32 };
+  std::vector<int> other_dim_sizes = { 256 };
+  std::vector<int> matrix_dims = { 256 };
+  std::vector<int> batch_sizes = { 32 };
 
   
   
@@ -354,7 +444,7 @@ int main(int argc, char** argv){
 	    Tensor<double,3> x(tsize);
 	    uniformRandom(x,rng);
 	    Tensor<double,3> cexpect = matrixBatchTensorContractRightBase(x,a,contract_dim);
-	    Tensor<double,3> cgot = matrixBatchTensorContractRight_v5(x,a,contract_dim);
+	    Tensor<double,3> cgot = matrixBatchTensorContractRight_itl(x,a,contract_dim);
 	    assert(abs_near(cexpect,cgot,1e-6,true));
 	  }
 
@@ -369,7 +459,7 @@ int main(int argc, char** argv){
 	  Tensor<float,3> c;
 	  benchmark(mu, sigma, 100, 1, [&]{
 	    profileStart();
-	    c = matrixBatchTensorContractRight_v5(x,a,contract_dim);
+	    c = matrixBatchTensorContractRight_itl(x,a,contract_dim);
 	    profileStop();
 	  }, []{});
 	  

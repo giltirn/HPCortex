@@ -36,3 +36,75 @@ void rmGEMM(BLASop transa, BLASop transb,
        &beta,
        C, n);
 }
+
+template<typename FloatType>
+void rmBatchedGEMM(BLASop transa,
+		   BLASop transb,
+		   int m, int n, int k,
+		   FloatType           alpha,
+		   const FloatType           *A, int Acols,
+		   long long int          strideA,
+		   const FloatType           *B, int Bcols,
+		   long long int          strideB,
+		   FloatType           beta,
+		   FloatType                 *C,
+		   long long int          strideC,
+		   int batchCount){
+  batchedGEMM(transb, transa, n, m, k,
+	      &alpha,
+	      B, Bcols, strideB,
+	      A, Acols, strideA,
+	      &beta,
+	      C, n, strideC,
+	      batchCount);
+}
+	       
+template<typename FloatType>
+void rmBatchedGEMV(BLASop trans,
+		   int m, int n,
+		   const FloatType           alpha,
+		   const FloatType           *A,
+		   long long int         strideA,
+		   const FloatType           *x, int incx,
+		   long long int         stridex,
+		   const FloatType           beta,
+		   FloatType                 *y, int incy,
+		   long long int         stridey,
+		   int batchCount){
+  //BLAS use column-major format
+  //A_cm [col-major] == A_rm^T [row-major]
+
+  //y = a A_rm x_ + b y
+  //  = a A_cm^T x + b y
+  
+  //m=rows of A_cm = cols of A_rm
+  //n=cols of A_cm = rows of A_rm
+  
+  batchedGEMV(trans == Transpose ? NoTranspose : Transpose,
+	      n, m,
+	      &alpha,
+	      A, n, strideA,
+	      x, incx, stridex,
+	      &beta,
+	      y, incy, stridey,
+	      batchCount);
+}
+
+template<typename FloatType>
+void rmBatchedGEMV(BLASop trans,
+		   int m, int n,
+		   const FloatType           alpha,
+		   const FloatType         *const Aarray[],
+		   const FloatType         *const xarray[], int incx,
+		   const FloatType           beta,
+		   FloatType           * yarray[], int incy,
+		   int batchCount){
+  batchedGEMV(trans == Transpose ? NoTranspose : Transpose,
+	      n, m,
+	      &alpha,
+	      Aarray, n,
+	      xarray, incx,
+	      &beta,
+	      yarray, incy,
+	      batchCount);
+}

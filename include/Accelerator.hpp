@@ -885,5 +885,15 @@ struct viewDeallocator{
     autoView(c##_v,c,HostReadWrite); \
     { __VA_ARGS__ } \
   }
+//4 managed objects...
+#define doHost4(a,b,c,d, ... )			\
+  {\
+    autoView(a##_v,a,HostReadWrite); \
+    autoView(b##_v,b,HostReadWrite); \
+    autoView(c##_v,c,HostReadWrite); \
+    autoView(d##_v,d,HostReadWrite); \
+    { __VA_ARGS__ } \
+  }
+
 
 #include "implementation/Accelerator.tcc"

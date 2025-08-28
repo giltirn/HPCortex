@@ -1,6 +1,5 @@
 #include<HPCortex.hpp>
 #include<Testing.hpp>
-#include<cublas_v2.h>
 
 #ifdef USE_GPU
 
