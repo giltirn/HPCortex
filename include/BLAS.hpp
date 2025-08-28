@@ -9,101 +9,65 @@ enum BLASop { NoTranspose=0, Transpose=1 };
  * @brief Generic wrappers around the (strided) batched GEMM functionality
  *        cf https://docs.nvidia.com/cuda/cublas/#cublas-t-gemmstridedbatched  for arguments
  */
+template<typename FloatType>
 void batchedGEMM(BLASop transa,
                  BLASop transb,
 		 int m, int n, int k,
-		 const float           *alpha,
-		 const float           *A, int lda,
+		 const FloatType           *alpha,
+		 const FloatType           *A, int lda,
 		 long long int          strideA,
-		 const float           *B, int ldb,
+		 const FloatType           *B, int ldb,
 		 long long int          strideB,
-		 const float           *beta,
-		 float                 *C, int ldc,
+		 const FloatType           *beta,
+		 FloatType                 *C, int ldc,
 		 long long int          strideC,
 		 int batchCount);
 
-
-void batchedGEMM(BLASop transa,
-                 BLASop transb,
-		 int m, int n, int k,
-		 const double           *alpha,
-		 const double           *A, int lda,
-		 long long int          strideA,
-		 const double           *B, int ldb,
-		 long long int          strideB,
-		 const double           *beta,
-		 double                 *C, int ldc,
-		 long long int          strideC,
-		 int batchCount);
 
 /**
  * @brief Generic wrappers around the (strided) batched GEMV functionality
  *        cf  https://docs.nvidia.com/cuda/archive/12.6.2/cublas/#cublas-t-gemvstridedbatched
  */
+template<typename FloatType>
 void batchedGEMV(BLASop trans,
 		 int m, int n,
-		 const float           *alpha,
-		 const float           *A, int lda,
+		 const FloatType           *alpha,
+		 const FloatType           *A, int lda,
 		 long long int         strideA,
-		 const float           *x, int incx,
+		 const FloatType           *x, int incx,
 		 long long int         stridex,
-		 const float           *beta,
-		 float                 *y, int incy,
+		 const FloatType           *beta,
+		 FloatType                 *y, int incy,
 		 long long int         stridey,
 		 int batchCount);
 
-void batchedGEMV(BLASop trans,
-		 int m, int n,
-		 const double           *alpha,
-		 const double           *A, int lda,
-		 long long int         strideA,
-		 const double           *x, int incx,
-		 long long int         stridex,
-		 const double           *beta,
-		 double                 *y, int incy,
-		 long long int         stridey,
-		 int batchCount);
 
 /**
  * @brief Generic wrappers around the non-strided batched GEMV functionality
  */
+template<typename FloatType>
 void batchedGEMV(BLASop trans,
 		 int m, int n,
-		 const float           *alpha,
-		 const float           *const Aarray[], int lda,
-		 const float           *const xarray[], int incx,
-		 const float           *beta,
-		 float           * yarray[], int incy,
+		 const FloatType           *alpha,
+		 const FloatType           *const Aarray[], int lda,
+		 const FloatType           *const xarray[], int incx,
+		 const FloatType           *beta,
+		 FloatType           * yarray[], int incy,
 		 int batchCount);
 
-void batchedGEMV(BLASop trans,
-		 int m, int n,
-		 const double           *alpha,
-		 const double           *const Aarray[], int lda,
-		 const double           *const xarray[], int incx,
-		 const double           *beta,
-		 double           * yarray[], int incy,
-		 int batchCount);
 
 /**
  * @brief Generic wrappers around GEMM functionality
  *        cf https://docs.nvidia.com/cuda/archive/12.6.2/cublas/#cublas-t-gemm for arguments
  */
+template<typename FloatType>
 void GEMM(BLASop transa, BLASop transb,
 	  int m, int n, int k,
-	  const float           *alpha,
-	  const float           *A, int lda,
-	  const float           *B, int ldb,
-	  const float           *beta,
-	  float           *C, int ldc);
-
-void GEMM(BLASop transa, BLASop transb,
-	  int m, int n, int k,
-	  const double           *alpha,
-	  const double           *A, int lda,
-	  const double           *B, int ldb,
-	  const double           *beta,
-	  double           *C, int ldc);
+	  const FloatType           *alpha,
+	  const FloatType           *A, int lda,
+	  const FloatType           *B, int ldb,
+	  const FloatType           *beta,
+	  FloatType           *C, int ldc);
 
 /**
  * @brief A wrapper to handle conversion between standard row-major and the archaic column-major format used by BLAS

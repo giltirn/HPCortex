@@ -108,3 +108,97 @@ void rmBatchedGEMV(BLASop trans,
 	      yarray, incy,
 	      batchCount);
 }
+
+
+template<>
+void batchedGEMM<float>(BLASop transa,
+			BLASop transb,
+			int m, int n, int k,
+			const float           *alpha,
+			const float           *A, int lda,
+			long long int          strideA,
+			const float           *B, int ldb,
+			long long int          strideB,
+			const float           *beta,
+			float                 *C, int ldc,
+			long long int          strideC,
+			int batchCount);
+
+template<>
+void batchedGEMM<double>(BLASop transa,
+			 BLASop transb,
+			 int m, int n, int k,
+			 const double           *alpha,
+			 const double           *A, int lda,
+			 long long int          strideA,
+			 const double           *B, int ldb,
+			 long long int          strideB,
+			 const double           *beta,
+			 double                 *C, int ldc,
+			 long long int          strideC,
+			 int batchCount);
+
+template<>
+void batchedGEMV<float>(BLASop trans,
+		 int m, int n,
+		 const float           *alpha,
+		 const float           *A, int lda,
+		 long long int         strideA,
+		 const float           *x, int incx,
+		 long long int         stridex,
+		 const float           *beta,
+		 float                 *y, int incy,
+		 long long int         stridey,
+		 int batchCount);
+
+template<>
+void batchedGEMV<double>(BLASop trans,
+		 int m, int n,
+		 const double           *alpha,
+		 const double           *A, int lda,
+		 long long int         strideA,
+		 const double           *x, int incx,
+		 long long int         stridex,
+		 const double           *beta,
+		 double                 *y, int incy,
+		 long long int         stridey,
+		 int batchCount);
+
+template<>
+void batchedGEMV<float>(BLASop trans,
+		 int m, int n,
+		 const float           *alpha,
+		 const float           *const Aarray[], int lda,
+		 const float           *const xarray[], int incx,
+		 const float           *beta,
+		 float           * yarray[], int incy,
+		 int batchCount);
+
+template<>
+void batchedGEMV<double>(BLASop trans,
+		 int m, int n,
+		 const double           *alpha,
+		 const double           *const Aarray[], int lda,
+		 const double           *const xarray[], int incx,
+		 const double           *beta,
+		 double           * yarray[], int incy,
+		 int batchCount);
+
+template<>
+void GEMM<float>(BLASop transa, BLASop transb,
+	  int m, int n, int k,
+	  const float           *alpha,
+	  const float           *A, int lda,
+	  const float           *B, int ldb,
+	  const float           *beta,
+	  float           *C, int ldc);
+
+template<>
+void GEMM<double>(BLASop transa, BLASop transb,
+	  int m, int n, int k,
+	  const double           *alpha,
+	  const double           *A, int lda,
+	  const double           *B, int ldb,
+	  const double           *beta,
+	  double           *C, int ldc);
+
