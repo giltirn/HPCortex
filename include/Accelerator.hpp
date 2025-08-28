@@ -163,6 +163,8 @@ void accelerator_for_body(int dims[thrDim+blockDim],
 #define SIMT_ACTIVE
 #endif
 
+//using std::min;
+
 #define accelerator_only   __device__
 #define accelerator        __host__ __device__
 #define accelerator_inline __host__ __device__ inline

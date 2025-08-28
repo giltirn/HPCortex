@@ -119,7 +119,7 @@ void batchedGEMV(BLASop trans,
 
 
 
-/**************************** Non-public API for column-major BLAS functions *************************************
+/**************************** Non-public API for column-major BLAS functions ************************************* */
 
 /**
  * @brief Generic wrappers around the (strided) batched GEMM functionality

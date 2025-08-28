@@ -74,12 +74,17 @@ void acceleratorReport(){
 
   int nDevices = 1;
   d=hipGetDeviceCount(&nDevices);
+
+  const int len=64;
+  char busid[len];
+  d = hipDeviceGetPCIBusId(busid, len, device);
   
   for(int w=0;w<world_nrank;w++){
     assert( MPI_Barrier(MPI_COMM_WORLD) == MPI_SUCCESS );
     if(w == world_rank)
       std::cout << "world:" << world_rank << '/' << world_nrank
 	        << " device:" << device << '/' << nDevices
+		<< " busID:" << busid
 		<< std::endl << std::flush;
   }
 }

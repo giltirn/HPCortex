@@ -194,6 +194,204 @@ void cmGEMM<double>(BLASop transa, BLASop transb,
 		       C, ldc) == CUBLAS_STATUS_SUCCESS );
 }
 
+#elif defined(USE_ROCBLAS)
+
+#include <rocblas/rocblas.h>
+
+static inline rocblas_operation rocblasOpLookup(BLASop op){
+  switch(op){
+  case NoTranspose:
+    return rocblas_operation_none;
+  case Transpose:
+    return rocblas_operation_transpose;
+  default:
+    throw std::runtime_error("Unsupported BLASop");
+  }
+}
+
+struct rocBLAShandleContainer{
+  rocblas_handle handle;
+
+  rocBLAShandleContainer(){
+    assert( rocblas_create_handle(&handle) == rocblas_status_success );
+    assert( rocblas_set_stream(handle, computeStream) == rocblas_status_success );
+  }
+};
+static inline rocblas_handle getrocBLAShandle(){
+  static rocBLAShandleContainer con;
+  return con.handle;
+}
+
+template<>
+void cmBatchedGEMM<float>(BLASop transa,
+                 BLASop transb,
+		 int m, int n, int k,
+		 const float           *alpha,
+		 const float           *A, int lda,
+		 long long int          strideA,
+		 const float           *B, int ldb,
+		 long long int          strideB,
+		 const float           *beta,
+		 float                 *C, int ldc,
+		 long long int          strideC,
+		 int batchCount){
+
+  assert( rocblas_sgemm_strided_batched(getrocBLAShandle(), rocblasOpLookup(transa), rocblasOpLookup(transb), 
+				    m, n, k,
+				    alpha,
+				    A, lda, strideA,
+				    B, ldb, strideB,
+				    beta,
+				    C, ldc, strideC,
+				    batchCount) == rocblas_status_success );
+}
+template<>
+void cmBatchedGEMM<double>(BLASop transa,
+                 BLASop transb,
+		 int m, int n, int k,
+		 const double           *alpha,
+		 const double           *A, int lda,
+		 long long int          strideA,
+		 const double           *B, int ldb,
+		 long long int          strideB,
+		 const double           *beta,
+		 double                 *C, int ldc,
+		 long long int          strideC,
+		 int batchCount){
+  assert( rocblas_dgemm_strided_batched(getrocBLAShandle(), rocblasOpLookup(transa), rocblasOpLookup(transb), 
+				    m, n, k,
+				    alpha,
+				    A, lda, strideA,
+				    B, ldb, strideB,
+				    beta,
+				    C, ldc, strideC,
+				    batchCount) == rocblas_status_success );
+}
+
+template<>
+void cmBatchedGEMV<float>(BLASop trans,
+		 int m, int n,
+		 const float           *alpha,
+		 const float           *A, int lda,
+		 long long int         strideA,
+		 const float           *x, int incx,
+		 long long int         stridex,
+		 const float           *beta,
+		 float                 *y, int incy,
+		 long long int         stridey,
+		 int batchCount){
+
+  assert( rocblas_sgemv_strided_batched(getrocBLAShandle(),
+				    rocblasOpLookup(trans),
+				    m,n,
+                                    alpha,
+				    A, lda, strideA,
+				    x, incx, stridex,
+				    beta,
+				    y, incy, stridey,
+				    batchCount) == rocblas_status_success  );
+}
+
+template<>
+void cmBatchedGEMV<double>(BLASop trans,
+		 int m, int n,
+		 const double           *alpha,
+		 const double           *A, int lda,
+		 long long int         strideA,
+		 const double           *x, int incx,
+		 long long int         stridex,
+		 const double           *beta,
+		 double                 *y, int incy,
+		 long long int         stridey,
+		 int batchCount){
+  assert( rocblas_dgemv_strided_batched(getrocBLAShandle(),
+				    rocblasOpLookup(trans),
+				    m,n,
+                                    alpha,
+				    A, lda, strideA,
+				    x, incx, stridex,
+				    beta,
+				    y, incy, stridey,
+				    batchCount) == rocblas_status_success  );
+}
+
+template<>
+void cmBatchedGEMV<float>(BLASop trans,
+		 int m, int n,
+		 const float           *alpha,
+		 const float           *const Aarray[], int lda,
+		 const float           *const xarray[], int incx,
+		 const float           *beta,
+		 float           * yarray[], int incy,
+		 int batchCount){
+
+  assert( rocblas_sgemv_batched(getrocBLAShandle(), rocblasOpLookup(trans),
+			     m, n,
+			     alpha,
+                             Aarray,lda,
+			     xarray, incx,
+			     beta,
+			     yarray, incy,
+			     batchCount) == rocblas_status_success );
+}
+
+template<>
+void cmBatchedGEMV<double>(BLASop trans,
+		 int m, int n,
+		 const double           *alpha,
+		 const double           *const Aarray[], int lda,
+		 const double           *const xarray[], int incx,
+		 const double           *beta,
+		 double           * yarray[], int incy,
+		 int batchCount){
+  assert( rocblas_dgemv_batched(getrocBLAShandle(), rocblasOpLookup(trans),
+			     m, n,
+			     alpha,
+                             Aarray,lda,
+			     xarray, incx,
+			     beta,
+			     yarray, incy,
+			     batchCount) == rocblas_status_success );
+}
+
+template<>
+void cmGEMM<float>(BLASop transa, BLASop transb,
+	  int m, int n, int k,
+	  const float           *alpha,
+	  const float           *A, int lda,
+	  const float           *B, int ldb,
+	  const float           *beta,
+	  float           *C, int ldc){
+  assert( rocblas_sgemm(getrocBLAShandle(),
+		       rocblasOpLookup(transa), rocblasOpLookup(transb),
+		       m, n, k,
+		       alpha,
+		       A, lda,
+		       B, ldb,
+		       beta,
+		       C, ldc) == rocblas_status_success );
+}
+
+template<>
+void cmGEMM<double>(BLASop transa, BLASop transb,
+	  int m, int n, int k,
+	  const double           *alpha,
+	  const double           *A, int lda,
+	  const double           *B, int ldb,
+	  const double           *beta,
+	  double           *C, int ldc){
+  assert( rocblas_dgemm(getrocBLAShandle(),
+		       rocblasOpLookup(transa), rocblasOpLookup(transb),
+		       m, n, k,
+		       alpha,
+		       A, lda,
+		       B, ldb,
+		       beta,
+		       C, ldc) == rocblas_status_success );
+}
+
+
+
 #elif defined(USE_ONEMKL)
 
 #undef VERSION

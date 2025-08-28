@@ -146,6 +146,48 @@ if test "x$enable_cublas" != "xno"; then
 fi
 
 
+# Check for the --enable-rocblas option
+AC_ARG_ENABLE([rocblas],
+  [AS_HELP_STRING([--enable-rocblas],
+    [Enable rocBLAS support for high-performance matrix operations])],
+  [:],
+  [enable_rocblas=no])
+
+if test "x$enable_rocblas" != "xno"; then
+  AC_MSG_NOTICE([Enabling rocBLAS support])
+
+  if test "x$enable_hip" != "xyes"; then
+    AC_MSG_FAILURE([--enable-rocblas option requires compiling with HIP support])
+  fi
+
+  if test "x$enable_rocblas" != "xyes"; then
+    #If not directly "yes", treat it as a path to the cuda installation
+    CXXFLAGS="$CXXFLAGS -I$enable_rocblas/include"
+    LDFLAGS="$LDFLAGS -I$enable_rocblas/lib64"
+  fi
+
+  LDFLAGS+=" -lrocblas"
+
+  AC_LINK_IFELSE(
+    [
+      AC_LANG_PROGRAM(
+        [[#include <rocblas/rocblas.h>]],
+        [[rocblas_handle handle;  rocblas_create_handle(&handle);]]
+      )
+    ],
+    [
+      AC_MSG_RESULT([rocBLAS support available])
+      AC_DEFINE([USE_ROCBLAS],[1],[Use rocBLAS])
+      AC_DEFINE([USE_BLAS],[1],[Use BLAS])
+    ],
+    [AC_MSG_RESULT([rocBLAS support not available])
+     AC_MSG_FAILURE([rocBLAS support was requested, but the test code did not compile])]
+  )
+
+
+fi
+
+
 # Check for the --enable-onemkl option
 AC_ARG_ENABLE([onemkl],
   [AS_HELP_STRING([--enable-onemkl],
