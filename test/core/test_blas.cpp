@@ -3,7 +3,7 @@
 
 #ifdef USE_BLAS
 
-void testrmGEMM(){
+void testGEMM(){
   std::mt19937 rng(1234);
 
   {
@@ -21,7 +21,7 @@ void testrmGEMM(){
       autoView(Cgot_v,Cgot,DeviceWrite);
       autoView(A_v,A,DeviceRead);
       autoView(B_v,B,DeviceRead);
-      rmGEMM(NoTranspose,NoTranspose,
+      GEMM(NoTranspose,NoTranspose,
 	    2,4,3,
 	    1.0,
 	    A_v.data(), 3,
@@ -46,7 +46,7 @@ void testrmGEMM(){
       autoView(Cgot_v,Cgot,DeviceWrite);
       autoView(A_v,A,DeviceRead);
       autoView(B_v,B,DeviceRead);
-      rmGEMM(NoTranspose,Transpose,
+      GEMM(NoTranspose,Transpose,
 	    2,4,3,
 	    1.0,
 	    A_v.data(), 3,
@@ -71,7 +71,7 @@ void testrmGEMM(){
       autoView(Cgot_v,Cgot,DeviceWrite);
       autoView(A_v,A,DeviceRead);
       autoView(B_v,B,DeviceRead);
-      rmGEMM(Transpose,NoTranspose,
+      GEMM(Transpose,NoTranspose,
 	    2,4,3,
 	    1.0,
 	    A_v.data(), 3,
@@ -96,7 +96,7 @@ void testrmGEMM(){
       autoView(Cgot_v,Cgot,DeviceWrite);
       autoView(A_v,A,DeviceRead);
       autoView(B_v,B,DeviceRead);
-      rmGEMM(Transpose,Transpose,
+      GEMM(Transpose,Transpose,
 	    2,4,3,
 	    1.0,
 	    A_v.data(), 2,
@@ -106,10 +106,10 @@ void testrmGEMM(){
     }
     assert(abs_near(Cgot,Cexpect,1e-6,true));
   }
-  std::cout << "testrmGEMM passed" << std::endl;
+  std::cout << "testGEMM passed" << std::endl;
 }
 
-void testrmBatchedGEMM(){
+void testBatchedGEMM(){
   std::mt19937 rng(1234);
 
   {
@@ -135,7 +135,7 @@ void testrmBatchedGEMM(){
       autoView(B_v,B,DeviceRead);
       autoView(C_v,C,DeviceWrite);
       
-      rmBatchedGEMM(NoTranspose, NoTranspose,
+      batchedGEMM(NoTranspose, NoTranspose,
 		    2,4,3,
 		    1.0,
 		    A_v.data(),A.size(2),A.size(1)*A.size(2),
@@ -170,7 +170,7 @@ void testrmBatchedGEMM(){
       autoView(B_v,B,DeviceRead);
       autoView(C_v,C,DeviceWrite);
       
-      rmBatchedGEMM(NoTranspose, Transpose,
+      batchedGEMM(NoTranspose, Transpose,
 		    2,4,3,
 		    1.0,
 		    A_v.data(),A.size(2),A.size(1)*A.size(2),
@@ -205,7 +205,7 @@ void testrmBatchedGEMM(){
       autoView(B_v,B,DeviceRead);
       autoView(C_v,C,DeviceWrite);
       
-      rmBatchedGEMM(Transpose, NoTranspose,
+      batchedGEMM(Transpose, NoTranspose,
 		    2,4,3,
 		    1.0,
 		    A_v.data(),A.size(2),A.size(1)*A.size(2),
@@ -240,7 +240,7 @@ void testrmBatchedGEMM(){
       autoView(B_v,B,DeviceRead);
       autoView(C_v,C,DeviceWrite);
       
-      rmBatchedGEMM(Transpose, Transpose,
+      batchedGEMM(Transpose, Transpose,
 		    2,4,3,
 		    1.0,
 		    A_v.data(),A.size(2),A.size(1)*A.size(2),
@@ -256,7 +256,7 @@ void testrmBatchedGEMM(){
 }
 
 
-void testrmBatchedGEMV(){
+void testBatchedGEMV(){
   std::mt19937 rng(1234);
 
  
@@ -289,7 +289,7 @@ void testrmBatchedGEMV(){
       autoView(ygot_v,ygot,DeviceReadWrite);
 
 
-      rmBatchedGEMV(NoTranspose,
+      batchedGEMV(NoTranspose,
 		    A.size(1),A.size(2),
 		    1.0,
 		    A_v.data(),A.size(1)*A.size(2),
@@ -324,7 +324,7 @@ void testrmBatchedGEMV(){
       });
 
       
-      rmBatchedGEMV(NoTranspose,
+      batchedGEMV(NoTranspose,
 		    A.size(1),A.size(2),
 		    1.0,
 		    Aarray_v.data(),
@@ -368,7 +368,7 @@ void testrmBatchedGEMV(){
       autoView(ygot_v,ygot,DeviceReadWrite);
 
 
-      rmBatchedGEMV(Transpose,
+      batchedGEMV(Transpose,
 		    A.size(1),A.size(2),
 		    1.0,
 		    A_v.data(),A.size(1)*A.size(2),
@@ -403,7 +403,7 @@ void testrmBatchedGEMV(){
       });
 
       
-      rmBatchedGEMV(Transpose,
+      batchedGEMV(Transpose,
 		    A.size(1),A.size(2),
 		    1.0,
 		    Aarray_v.data(),
@@ -423,9 +423,9 @@ void testrmBatchedGEMV(){
 
 int main(int argc, char** argv){
   initialize(argc,argv);
-  testrmGEMM();
-  testrmBatchedGEMM();
-  testrmBatchedGEMV();
+  testGEMM();
+  testBatchedGEMM();
+  testBatchedGEMV();
   return 0;
 }
   

@@ -293,7 +293,7 @@ void batchTensorContractToMatrix_p_v5(FloatType* out_p, const Tensor<FloatType,D
   //out_jk = \sum_o A'^T_jo B'_ok
   autoView(Avec_v,Avec,DeviceRead);
   autoView(Bvec_v,Bvec,DeviceRead);
-  rmGEMM(Transpose,NoTranspose,
+  GEMM(Transpose,NoTranspose,
 	 sizej, sizek, other_size,
 	 FloatType(1.0), 
 	 Avec_v.data(), sizej,

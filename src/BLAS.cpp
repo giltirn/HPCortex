@@ -29,7 +29,7 @@ static inline cublasHandle_t getcuBLAShandle(){
 }
 
 template<>
-void batchedGEMM<float>(BLASop transa,
+void cmBatchedGEMM<float>(BLASop transa,
                  BLASop transb,
 		 int m, int n, int k,
 		 const float           *alpha,
@@ -52,7 +52,7 @@ void batchedGEMM<float>(BLASop transa,
 				    batchCount) == CUBLAS_STATUS_SUCCESS );
 }
 template<>
-void batchedGEMM<double>(BLASop transa,
+void cmBatchedGEMM<double>(BLASop transa,
                  BLASop transb,
 		 int m, int n, int k,
 		 const double           *alpha,
@@ -75,7 +75,7 @@ void batchedGEMM<double>(BLASop transa,
 }
 
 template<>
-void batchedGEMV<float>(BLASop trans,
+void cmBatchedGEMV<float>(BLASop trans,
 		 int m, int n,
 		 const float           *alpha,
 		 const float           *A, int lda,
@@ -98,7 +98,7 @@ void batchedGEMV<float>(BLASop trans,
 }
 
 template<>
-void batchedGEMV<double>(BLASop trans,
+void cmBatchedGEMV<double>(BLASop trans,
 		 int m, int n,
 		 const double           *alpha,
 		 const double           *A, int lda,
@@ -121,7 +121,7 @@ void batchedGEMV<double>(BLASop trans,
 }
 
 template<>
-void batchedGEMV<float>(BLASop trans,
+void cmBatchedGEMV<float>(BLASop trans,
 		 int m, int n,
 		 const float           *alpha,
 		 const float           *const Aarray[], int lda,
@@ -140,7 +140,7 @@ void batchedGEMV<float>(BLASop trans,
 }
 
 template<>
-void batchedGEMV<double>(BLASop trans,
+void cmBatchedGEMV<double>(BLASop trans,
 		 int m, int n,
 		 const double           *alpha,
 		 const double           *const Aarray[], int lda,
@@ -159,7 +159,7 @@ void batchedGEMV<double>(BLASop trans,
 }
 
 template<>
-void GEMM<float>(BLASop transa, BLASop transb,
+void cmGEMM<float>(BLASop transa, BLASop transb,
 	  int m, int n, int k,
 	  const float           *alpha,
 	  const float           *A, int lda,
@@ -177,7 +177,7 @@ void GEMM<float>(BLASop transa, BLASop transb,
 }
 
 template<>
-void GEMM<double>(BLASop transa, BLASop transb,
+void cmGEMM<double>(BLASop transa, BLASop transb,
 	  int m, int n, int k,
 	  const double           *alpha,
 	  const double           *A, int lda,
@@ -213,7 +213,7 @@ static inline oneapi::mkl::transpose onemklOpLookup(BLASop op){
   }
 }
 template<>
-void batchedGEMM(BLASop transa,
+void cmBatchedGEMM(BLASop transa,
                  BLASop transb,
 		 int m, int n, int k,
 		 const float           *alpha,
@@ -236,7 +236,7 @@ void batchedGEMM(BLASop transa,
 	     batchCount).wait();
 }
 template<>
-void batchedGEMM(BLASop transa,
+void cmBatchedGEMM(BLASop transa,
                  BLASop transb,
 		 int m, int n, int k,
 		 const double           *alpha,
@@ -260,7 +260,7 @@ void batchedGEMM(BLASop transa,
 }
 
 template<>
-void batchedGEMV(BLASop trans,
+void cmBatchedGEMV(BLASop trans,
 		 int m, int n,
 		 const float           *alpha,
 		 const float           *A, int lda,
@@ -283,7 +283,7 @@ void batchedGEMV(BLASop trans,
 }
 
 template<>
-void batchedGEMV(BLASop trans,
+void cmBatchedGEMV(BLASop trans,
 		 int m, int n,
 		 const double           *alpha,
 		 const double           *A, int lda,
@@ -307,7 +307,7 @@ void batchedGEMV(BLASop trans,
 
 
 template<>
-void batchedGEMV(BLASop trans,
+void cmBatchedGEMV(BLASop trans,
 		 int m, int n,
 		 const float           *alpha,
 		 const float           *const Aarray[], int lda,
@@ -345,7 +345,7 @@ void batchedGEMV(BLASop trans,
 }
 
 template<>
-void batchedGEMV(BLASop trans,
+void cmBatchedGEMV(BLASop trans,
 		 int m, int n,
 		 const double           *alpha,
 		 const double           *const Aarray[], int lda,
@@ -383,7 +383,7 @@ void batchedGEMV(BLASop trans,
 }
 
 template<>
-void GEMM(BLASop transa, BLASop transb,
+void cmGEMM(BLASop transa, BLASop transb,
 	  int m, int n, int k,
 	  const float           *alpha,
 	  const float           *A, int lda,
@@ -401,7 +401,7 @@ void GEMM(BLASop transa, BLASop transb,
 }
 
 template<>
-void GEMM(BLASop transa, BLASop transb,
+void cmGEMM(BLASop transa, BLASop transb,
 	  int m, int n, int k,
 	  const double           *alpha,
 	  const double           *A, int lda,

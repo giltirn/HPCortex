@@ -498,7 +498,7 @@ Tensor<FloatType,Dim> matrixBatchTensorAxpy_v6(const Matrix<FloatType> &A, const
 			   });
 
   
-    rmGEMM(NoTranspose,Transpose,
+    GEMM(NoTranspose,Transpose,
 	   other_size, sizei, sizej,
 	   FloatType(1.0),
 	   Xvec_v.data(), sizej,

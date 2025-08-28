@@ -784,7 +784,7 @@ Tensor<FloatType,3> batch3tensorContract_v9(const Tensor<FloatType,3> &A, const 
     autoView(Abatch_v,Abatch,DeviceRead);
     autoView(Bbatch_v,Bbatch,DeviceRead);
     
-    batchedGEMM(NoTranspose, NoTranspose, 
+    cmBatchedGEMM(NoTranspose, NoTranspose, 
 		m, n, k,
 		&nrm,
 		Abatch_v.data(), lda, Astride,

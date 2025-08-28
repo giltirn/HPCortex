@@ -286,7 +286,7 @@ Matrix<FloatType> thinMulMatMatTranspose_v6(const Matrix<FloatType> &a, const Ma
   autoView(a_v,a,DeviceRead);
   autoView(b_v,b,DeviceRead);
 
-  rmGEMM(NoTranspose,Transpose,
+  GEMM(NoTranspose,Transpose,
 	 szj,szk,szi,
 	 FloatType(1.0),
 	 a_v.data(), szi,

@@ -51,7 +51,7 @@ Matrix<FloatType> axpyMatThinMat_v2(const Matrix<FloatType> &a, const Matrix<Flo
   autoView(a_v,a,DeviceRead);
   autoView(b_v,b,DeviceRead);
   
-  rmGEMM(NoTranspose,NoTranspose,
+  GEMM(NoTranspose,NoTranspose,
 	 sizei,sizek,sizej,
 	 FloatType(1.0),
 	 a_v.data(), sizej,

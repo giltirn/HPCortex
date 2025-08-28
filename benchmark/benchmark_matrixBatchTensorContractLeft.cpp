@@ -74,7 +74,7 @@ Tensor<FloatType,Dim> matrixBatchTensorContractLeft_v2(const Matrix<FloatType> &
     autoView(ovec_v, ovec, DeviceWrite);
 
     //c_oj = A_ij x_oj = x_oj A_ji^T
-    rmGEMM(NoTranspose, Transpose,
+    GEMM(NoTranspose, Transpose,
 	   other_size, sizei, sizej,
 	   FloatType(1.0),
 	   Xvec_v.data(), sizej,

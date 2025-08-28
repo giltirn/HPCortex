@@ -1,5 +1,5 @@
 template<typename FloatType>
-void rmGEMM(BLASop transa, BLASop transb,
+void GEMM(BLASop transa, BLASop transb,
 	   int m, int n, int k,
 	   const FloatType           alpha,
 	   const FloatType           *A, int Acols,
@@ -29,7 +29,7 @@ void rmGEMM(BLASop transa, BLASop transb,
   //ldb = leading dimension of B' = rows(B_cm) = cols(B_rm)
   //ldc = rows(C_cm) = cols(C_rm) = n
   
-  GEMM(transb, transa, n,m,k,
+  cmGEMM(transb, transa, n,m,k,
        &alpha,
        B, Bcols,
        A, Acols,
@@ -38,7 +38,7 @@ void rmGEMM(BLASop transa, BLASop transb,
 }
 
 template<typename FloatType>
-void rmBatchedGEMM(BLASop transa,
+void batchedGEMM(BLASop transa,
 		   BLASop transb,
 		   int m, int n, int k,
 		   FloatType           alpha,
@@ -50,7 +50,7 @@ void rmBatchedGEMM(BLASop transa,
 		   FloatType                 *C,
 		   long long int          strideC,
 		   int batchCount){
-  batchedGEMM(transb, transa, n, m, k,
+  cmBatchedGEMM(transb, transa, n, m, k,
 	      &alpha,
 	      B, Bcols, strideB,
 	      A, Acols, strideA,
@@ -60,7 +60,7 @@ void rmBatchedGEMM(BLASop transa,
 }
 	       
 template<typename FloatType>
-void rmBatchedGEMV(BLASop trans,
+void batchedGEMV(BLASop trans,
 		   int m, int n,
 		   const FloatType           alpha,
 		   const FloatType           *A,
@@ -80,7 +80,7 @@ void rmBatchedGEMV(BLASop trans,
   //m=rows of A_cm = cols of A_rm
   //n=cols of A_cm = rows of A_rm
   
-  batchedGEMV(trans == Transpose ? NoTranspose : Transpose,
+  cmBatchedGEMV(trans == Transpose ? NoTranspose : Transpose,
 	      n, m,
 	      &alpha,
 	      A, n, strideA,
@@ -91,7 +91,7 @@ void rmBatchedGEMV(BLASop trans,
 }
 
 template<typename FloatType>
-void rmBatchedGEMV(BLASop trans,
+void batchedGEMV(BLASop trans,
 		   int m, int n,
 		   const FloatType           alpha,
 		   const FloatType         *const Aarray[],
@@ -99,7 +99,7 @@ void rmBatchedGEMV(BLASop trans,
 		   const FloatType           beta,
 		   FloatType           * yarray[], int incy,
 		   int batchCount){
-  batchedGEMV(trans == Transpose ? NoTranspose : Transpose,
+  cmBatchedGEMV(trans == Transpose ? NoTranspose : Transpose,
 	      n, m,
 	      &alpha,
 	      Aarray, n,
@@ -111,7 +111,7 @@ void rmBatchedGEMV(BLASop trans,
 
 
 template<>
-void batchedGEMM<float>(BLASop transa,
+void cmBatchedGEMM<float>(BLASop transa,
 			BLASop transb,
 			int m, int n, int k,
 			const float           *alpha,
@@ -125,7 +125,7 @@ void batchedGEMM<float>(BLASop transa,
 			int batchCount);
 
 template<>
-void batchedGEMM<double>(BLASop transa,
+void cmBatchedGEMM<double>(BLASop transa,
 			 BLASop transb,
 			 int m, int n, int k,
 			 const double           *alpha,
@@ -139,7 +139,7 @@ void batchedGEMM<double>(BLASop transa,
 			 int batchCount);
 
 template<>
-void batchedGEMV<float>(BLASop trans,
+void cmBatchedGEMV<float>(BLASop trans,
 		 int m, int n,
 		 const float           *alpha,
 		 const float           *A, int lda,
@@ -152,7 +152,7 @@ void batchedGEMV<float>(BLASop trans,
 		 int batchCount);
 
 template<>
-void batchedGEMV<double>(BLASop trans,
+void cmBatchedGEMV<double>(BLASop trans,
 		 int m, int n,
 		 const double           *alpha,
 		 const double           *A, int lda,
@@ -165,7 +165,7 @@ void batchedGEMV<double>(BLASop trans,
 		 int batchCount);
 
 template<>
-void batchedGEMV<float>(BLASop trans,
+void cmBatchedGEMV<float>(BLASop trans,
 		 int m, int n,
 		 const float           *alpha,
 		 const float           *const Aarray[], int lda,
@@ -175,7 +175,7 @@ void batchedGEMV<float>(BLASop trans,
 		 int batchCount);
 
 template<>
-void batchedGEMV<double>(BLASop trans,
+void cmBatchedGEMV<double>(BLASop trans,
 		 int m, int n,
 		 const double           *alpha,
 		 const double           *const Aarray[], int lda,
@@ -185,7 +185,7 @@ void batchedGEMV<double>(BLASop trans,
 		 int batchCount);
 
 template<>
-void GEMM<float>(BLASop transa, BLASop transb,
+void cmGEMM<float>(BLASop transa, BLASop transb,
 	  int m, int n, int k,
 	  const float           *alpha,
 	  const float           *A, int lda,
@@ -194,7 +194,7 @@ void GEMM<float>(BLASop transa, BLASop transb,
 	  float           *C, int ldc);
 
 template<>
-void GEMM<double>(BLASop transa, BLASop transb,
+void cmGEMM<double>(BLASop transa, BLASop transb,
 	  int m, int n, int k,
 	  const double           *alpha,
 	  const double           *A, int lda,

@@ -15,7 +15,7 @@ void thinMulMatMatTranspose_p(FloatType* out_p, const Matrix<FloatType> &a, cons
   autoView(a_v,a,DeviceRead);
   autoView(b_v,b,DeviceRead);
 
-  rmGEMM(NoTranspose,Transpose,
+  GEMM(NoTranspose,Transpose,
 	 szj,szk,szi,
 	 FloatType(1.0),
 	 a_v.data(), szi,
@@ -39,7 +39,7 @@ Matrix<FloatType> mulMatTransposeThinMat(const Matrix<FloatType> &a, const Matri
   autoView(c_v,c,DeviceWrite);
   autoView(a_v,a,DeviceRead);
   autoView(b_v,b,DeviceRead);
-  rmGEMM(Transpose,NoTranspose,
+  GEMM(Transpose,NoTranspose,
 	 sizei,sizek,sizej,
 	 FloatType(1.0),
 	 a_v.data(), sizei,
@@ -73,7 +73,7 @@ Matrix<FloatType> axpyMatThinMat(const Matrix<FloatType> &a, const Matrix<FloatT
   autoView(a_v,a,DeviceRead);
   autoView(b_v,b,DeviceRead);
   
-  rmGEMM(NoTranspose,NoTranspose,
+  GEMM(NoTranspose,NoTranspose,
 	 sizei,sizek,sizej,
 	 FloatType(1.0),
 	 a_v.data(), sizej,
@@ -110,7 +110,7 @@ Tensor<FloatType,3> batch3tensorContract(const Tensor<FloatType,3> &A, const Ten
     autoView(Abatch_v,Abatch,DeviceRead);
     autoView(Bbatch_v,Bbatch,DeviceRead);
     
-    batchedGEMM(NoTranspose, NoTranspose, 
+    cmBatchedGEMM(NoTranspose, NoTranspose, 
 		m, n, k,
 		&nrm,
 		Abatch_v.data(), lda, Astride,
@@ -168,7 +168,7 @@ Tensor<FloatType,Dim> matrixBatchTensorAxpy(const Matrix<FloatType> &A, const Te
 			   });
 
   
-    rmGEMM(NoTranspose,Transpose,
+    GEMM(NoTranspose,Transpose,
 	   other_size, sizei, sizej,
 	   FloatType(1.0),
 	   Xvec_v.data(), sizej,
@@ -209,7 +209,7 @@ Tensor<FloatType,Dim> matrixBatchTensorContractRight(const Tensor<FloatType,Dim>
     autoView(ovec_v, ovec, DeviceWrite);
 
     //x_oi A_ij
-    rmGEMM(NoTranspose, NoTranspose,
+    GEMM(NoTranspose, NoTranspose,
 	   other_size, sizej, sizei,
 	   FloatType(1.0),
 	   Xvec_v.data(), sizei,
@@ -251,7 +251,7 @@ Tensor<FloatType,Dim> matrixBatchTensorContractLeft(const Matrix<FloatType> &A, 
     autoView(ovec_v, ovec, DeviceWrite);
 
     //c_oj = A_ij x_oj = x_oj A_ji^T
-    rmGEMM(NoTranspose, Transpose,
+    GEMM(NoTranspose, Transpose,
 	   other_size, sizei, sizej,
 	   FloatType(1.0),
 	   Xvec_v.data(), sizej,
