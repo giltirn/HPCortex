@@ -1,11 +1,17 @@
 ## Dependencies
 
   * MPI
-  * OpenMP
-  * CUDA, HIP, SYCL (Optional)
-  * cuBLAS (CUDA), rocBLAS (HIP), oneMKL (SYCL)  (Optional)
-
-The non-GPU implementation is primarily for testing and development, and is not likely to achieve optimal performance
+  * Accelerator API, one of:
+      * CUDA
+      * HIP
+      * SYCL
+      * OpenMP (CPU-threading only, for testing/development -- not performant!)
+  * Host-side thread API (optional)
+      * OpenMP
+  * BLAS library for high-performance linear algebra (optional, recommended)
+      * cuBLAS (CUDA)
+      * rocBLAS (HIP)
+      * oneMKL (SYCL)
 
 ## Installation
 

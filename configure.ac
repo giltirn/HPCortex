@@ -104,6 +104,14 @@ if test "x$enable_openmp" = "xyes"; then
      AC_MSG_FAILURE([OpenMP support was requested, but your compiler does not appear to support it])])
 fi
 
+
+if test "x$enable_cuda" = "xno" && test "x$enable_hip" = "xno" && test "x$enable_sycl" = "xno" && test "x$enable_openmp" = "xno" ; then
+   AC_MSG_FAILURE([No accelerator API was provided (CUDA,HIP,SYCL,OpenMP)])
+fi
+
+
+
+
 # Check for the --enable-cublas option
 AC_ARG_ENABLE([cublas],
   [AS_HELP_STRING([--enable-cublas],

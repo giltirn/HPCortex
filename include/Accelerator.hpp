@@ -10,432 +10,19 @@
 //Functionality for writing generic GPU kernels with CPU fallback
 //Adapted from Peter Boyle's Grid library https://github.com/paboyle/Grid
 
-//- We allow up to 3 dimensions: x,y,z
-//- The entire x dimension and a tunable amount of the y direction are iterated over within a block
-//- The remainder of the y direction and all of the z direction are iterated over between blocks
-
-void     acceleratorInit(void);
-void acceleratorReport();
-
-template<typename decompCoordPolicy, int thrDims, int blockDims, int splitBlockSize>
-struct decomp;
-
-#define strong_inline     __attribute__((always_inline)) inline
-  
-/////////////////////////// CUDA ////////////////////////////////////////////////////////
-#ifdef USE_CUDA
-#include <cuda.h>
-#include <cuda_profiler_api.h>
-#include "nvtx3/nvToolsExt.h" //TODO: Compile option for nvtx, needs linking to -ldl
-
-#ifdef __CUDA_ARCH__
-#define SIMT_ACTIVE
-#endif
-
-#define accelerator_only __device__
-#define accelerator        __host__ __device__
-#define accelerator_inline __host__ __device__ __forceinline__
-//inline
-
-extern cudaStream_t copyStream; //stream for async copies
-extern cudaStream_t computeStream; //stream for computation
-
-inline void errorCheck(char const *loc, cudaError_t err){
-  if(err != cudaSuccess){
-    printf("In %s, caught CUDA error: %s\n", loc, cudaGetErrorString( err )); fflush(stdout);
-    assert(0);
-  }
-}
-
-#define accelerator_barrier(dummy)					\
-  {									\
-    cudaStreamSynchronize(computeStream);				\
-    cudaError err = cudaGetLastError();					\
-    if ( err != cudaSuccess ) {						\
-      printf("accelerator_barrier(): Cuda error %s \n",			\
-	     cudaGetErrorString( err ));				\
-      printf("File %s Line %d\n",__FILE__,__LINE__);			\
-      fflush(stdout);							\
-      assert(0);		\
-    }									\
-  }
-
-inline void *acceleratorAllocHost(size_t bytes)
-{
-  void *ptr=NULL;
-  errorCheck("acceleratorAllocHost", cudaMallocHost((void **)&ptr,bytes));
-  return ptr;
-}
-inline void *acceleratorAllocShared(size_t bytes)
-{
-  void *ptr=NULL;
-  errorCheck("acceleratorAllocShared", cudaMallocManaged((void **)&ptr,bytes));
-  return ptr;
-};
-inline void *acceleratorAllocDevice(size_t bytes)
-{
-  void *ptr=NULL;
-  errorCheck("acceleratorAllocDevice", cudaMalloc((void **)&ptr,bytes));
-  return ptr;
-};
-
-inline void acceleratorFreeShared(void *ptr){ errorCheck("acceleratorFreeShared", cudaFree(ptr));};
-inline void acceleratorFreeDevice(void *ptr){ errorCheck("acceleratorFreeDevice", cudaFree(ptr));};
-inline void acceleratorFreeHost(void *ptr){ errorCheck("acceleratorFreeHost", cudaFree(ptr));};
-inline void acceleratorCopyToDevice(void* to, void const* from,size_t bytes)  { errorCheck("acceleratorCopyToDevice",cudaMemcpy(to,from,bytes, cudaMemcpyHostToDevice));}
-inline void acceleratorCopyFromDevice(void* to, void const* from,size_t bytes){ errorCheck("acceleratorCopyFromDevice", cudaMemcpy(to,from,bytes, cudaMemcpyDeviceToHost));}
-inline void acceleratorCopyToDeviceAsync(void* to, void const* from, size_t bytes, cudaStream_t stream = copyStream) { errorCheck("acceleratorCopyToDeviceAsync",cudaMemcpyAsync(to,from,bytes, cudaMemcpyHostToDevice, stream));}
-inline void acceleratorCopyFromDeviceAsync(void* to, void const* from, size_t bytes, cudaStream_t stream = copyStream) { errorCheck("acceleratorCopyFromDeviceAsync", cudaMemcpyAsync(to,from,bytes, cudaMemcpyDeviceToHost, stream));}
-inline void acceleratorMemSet(void *base,int value,size_t bytes) { errorCheck("acceleratorMemSet",cudaMemset(base,value,bytes));}
-inline void acceleratorCopyDeviceToDevice(void* to, void const* from, size_t bytes){
-  errorCheck("acceleratorCopyDeviceToDevice",cudaMemcpy(to,from,bytes, cudaMemcpyDeviceToDevice));
-}
-inline void acceleratorCopyDeviceToDeviceAsynch(void* to, void const* from, size_t bytes) // Asynch
-{
-  errorCheck("acceleratorCopyDeviceToDeviceAsynch",cudaMemcpyAsync(to,from,bytes, cudaMemcpyDeviceToDevice,copyStream));
-}
-inline void acceleratorCopySynchronize(void) { errorCheck("acceleratorCopySynchronize",cudaStreamSynchronize(copyStream)); }
-
-accelerator_inline void acceleratorSynchronizeBlock(){
-#ifdef SIMT_ACTIVE //workaround
-  __syncthreads();
-#endif
-}
-
-inline void profileStart(){
-  cudaProfilerStart();
-}
-inline void profileStop(){
-  cudaProfilerStop();
-}
-inline void labelRegionBegin(char const* label){
-  nvtxRangePush(label);
-}
-inline void labelRegionEnd(){
-  nvtxRangePop();
-}
-
-template<int d6>
-struct CUDAitemPos;
-
-struct dummyType{};
-
-template<typename lambda>
-__global__ void lambdaApply(lambda l){
-  extern __shared__ char shared[];
-  l(dummyType(),shared);
-}
-
-struct decompCoordPolicyCUDA{
-  typedef dummyType itemPosContainerType;
-  
-  template<int Dim>
-  static accelerator_inline int itemPos(itemPosContainerType pos){ return CUDAitemPos<Dim>::value(); }
-};
-
-#define LAMBDA_MOD mutable
-#define DECOMP_POLICY decompCoordPolicyCUDA
-
-template<int thrDim, int blockDim, typename OptionsType, typename Lambda>
-void accelerator_for_body(int dims[thrDim+blockDim],
-			  const OptionsType &opt,
-			  Lambda lambda){
-  constexpr int splitBlockSize = OptionsType::splitBlockSize;	\
-  decomp<decompCoordPolicyCUDA, thrDim, blockDim, splitBlockSize> decomposition(dims);
-  if (decomposition.total_size) {
-    dim3 cu_threads(decomposition.decomp_sizes[0],decomposition.decomp_sizes[1],decomposition.decomp_sizes[2]);
-    dim3 cu_blocks (decomposition.decomp_sizes[3],decomposition.decomp_sizes[4],decomposition.decomp_sizes[5]);
-    lambdaApply<<<cu_blocks,cu_threads,opt.shm_size,computeStream>>>(lambda);
-    if(opt.do_barrier) accelerator_barrier(dummy);
-  }
-}
-
-#define USE_GPU
-#endif
-//////////////////////////// CUDA ///////////////////////////////////////////////////////
-
-
-/////////////////////////// HIP ////////////////////////////////////////////////////////
-#ifdef USE_HIP
-#include <hip/hip_runtime.h>
-
-#ifdef __HIP_DEVICE_COMPILE__
-#define SIMT_ACTIVE
-#endif
-
-//using std::min;
-
-#define accelerator_only   __device__
-#define accelerator        __host__ __device__
-#define accelerator_inline __host__ __device__ inline
-
-extern hipStream_t copyStream;
-extern hipStream_t computeStream;
-
-#define accelerator_barrier(dummy)				\
-  {								\
-    auto tmp=hipStreamSynchronize(computeStream);		\
-    auto err = hipGetLastError();				\
-    if ( err != hipSuccess ) {					\
-      printf("After hipDeviceSynchronize() : HIP error %s \n", hipGetErrorString( err )); \
-      puts(__FILE__);							\
-      printf("File %s Line %d\n",__FILE__,__LINE__);			\
-      fflush(stdout);						\
-      exit(0);							\
-    }								\
-  }
-
-inline void *acceleratorAllocHost(size_t bytes)
-{
-  void *ptr=NULL;
-  auto err = hipHostMalloc((void **)&ptr,bytes);
-  if( err != hipSuccess ) {
-    ptr = (void *) NULL;
-    fprintf(stderr," hipMallocManaged failed for %ld %s \n",bytes,hipGetErrorString(err)); fflush(stderr);
-    assert(0);
-  }
-  return ptr;
-};
-inline void *acceleratorAllocShared(size_t bytes)
-{
-  void *ptr=NULL;
-  auto err = hipMallocManaged((void **)&ptr,bytes);
-  if( err != hipSuccess ) {
-    ptr = (void *) NULL;
-    fprintf(stderr," hipMallocManaged failed for %ld %s \n",bytes,hipGetErrorString(err)); fflush(stderr);
-    assert(0);
-  }
-  return ptr;
-};
-
-inline void *acceleratorAllocDevice(size_t bytes)
-{
-  void *ptr=NULL;
-  auto err = hipMalloc((void **)&ptr,bytes);
-  if( err != hipSuccess ) {
-    ptr = (void *) NULL;
-    fprintf(stderr," hipMalloc failed for %ld %s \n",bytes,hipGetErrorString(err)); fflush(stderr);
-    assert(0);
-  }
-  return ptr;
-};
-
-inline void acceleratorFreeShared(void *ptr){ auto d=hipFree(ptr);};
-inline void acceleratorFreeDevice(void *ptr){ auto d=hipFree(ptr);};
-inline void acceleratorFreeHost(void *ptr){ auto d=hipFree(ptr);};
-inline void acceleratorCopyToDevice(void* to, void const* from,size_t bytes)  { auto d=hipMemcpy(to,from,bytes, hipMemcpyHostToDevice);}
-inline void acceleratorCopyFromDevice(void* to, void const* from,size_t bytes){ auto d=hipMemcpy(to,from,bytes, hipMemcpyDeviceToHost);}
-inline void acceleratorCopyToDeviceAsync(void* to, void const* from, size_t bytes, hipStream_t stream = copyStream) { auto d=hipMemcpyAsync(to,from,bytes, hipMemcpyHostToDevice, stream);}
-inline void acceleratorCopyFromDeviceAsync(void* to, void const* from, size_t bytes, hipStream_t stream = copyStream) { auto d=hipMemcpyAsync(to,from,bytes, hipMemcpyDeviceToHost, stream);}
-inline void acceleratorMemSet(void *base,int value,size_t bytes) { auto d=hipMemset(base,value,bytes);}
-inline void acceleratorCopyDeviceToDevice(void* to, void const* from, size_t bytes){
-  auto d=hipMemcpy(to,from,bytes, hipMemcpyDeviceToDevice);
-}
-inline void acceleratorCopyDeviceToDeviceAsynch(void* to, void const* from, size_t bytes) // Asynch
-{
-  auto d=hipMemcpyAsync(to,from,bytes, hipMemcpyDeviceToDevice,copyStream);
-}
-inline void acceleratorCopySynchronize(void) { auto d=hipStreamSynchronize(copyStream); };
-
-accelerator_inline void acceleratorSynchronizeBlock(){
-#ifdef SIMT_ACTIVE //workaround
-  __syncthreads();
-#endif
-}
-
-inline void profileStart(){
-}
-inline void profileStop(){
-}
-inline void labelRegionBegin(char const* label){
-}
-inline void labelRegionEnd(){
-}
-
-template<int d6>
-struct CUDAitemPos;
-
-struct dummyType{};
-
-template<typename lambda>
-__global__ void lambdaApply(lambda l){
-  extern __shared__ char shared[];
-  l(dummyType(),shared);
-}
-
-struct decompCoordPolicyHIP{
-  typedef dummyType itemPosContainerType;
-  
-  template<int Dim>
-  static accelerator_inline int itemPos(itemPosContainerType pos){ return CUDAitemPos<Dim>::value(); }
-};
-
-#define LAMBDA_MOD mutable
-#define DECOMP_POLICY decompCoordPolicyHIP
-
-template<int thrDim, int blockDim, typename OptionsType, typename Lambda>
-void accelerator_for_body(int dims[thrDim+blockDim],
-			  const OptionsType &opt,
-			  Lambda lambda){
-  constexpr int splitBlockSize = OptionsType::splitBlockSize;	\
-  decomp<decompCoordPolicyHIP, thrDim, blockDim, splitBlockSize> decomposition(dims);
-  if (decomposition.total_size) {
-    dim3 hip_threads(decomposition.decomp_sizes[0],decomposition.decomp_sizes[1],decomposition.decomp_sizes[2]);
-    dim3 hip_blocks (decomposition.decomp_sizes[3],decomposition.decomp_sizes[4],decomposition.decomp_sizes[5]);
-
-    hipLaunchKernelGGL(lambdaApply,hip_blocks,hip_threads, opt.shm_size,computeStream, lambda);		
-    if(opt.do_barrier) accelerator_barrier(dummy);
-  }
-}
-
-#define USE_GPU
-#endif
-//////////////////////////// HIP ///////////////////////////////////////////////////////
-
-
-/////////////////////////// SYCL / ONEAPI //////////////////////////////////////////////
-
-#ifdef USE_SYCL
-
-#include <sycl/sycl.hpp>
-
-extern sycl::queue *computeQueue;
-extern sycl::queue *copyQueue;
-
-#ifdef __SYCL_DEVICE_ONLY__
-#define SIMT_ACTIVE
-#endif
-
-#define accelerator_only
-#define accelerator 
-#define accelerator_inline strong_inline
-
-#define accelerator_barrier(dummy) { computeQueue->wait(); }
-
-inline void *acceleratorAllocShared(size_t bytes){ return malloc_shared(bytes,*computeQueue);};
-inline void *acceleratorAllocHost(size_t bytes)  { return malloc_host(bytes,*computeQueue);};
-inline void *acceleratorAllocDevice(size_t bytes){ return malloc_device(bytes,*computeQueue);};
-inline void acceleratorFreeHost(void *ptr){free(ptr,*computeQueue);};
-inline void acceleratorFreeShared(void *ptr){free(ptr,*computeQueue);};
-inline void acceleratorFreeDevice(void *ptr){free(ptr,*computeQueue);};
-
-inline void acceleratorCopyToDevice(void* to, const void *from,size_t bytes)  { computeQueue->memcpy(to,from,bytes); computeQueue->wait();}
-inline void acceleratorCopyFromDevice(void* to, const void *from,size_t bytes){ computeQueue->memcpy(to,from,bytes); computeQueue->wait();}
-inline void acceleratorCopyDeviceToDevice(void* to, const void *from,size_t bytes)  { computeQueue->memcpy(to,from,bytes); computeQueue->wait();}
-inline void acceleratorMemSet(void *base,int value,size_t bytes) { computeQueue->memset(base,value,bytes); computeQueue->wait();}
-
-#define acceleratorSynchronizeBlock() pos.barrier(sycl::access::fence_space::local_space)
-
-template<typename FloatType>
-inline void atomicAdd(FloatType *p, const FloatType v){
-  sycl::atomic_ref<FloatType, sycl::memory_order::relaxed, sycl::memory_scope::device> ap(*p);
-  ap.fetch_add(v); 
-}
-
-inline void profileStart(){
-}
-inline void profileStop(){
-}
-inline void labelRegionBegin(char const* label){
-}
-inline void labelRegionEnd(){
-}
-
-using sycl::min;
-
-template<int d6>
-struct SyclItemPos;
-
-struct decompCoordPolicySycl{
-  typedef sycl::nd_item<3> itemPosContainerType;
-  
-  template<int Dim>
-  static accelerator_inline int itemPos(itemPosContainerType pos){ return SyclItemPos<Dim>::value(pos); }
-};
-
-#define LAMBDA_MOD
-//mutable
-#define DECOMP_POLICY decompCoordPolicySycl
-
-template<int thrDim, int blockDim, typename OptionsType, typename Lambda>
-void accelerator_for_body(int dims[thrDim+blockDim],
-			  const OptionsType &opt,
-			  Lambda lambda){
-  constexpr int splitBlockSize = OptionsType::splitBlockSize;	\
-  decomp<decompCoordPolicySycl, thrDim, blockDim, splitBlockSize> decomposition(dims);
-  //std::cout << "Sycl split_block_size: " << splitBlockSize << " block_shared_mem: " << opt.shm_size << " blocking: " << opt.do_barrier << std::endl;
-  //decomposition.print();
-  if (decomposition.total_size) {
-    //std::cout << "lcl : " << decomposition.decomp_sizes[2] << " " << decomposition.decomp_sizes[1] << " " << decomposition.decomp_sizes[0] << std::endl;
-    //std::cout << "gbl : " << decomposition.decomp_sizes[3]*decomposition.decomp_sizes[2] << " " << decomposition.decomp_sizes[4]*decomposition.decomp_sizes[1] << " " << decomposition.decomp_sizes[5]*decomposition.decomp_sizes[0] << std::endl;			   
-    
-    computeQueue->submit(
-			 [&](sycl::handler &cgh){
-			   sycl::range<3> local{
-			     size_t(decomposition.decomp_sizes[2]),
-			     size_t(decomposition.decomp_sizes[1]),
-			     size_t(decomposition.decomp_sizes[0]) //fastest moving dimension is last on sycl
-			   };
-			   sycl::range<3> global{
-			     size_t(decomposition.decomp_sizes[3]*decomposition.decomp_sizes[2]),
-			     size_t(decomposition.decomp_sizes[4]*decomposition.decomp_sizes[1]),
-			     size_t(decomposition.decomp_sizes[5]*decomposition.decomp_sizes[0])
-			   };
-			   
-			   if(opt.shm_size){			      
-			     sycl::local_accessor<char, 1> local_a(sycl::range(opt.shm_size), cgh);
-			     
-			     cgh.parallel_for(
-					      sycl::nd_range<3>(global,local),					    
-					      [=] (sycl::nd_item<3> item) [[sycl::reqd_sub_group_size(32)]]{
-						char* shared = local_a.get_multi_ptr<sycl::access::decorated::no>().get();
-						lambda(item,shared);
-					      }
-					      );
-			   }else{
-			     cgh.parallel_for(
-					      sycl::nd_range<3>(global,local),					    
-					      [=] (sycl::nd_item<3> item) [[sycl::reqd_sub_group_size(32)]]{
-						lambda(item,nullptr);
-					      }
-					      );
-			   }
-			 }
-			 );
-    if(opt.do_barrier) accelerator_barrier(dummy);
-  }
-}
-
-#define USE_GPU
-#endif
-
-/////////////////////////// SYCL / ONEAPI //////////////////////////////////////////////
-
-
-
-///////////////////////////// OPENMP / NO THREADING //////////////////////////////////////////////////////
-//If OMP is detected, use it
+//Host-side looping, always available
 #ifdef _OPENMP
 #define USE_OMP
 #include <omp.h>
 #endif
 
-//Host side functionality is always available
-#ifdef USE_OMP
+#ifdef USE_OMP //host-side with threading
 #define DO_PRAGMA_(x) _Pragma (#x)
 #define DO_PRAGMA(x) DO_PRAGMA_(x)
 #define thread_num(a) omp_get_thread_num()
 #define thread_max(a) omp_get_max_threads()
 #define set_threads(a) omp_set_num_threads(a)
 #define in_thread_parallel_region(a) omp_in_parallel()
-#else
-#define DO_PRAGMA_(x) 
-#define DO_PRAGMA(x) 
-#define thread_num(a) (0)
-#define thread_max(a) (1)
-#define set_threads(a)
-#define in_thread_parallel_region(a) (false)
-#endif
 
 #define thread_for( i, num, ... )  \
   DO_PRAGMA(omp parallel for schedule(static)) for ( uint64_t i=0;i<num;i++) { __VA_ARGS__ } ;
@@ -455,101 +42,62 @@ void accelerator_for_body(int dims[thrDim+blockDim],
   { __VA_ARGS__ } ;			   \
   }}
 
+#else //no threading
+#define DO_PRAGMA_(x) 
+#define DO_PRAGMA(x) 
+#define thread_num(a) (0)
+#define thread_max(a) (1)
+#define set_threads(a)
+#define in_thread_parallel_region(a) (false)
 
-#if !defined(USE_GPU)
+#define thread_for( i, num, ... )  \
+  for ( uint64_t i=0;i<num;i++) { __VA_ARGS__ } ;
 
-#undef SIMT_ACTIVE
+#define thread_for3d( i1, n1, i2, n2, i3, n3, ... )	\
+  for ( uint64_t i3=0;i3<n3;i3++) {	   \
+  for ( uint64_t i2=0;i2<n2;i2++) {	   \
+  for ( uint64_t i1=0;i1<n1;i1++) {	   \
+  { __VA_ARGS__ } ;			   \
+  }}}
 
-#define accelerator
-#define accelerator_only
-#define accelerator_inline strong_inline
+#define thread_for2d( i1, n1,i2,n2, ... )  \
+  for ( uint64_t i2=0;i2<n2;i2++) {	   \
+  for ( uint64_t i1=0;i1<n1;i1++) {	   \
+  { __VA_ARGS__ } ;			   \
+  }}
 
-#define accelerator_barrier(dummy) 
+#endif
 
-inline void acceleratorCopyToDevice(void* to, void const* from,size_t bytes)  { bcopy(from,to,bytes); }
-inline void acceleratorCopyFromDevice(void* to, void const* from,size_t bytes){ bcopy(from,to,bytes);}
-inline void acceleratorCopyDeviceToDevice(void* to, void const* from,size_t bytes)  { bcopy(from,to,bytes);}
-inline void acceleratorCopyDeviceToDeviceAsynch(void* to, void const* from,size_t bytes)  { bcopy(from,to,bytes);}
-inline void acceleratorCopySynchronize(void) {};
 
-inline void acceleratorMemSet(void *base,int value,size_t bytes) { memset(base,value,bytes);}
+void     acceleratorInit(void);
+void acceleratorReport();
 
-inline void *acceleratorAllocHost(size_t bytes){return malloc(bytes);};
-inline void *acceleratorAllocShared(size_t bytes){return malloc(bytes);};
-inline void *acceleratorAllocDevice(size_t bytes){return malloc(bytes);};
-inline void acceleratorFreeHost(void *ptr){ free(ptr);}
-inline void acceleratorFreeShared(void *ptr){free(ptr);};
-inline void acceleratorFreeDevice(void *ptr){free(ptr);};
+template<typename decompCoordPolicy, int thrDims, int blockDims, int splitBlockSize>
+struct decomp;
 
-inline void profileStart(){
-}
-inline void profileStop(){
-}
-inline void labelRegionBegin(char const* label){
-}
-inline void labelRegionEnd(){
-}
+#define strong_inline     __attribute__((always_inline)) inline
 
-template<typename FloatType>
-inline void atomicAdd(FloatType *p, const FloatType v){
-#pragma omp atomic
-  *p += v;
-}
+#ifdef USE_CUDA
+#  include "implementation/Accelerator_CUDA.tcc"
+#  define USE_GPU
+#endif
+#ifdef USE_HIP
+#  include "implementation/Accelerator_HIP.tcc"
+#  define USE_GPU
+#endif
+#ifdef USE_SYCL
+#  include "implementation/Accelerator_SYCL.tcc"
+#  define USE_GPU
+#endif
 
-inline void acceleratorSynchronizeBlock(){
-#pragma omp barrier
-}
-
-using std::min;
-
-struct decompCoordPolicyThread{
-  typedef int itemPosContainerType[6];
-  
-  template<int Dim>
-  static accelerator_inline int itemPos(itemPosContainerType pos){ return pos[Dim]; }
-};
-
-template<int thrDim, int blockDim, typename OptionsType, typename Lambda>
-void accelerator_for_body(int dims[thrDim+blockDim],
-		     const OptionsType &opt,
-		     Lambda lambda){
-  constexpr int splitBlockSize = OptionsType::splitBlockSize;
-  decomp<decompCoordPolicyThread, thrDim, blockDim, splitBlockSize> decomposition(dims);
-
-  int nthr = decomposition.decomp_sizes[0]*decomposition.decomp_sizes[1]*decomposition.decomp_sizes[2];
-  omp_set_dynamic(0);
-
-  char shared[opt.shm_size];
-  
-  if (decomposition.total_size) {
-    for(int f=0;f<decomposition.decomp_sizes[5];f++){
-      for(int e=0;e<decomposition.decomp_sizes[4];e++){
-	for(int d=0;d<decomposition.decomp_sizes[3];d++){
-#pragma omp parallel num_threads(nthr)
-	  {
-	    int rem = omp_get_thread_num();
-	    int a = rem % decomposition.decomp_sizes[0]; rem /= decomposition.decomp_sizes[0];
-	    int b = rem % decomposition.decomp_sizes[1]; rem /= decomposition.decomp_sizes[1];
-	    int c = rem;
-	    
-	    int x[6] = {a,b,c,d,e,f};
-	    lambda(x,shared);
-	  }
-	}
-      }
-    }
-  }
-}
-
-//Allow the captured views to be accessed as non-const
-#define LAMBDA_MOD mutable
-#define DECOMP_POLICY decompCoordPolicyThread
-
-using std::erf;
-using std::erff;
-
-#endif // CPU target
-
+//Host-side fallback if no GPU acceleration
+#ifndef USE_GPU
+#  ifndef USE_OMP
+#    error "No accelerator API available"
+#  else
+#    include "implementation/Accelerator_OMP.tcc"
+#  endif
+#endif
 
 ////////////////////////////////// GENERAL ///////////////////////////////////////
 template<typename decompCoordPolicy, int thrDims, int blockDims, int splitBlockSize>
