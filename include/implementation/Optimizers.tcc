@@ -1,3 +1,26 @@
+struct train_stage_time_report{
+  Timer total;
+  Timer loader;
+  Timer model;
+  Timer reduce;
+
+  train_stage_time_report(): total(true){}
+
+  std::string report(double FLOPS){
+    double Gflops = FLOPS/1e9 /model.time();
+    std::ostringstream os;
+    double other = total.time() - loader.time() - model.time() - reduce.time();
+    os << "loader: " << loader.time() << "s, "
+       << "model: " << model.time() << "s (" << Gflops << " Gflops), "
+       << "reduction: " << reduce.time() << "s, "
+       << "other: " << other << "s | "
+       << "total: " << total.time();
+    return os.str();
+  }
+};
+
+
+
 template<typename DataLoader, typename LossWrappedModelType, typename Optimizer>
 std::pair<
 std::vector<typename LossWrappedModelType::FloatType>,
@@ -50,8 +73,8 @@ train(LossWrappedModelType &loss_func, const DataLoader &train_data, DataLoader 
     //////////// train epoch ///////////////
     optimizer.epochStart(epoch, do_print);
     std::random_shuffle ( didx_train.begin(), didx_train.end(), [&](const int l){ return dist(gen); }  ); //shuffle training data indices
-    FloatType lmax_train=std::numeric_limits<FloatType>::lowest(),  lmin_train = std::numeric_limits<FloatType>::max(),  lavg_train = 0.;
-    auto ts=now();
+    FloatType lmax_train=std::numeric_limits<FloatType>::lowest(),  lmin_train = std::numeric_limits<FloatType>::max(),  lavg_train = 0.;    
+    train_stage_time_report t_train;
     
     for(int block=0;block<nblocks_ddp_train;block++){
       int ddp_blocksize_actual = std::min(nbatch_train - block*ddp_blocksize, ddp_blocksize);
@@ -63,14 +86,21 @@ train(LossWrappedModelType &loss_func, const DataLoader &train_data, DataLoader 
 	int bidx = block*ddp_blocksize + me; //which batch are we doing?
 
 	//Get the batch
-	auto bxy = train_data.batch(didx_train.data() + bidx*batch_size, batch_size);
+	TIME(t_train.loader,
+	     auto bxy = train_data.batch(didx_train.data() + bidx*batch_size, batch_size);
+	     );
 
+	TIME(t_train.model,
 	loss = loss_func.loss(bxy.x, bxy.y, DerivYes);
 	deriv = loss_func.deriv();
+	     );
       }
+
+      TIME(t_train.reduce, 
       ddpAverage(&loss,1,false); //no need to bcast the loss to the pipeline ranks
       ddpAverage(deriv,true); //share the deriv over all pipeline ranks
-           
+	   )
+	   
       //if(do_print) std::cout << epoch << "-" << block << " : "<< loss << std::endl;
       lmax_train = std::max(lmax_train,loss);
       lmin_train = std::min(lmin_train,loss);
@@ -84,45 +114,59 @@ train(LossWrappedModelType &loss_func, const DataLoader &train_data, DataLoader 
       losses_train[block+nblocks_ddp_train*epoch] = loss;
     }
     lavg_train /= nblocks_ddp_train;
-    double train_time = since(ts);
-    double train_Tflops = nbatch_train * double(loss_func.FLOPS(0) + loss_func.FLOPS(1) + 2*loss_func.nparams())/1.0e12 / train_time;
+
+    t_train.total.pause();
+    double train_FLOPS = nbatch_train * double(loss_func.FLOPS(0) + loss_func.FLOPS(1));
     
     //////////// end train epoch ///////////////
     
     //////////// validate epoch ///////////////
     if(valid_data){
       FloatType lmax_valid=std::numeric_limits<FloatType>::lowest(),  lmin_valid = std::numeric_limits<FloatType>::max(),  lavg_valid = 0.;
-      ts=now();
+      train_stage_time_report t_valid;
       
       for(int block=0;block<nblocks_ddp_valid;block++){
 	int ddp_blocksize_actual = std::min(nbatch_valid - block*ddp_blocksize, ddp_blocksize);
 
 	FloatType loss = 0;
 	if(me < ddp_blocksize_actual){ 
-	  int bidx = block*ddp_blocksize + me; 
+	  int bidx = block*ddp_blocksize + me;
+	  TIME(t_valid.loader,
 	  auto bxy = valid_data->batch(didx_valid.data() + bidx*batch_size, batch_size); //no need to shuffle
+	       );
+	  TIME(t_valid.model,
 	  loss = loss_func.loss(bxy.x, bxy.y, DerivNo);
+	       );
 	}
-      
+
+	TIME(t_valid.reduce,
 	ddpAverage(&loss,1,false);
-          
+	     );
+	     
 	lmax_valid = std::max(lmax_valid,loss);
 	lmin_valid = std::min(lmin_valid,loss);
 	lavg_valid += loss;
       
 	losses_valid[block+nblocks_ddp_valid*epoch] = loss;
-      }
+      }      
       lavg_valid /= nblocks_ddp_valid;
-      double valid_time = since(ts);
-      double valid_Tflops = nbatch_valid * double(loss_func.FLOPS(0))/1.0e12 / valid_time;
+      t_valid.total.pause();
+      
+      double valid_FLOPS = nbatch_valid * double(loss_func.FLOPS(0));
       
       //////////// end validate epoch ///////////////
       
       if(do_print) std::cout << "Epoch : " << epoch << std::endl
-			     << "training time : " << train_time <<"s (" << train_Tflops << " Tflops) loss min: " << lmin_train << " avg: " << lavg_train << " max: " << lmax_train << std::endl
-			     << "validation time : " << valid_time <<"s (" << valid_Tflops << " Tflops) loss min: " << lmin_valid << " avg: " << lavg_valid << " max: " << lmax_valid << std::endl;
-    }else{ //if not validating, just print info on the training losses    
-      if(do_print) std::cout << "Epoch : " << epoch << " time : " << train_time <<"s ("<< train_Tflops << " Tflops) loss min: " << lmin_train << " avg: " << lavg_train << " max: " << lmax_train << std::endl;    
+			     << "training loss min: " << lmin_train << " avg: " << lavg_train << " max: " << lmax_train << std::endl
+			     << "validation loss min: " << lmin_valid << " avg: " << lavg_valid << " max: " << lmax_valid << std::endl
+			     << "training timings: " << t_train.report(train_FLOPS) << std::endl
+			     << "validation timings: " << t_valid.report(valid_FLOPS) << std::endl;
+
+      
+    }else{ //if not validating, just print info on the training losses
+      if(do_print) std::cout << "Epoch : " << epoch << std::endl
+			     << "loss min: " << lmin_train << " avg: " << lavg_train << " max: " << lmax_train << std::endl
+			     << "timings: " << t_train.report(train_FLOPS) << std::endl;
     }
   }//epoch
       

@@ -72,7 +72,7 @@ void Tensor<FloatType,Dim>::pokeLastDimension(const Tensor<FloatType,Dim-1> &ins
     
   autoView(ins_v,ins,DeviceRead);
   autoView(t_v,(*this),DeviceReadWrite);
-  accelerator_for2d(dummy1,1, i,other_size,32,{
+  accelerator_for_gen(1,0,splitBlock<32>(), i,other_size,{
       t_v.data()[idx + size_last *i] = ins_v.data()[i];
     });
 }
