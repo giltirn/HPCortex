@@ -2,6 +2,25 @@
 
 In this section we will illustrate the fundamentals of building, training and using models in HPCortex via a simple example. The complete working version of this code can be found in `examples/example_dnn.cpp` which is compiled by default.
 
+### Application boilerplate and compilation
+
+To build an application, first include HPCortex' header, `#include<HPCortex.hpp>`, then initialize the library as follows:
+
+	int main(int argc, char** argv){
+		initialize(argc, argv);
+   
+Compilation is made convenient through HPCortex' configuration tool, `hpcortex-config`, which stores and provides the build flags determined during configuration. After ensuring `/path/to/install/bin` is in your `PATH` environment variable, simply construct a Makefile from the following template (here for an application `train` with source `train.cpp`:
+
+	CXX := $(shell hpcortex-config --cxx)
+	CXXFLAGS := $(shell hpcortex-config --cxxflags)
+	LDFLAGS := $(shell hpcortex-config --ldflags)
+	LIBS := $(shell hpcortex-config --libs)
+
+	train: train.cpp
+		$(CXX) train.cpp $(CXXFLAGS) $(LDFLAGS) $(LIBS) -o train
+	
+To run simply ensure `/path/to/install/lib` is in your `LD_LIBRARY_PATH` environment variable and execute the binary as normal.
+
 ### Building a simple model
 
 Models in HPCortex are structured as nested instances of layers, with the top-most layer being the output layer and the bottom-most the input layer. Layers are conveniently instantiated through wrapper functions that hide away some of the type-passing details and, optionally, initialize the layer's parameters.
@@ -14,7 +33,7 @@ The following simple example creates a fully-connected network with one hidden l
 
 	auto model = dnn_layer(n_out, n_hidden,
 			       dnn_layer(n_hidden, n_in, ReLU<float>(),
-					 input_layer<float>()				   
+					 input_layer<confSingle>()				 
 					 )
 			       ); 
 
@@ -22,7 +41,7 @@ Note the following:
 
 * In general, the arguments to a layer appear first within the function signature of a layer instantiation function, followed by the layer below.
 
-* The model must always terminate on a *single* input layer. In this example, the input type is assumed to be a matrix, where the *column* index is the batch index. As this is the default input type it does not need to be explicitly specified; however, `input_layer<float, Matrix<float> >()` is equivalent to the above.
+* The model must always terminate on a *single* input layer. In this example, the input type is assumed to be a matrix, where the *column* index is the batch index. As this is the default input type it does not need to be explicitly specified; however, `input_layer<confSingle, Matrix<float> >()` is equivalent to the above.
 
 * Batching, or more correctly, *mini-batching*, is exploited at the fundamental level in HPCortex: All inputs and outputs to the model are batch-processed in parallel for more efficient computation.
 
@@ -30,7 +49,7 @@ Note the following:
 
 * The dimensions of the *data* (including the batch size) generally do not need to be specified at this stage; rather, the first use of the model will fix these parameters internally.
 
-* The floating point type is specified explicitly as a parameter of the activation function (`ReLU` here) and the input layer. This type is passed through to the layers above automatically.
+* The floating point type is specified explicitly as a parameter of the activation function (`ReLU` here) and the input layer through the configuration argument `confSingle` (use `confDouble` for double precision). This type is passed through to the layers above automatically.
 
 ### Training the model
 
