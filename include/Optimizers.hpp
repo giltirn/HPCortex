@@ -47,13 +47,22 @@ struct AdamParams{ //NB, alpha comes from the learning scheduler
   AdamParams( FloatType beta1=0.99, FloatType beta2=0.999, FloatType eps=1e-8): beta1(beta1), beta2(beta2), eps(eps){}
 };
 
-template<typename FloatType, typename LRscheduler = noScheduler<FloatType> >
-class AdamOptimizer{
-  LRscheduler sched;
-  AdamParams<FloatType> ap;
+template<typename FloatType>
+struct AdamState{
   FloatType alpha;
   size_t t;
 
+  Vector<FloatType> m;
+  Vector<FloatType> v;
+};
+  
+template<typename FloatType, typename LRscheduler = noScheduler<FloatType> >
+class AdamOptimizer{ 
+  LRscheduler sched;
+  AdamParams<FloatType> ap;
+  
+  FloatType alpha;
+  size_t t;  
   Vector<FloatType> m;
   Vector<FloatType> v;
 
@@ -62,6 +71,7 @@ class AdamOptimizer{
     m=Vector<FloatType>();
     v=Vector<FloatType>();
   }
+  
 public:
   AdamOptimizer(const AdamParams<FloatType> &ap, const LRscheduler &sched): sched(sched), ap(ap), alpha(0.), t(0){}
   AdamOptimizer(const LRscheduler &sched): AdamOptimizer( AdamParams<FloatType>(), sched){}
@@ -71,6 +81,22 @@ public:
 
   template<typename L=LRscheduler, typename std::enable_if<std::is_same<L,noScheduler<FloatType> >::value, int>::type = 0>
   AdamOptimizer(FloatType lr): AdamOptimizer( AdamParams<FloatType>(), lr){}
+
+  AdamState<FloatType> getState() const{
+    AdamState<FloatType> out;
+    out.alpha = alpha;
+    out.t = t;
+    out.m = m;
+    out.v = v;
+    return out;
+  }
+
+  void setState(const AdamState<FloatType> &st){
+    alpha = st.alpha;
+    t = st.t;
+    m = st.m;
+    v = st.v;
+  }    
   
   void epochStart(int epoch, bool verbose = true){
     alpha = sched(epoch);

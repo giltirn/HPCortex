@@ -64,9 +64,9 @@ inline void acceleratorMemSet(void *base,int value,size_t bytes) { errorCheck("a
 inline void acceleratorCopyDeviceToDevice(void* to, void const* from, size_t bytes){
   errorCheck("acceleratorCopyDeviceToDevice",cudaMemcpy(to,from,bytes, cudaMemcpyDeviceToDevice));
 }
-inline void acceleratorCopyDeviceToDeviceAsynch(void* to, void const* from, size_t bytes) // Asynch
+inline void acceleratorCopyDeviceToDeviceAsync(void* to, void const* from, size_t bytes) // Asynch
 {
-  errorCheck("acceleratorCopyDeviceToDeviceAsynch",cudaMemcpyAsync(to,from,bytes, cudaMemcpyDeviceToDevice,copyStream));
+  errorCheck("acceleratorCopyDeviceToDeviceAsync",cudaMemcpyAsync(to,from,bytes, cudaMemcpyDeviceToDevice,copyStream));
 }
 inline void acceleratorCopySynchronize(void) { errorCheck("acceleratorCopySynchronize",cudaStreamSynchronize(copyStream)); }
 

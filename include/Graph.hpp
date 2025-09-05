@@ -21,11 +21,19 @@ struct AttributedGraphElement{
   
   /**
    * @brief Insert unbatched attribute information into this batched object
-   * @param from The unbatched node
+   * @param from The unbatched element
    * @param bidx The batch index
    */
   void insertBatch(const AttributedGraphElement<FloatType> &from, int bidx);
 
+  /**
+   * @brief Insert unbatched attribute information into this batched object for all batch indices
+   * @param from An array of pointers to unbatched elements of size batch_size
+   * 
+   * Much faster than using insertBatch repeatedly
+   */
+  void insertCompleteBatch(AttributedGraphElement<FloatType> const* const* from);
+  
   /**
    * @brief Zero the attributes
    */
@@ -60,7 +68,7 @@ struct Edge: public AttributedGraphElement<FloatType>{
    * @param bidx The batch index
    */
   void insertBatch(const Edge<FloatType> &from, int bidx);
-
+   
   /**
    * @brief Zero-initialize the edge information and attributes according to the provided sizes and batch size
    */
@@ -122,12 +130,23 @@ struct Graph{
 
   Graph<FloatType> & operator+=(const Graph<FloatType> &r);
 
+  Graph<FloatType> operator+(const Graph<FloatType> &r) const;
+  
+  
   /**
    * @brief Insert unbatched graph information into this batched object
    * @param from The unbatched graph
    * @param bidx The batch index
    */
   void insertBatch(const Graph<FloatType> &from, int bidx);
+
+  /**
+   * @brief Insert unbatched graph information into this batched object for all batch indices
+   * @param from An array of pointers to unbatched graphs of size batch_size
+   * 
+   * Much faster than using insertBatch repeatedly
+   */
+  void insertCompleteBatch(Graph<FloatType> const* const* from);
 };
 
 

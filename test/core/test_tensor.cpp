@@ -254,6 +254,21 @@ void testMatrix(){
     
     doHost(m, { assert(m_v(0,1) == FloatType(5.) && m_v(0,2) == FloatType(6.) && m_v(1,1) == FloatType(7.) && m_v(1,2) == FloatType(8.)); });
   }
+  //Test transpose
+  {
+    Matrix<FloatType> m(2,3, vecD({ 1.,2.,3.,
+	                            4.,5.,6.  }));
+    
+    Matrix<FloatType> expect(3,2, vecD({ 1, 4,
+	                                 2, 5,
+					 3, 6 }) );
+    Matrix<FloatType> got = transpose(m, Host);
+    assert(equal(got,expect,true));
+    got = transpose(m,Device);
+    assert(equal(got,expect,true));
+  }
+   
+  
   //Test matrix-vector linalg
   {
     Matrix<FloatType> m(2,3, vecD({ -0.1, 0.1, 0.3,

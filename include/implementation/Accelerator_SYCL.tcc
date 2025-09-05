@@ -23,7 +23,10 @@ inline void acceleratorFreeDevice(void *ptr){free(ptr,*computeQueue);};
 inline void acceleratorCopyToDevice(void* to, const void *from,size_t bytes)  { computeQueue->memcpy(to,from,bytes); computeQueue->wait();}
 inline void acceleratorCopyFromDevice(void* to, const void *from,size_t bytes){ computeQueue->memcpy(to,from,bytes); computeQueue->wait();}
 inline void acceleratorCopyDeviceToDevice(void* to, const void *from,size_t bytes)  { computeQueue->memcpy(to,from,bytes); computeQueue->wait();}
+inline void acceleratorCopyDeviceToDeviceAsync(void* to, const void *from,size_t bytes)  { copyQueue->memcpy(to,from,bytes); }
 inline void acceleratorMemSet(void *base,int value,size_t bytes) { computeQueue->memset(base,value,bytes); computeQueue->wait();}
+
+inline void acceleratorCopySynchronize(void) { copyQueue->wait(); }
 
 #define acceleratorSynchronizeBlock() pos.barrier(sycl::access::fence_space::local_space)
 

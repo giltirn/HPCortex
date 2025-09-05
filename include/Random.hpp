@@ -6,7 +6,7 @@
 typedef std::mt19937 GlobalRNGtype;
 constexpr size_t default_seed = 1234;
 
-GlobalRNGtype & globalRNG(){
+inline GlobalRNGtype & globalRNG(){
   static GlobalRNGtype rng(1234);
   return rng;
 }

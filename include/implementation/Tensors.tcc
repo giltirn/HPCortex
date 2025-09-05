@@ -187,23 +187,68 @@ template<typename FloatType>
 Matrix<FloatType> transpose(const Matrix<FloatType> &m, Locale loc){
   if(loc == Auto && m.deviceResident()) loc = Device;
 
-  int out_sz[2] = { m.size(1), m.size(0) };
-  Matrix<FloatType> out(out_sz,loc == Device ? MemoryManager::Pool::DevicePool : MemoryManager::Pool::HostPool);
+  if(loc == Device){
+    int isize = m.size(0);
+    int jsize = m.size(1);
   
-  autoView(in_v,m,loc == Device ? DeviceRead : HostRead);
-  autoView(out_v,out, loc == Device ? DeviceWrite : HostWrite);
+    Matrix<FloatType> into(jsize,isize);    
+    autoView(mat_v,m,DeviceRead);
+    autoView(into_v,into,DeviceWrite);
 
-#define BODY \
-  int i = s / in_v.size(1), j = s % in_v.size(1); \
-  out_v(j,i) = in_v(i,j);
+    if(m.size(0) == 1 || m.size(1) == 1){
+      acceleratorCopyDeviceToDevice(into_v.data(),mat_v.data(),mat_v.data_len()*sizeof(FloatType));
+      return into;
+    }
+    
+    constexpr int iblocksize = 8;
+    int iblocks = (isize + iblocksize -1)/iblocksize;
+
+    constexpr int jblocksize = 8;
+    int jblocks = (jsize + jblocksize -1)/jblocksize;
   
-  if(loc == Device){  
-    accelerator_for_gen(0,1,normal(),s,in_v.data_len(),{ BODY; });
+    accelerator_for_3d_gen(1,2,shm( (jblocksize+1)*iblocksize*sizeof(FloatType)), t, jblocksize,  bi, iblocks,  bj, jblocks, {
+	FloatType* bstore = (FloatType*)shared;
+      
+	int ioff = bi*iblocksize;
+	int iblocksize_actual = min(isize - ioff,iblocksize);
+	int joff = bj*jblocksize;
+	int jblocksize_actual = min(jsize - joff,jblocksize);
+
+	//parallel load jblocksize consecutive elements for fixed i
+	FloatType const *mat_p = mat_v.data() + joff + t;
+	for(int ii=0;ii<iblocksize_actual;ii++){      
+	  int i = ii + ioff;
+	  if(t < jblocksize_actual) bstore[t + (jblocksize+1)*ii] = *(mat_p + i*jsize);
+	}
+	acceleratorSynchronizeBlock();
+
+	//parallel write iblocksize consecutive elements into output for fixed j
+	for(int jj=0;jj<jblocksize_actual;jj++){
+	  int j = jj+joff;
+	  int ii=t;
+	  while( ii < iblocksize_actual){
+	    into_v.data()[ ii + ioff + isize*j] = bstore[jj + (jblocksize+1)*ii ];	  
+	    ii += jblocksize;
+	  }
+	}
+
+      });
+  
+    return into;
   }else{
-    thread_for(s,in_v.data_len(),{ BODY; });
+    int out_sz[2] = { m.size(1), m.size(0) };
+    Matrix<FloatType> out(m.size(1),m.size(0),MemoryManager::Pool::HostPool);
+  
+    autoView(in_v,m, HostRead);
+    autoView(out_v,out, HostWrite);
+  
+    thread_for(s,in_v.data_len(),{
+	int i = s / in_v.size(1), j = s % in_v.size(1); 
+	out_v(j,i) = in_v(i,j);
+      });
+    return out;
   }
-#undef BODY
-  return out;
+  
 }
 
 template<typename FloatType>

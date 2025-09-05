@@ -72,7 +72,7 @@ inline void acceleratorMemSet(void *base,int value,size_t bytes) { auto d=hipMem
 inline void acceleratorCopyDeviceToDevice(void* to, void const* from, size_t bytes){
   auto d=hipMemcpy(to,from,bytes, hipMemcpyDeviceToDevice);
 }
-inline void acceleratorCopyDeviceToDeviceAsynch(void* to, void const* from, size_t bytes) // Asynch
+inline void acceleratorCopyDeviceToDeviceAsync(void* to, void const* from, size_t bytes) // Asynch
 {
   auto d=hipMemcpyAsync(to,from,bytes, hipMemcpyDeviceToDevice,copyStream);
 }

@@ -22,14 +22,18 @@ inline T bitReverse(T in);
 class BinaryWriter{
   std::ofstream of;
   bool do_flip;
-  template<typename T>
-  void writeValue(T v){
-    T tmp = do_flip ? bitReverse(v) : v;
-    of.write((char const*)&tmp,sizeof(T));    
-  }    
 public:
   BinaryWriter(const std::string &filename, const Endianness end = Endianness::System);
 
+  template<typename T, typename std::enable_if<!ISLEAF(T), int>::type = 0>
+  void write(const T &v);
+
+  template<typename T, typename U>
+  void write(const std::pair<T,U> &v);
+  
+  template<typename T>
+  void write(const std::vector<T> &v);
+  
   template<typename T, int Dim>
   void write(const Tensor<T,Dim> &t);
 
@@ -40,7 +44,9 @@ public:
   //write a model wrapped by a loss function wrapper
   template<typename Store,typename CostFunc>
   void write(const CostFuncWrapper<Store,CostFunc> &model);
-    
+
+  template<typename T>
+  
   inline void close(){
     of.close();
   }
@@ -53,10 +59,19 @@ class BinaryReader{
   inline T readValue(){
     T tmp; of.read((char*)&tmp, sizeof(T)); assert(of.good());
     return do_flip ? bitReverse(tmp) : tmp;
-  }    
+  }
 public:
   BinaryReader(const std::string &filename);
 
+  template<typename T, typename std::enable_if<!ISLEAF(T), int>::type = 0>
+  void read(T&v);
+
+  template<typename T, typename U>
+  void read(std::pair<T,U> &v);
+  
+  template<typename T>
+  void read(std::vector<T> &v);
+  
   //Requires tensor to have appropriate size
   template<typename T, int Dim>
   void read(Tensor<T,Dim> &t);

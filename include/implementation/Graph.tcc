@@ -15,6 +15,66 @@ void AttributedGraphElement<FloatType>::insertBatch(const AttributedGraphElement
 }
 
 template<typename FloatType>
+void AttributedGraphElement<FloatType>::insertCompleteBatch(AttributedGraphElement<FloatType> const* const* from){
+  for(int a=0;a<attributes.size();a++){
+    int isize = attributes[a].size(0);
+    int batch_size = attributes[a].size(1);
+
+    ManagedArray< typename Matrix<FloatType>::View > fviews(batch_size);
+    {
+      autoView(fviews_v,fviews,HostWrite);
+      for(int b=0;b<batch_size;b++){
+	assert(from[b]->attributes.size() == attributes.size() && from[b]->attributes[a].size(0)==isize && from[b]->attributes[a].size(1)==1);
+	fviews_v[b] = from[b]->attributes[a].view(DeviceRead);
+      }
+    }
+
+    constexpr int iblocksize = 16;
+    int iblocks = (isize + iblocksize - 1)/iblocksize;
+    
+    constexpr int bblocksize = 16;
+    int bblocks = (batch_size + bblocksize - 1)/bblocksize;
+    
+    {
+      autoView(fviews_v,fviews,DeviceRead);
+      autoView(out_v,attributes[a],DeviceWrite);
+      accelerator_for_3d_gen(1,2, shm( (iblocksize+1)*bblocksize*sizeof(FloatType) ), t, iblocksize,  bi, iblocks, bblock, bblocks, {
+	  FloatType *bstore = (FloatType*)shared;
+	  int boff = bblock*bblocksize;
+	  int bblocksize_actual = min(bblocksize, batch_size-boff);
+	  
+	  int ioff = bi*iblocksize;
+	  int iblocksize_actual = min(iblocksize, isize-ioff);
+	  
+	  //parallel load of iblocksize from input for fixed b
+	  {
+	    int ii=t;
+	    for(int bb=0;bb<bblocksize_actual;bb++)
+	      if(ii < iblocksize_actual) bstore[ii + (iblocksize+1)*bb] = fviews_v[boff + bb].data()[ii + ioff];
+	  }
+	  acceleratorSynchronizeBlock();
+
+	  //parallel write bblocksize consecutive elements into output for fixed i
+	  for(int ii=0;ii<iblocksize_actual;ii++){
+	    int i=ii+ioff;
+	    int bb=t;
+	    while(bb < bblocksize_actual){
+	      out_v.data()[ bb + boff + batch_size*i ] = bstore[ii + (iblocksize+1)*bb];
+	      bb += iblocksize;
+	    }
+	  }
+	});
+    }
+  
+    {
+      autoView(fviews_v,fviews,HostRead);
+      for(int b=0;b<batch_size;b++) fviews_v[b].free();
+    }
+  }//attributes
+}
+
+
+template<typename FloatType>
 void AttributedGraphElement<FloatType>::initialize(const std::vector<int> &attr_sizes, int batch_size){
   attributes.resize(attr_sizes.size());
   for(int a=0;a<attr_sizes.size();a++)
@@ -128,6 +188,12 @@ Graph<FloatType> & Graph<FloatType>::operator+=(const Graph<FloatType> &r){
 }
 
 template<typename FloatType>
+Graph<FloatType> Graph<FloatType>::operator+(const Graph<FloatType> &r) const{
+  Graph<FloatType> out(*this); out += r; return out;
+}
+
+
+template<typename FloatType>
 void Graph<FloatType>::insertBatch(const Graph<FloatType> &from, int bidx){
   assert(from.nodes.size() == nodes.size() && from.edges.size() == edges.size());
   for(int n=0;n<nodes.size();n++)
@@ -136,6 +202,32 @@ void Graph<FloatType>::insertBatch(const Graph<FloatType> &from, int bidx){
     edges[e].insertBatch(from.edges[e],bidx);
   global.insertBatch(from.global, bidx);
 }
+
+template<typename FloatType>
+void Graph<FloatType>::insertCompleteBatch(Graph<FloatType> const* const* from){
+  int batch_size = global.attributes[0].size(1);
+  for(int b=0;b<batch_size;b++)   assert(from[b]->nodes.size() == nodes.size() && from[b]->edges.size() == edges.size());
+  std::vector<AttributedGraphElement<FloatType> const* > ptrs(batch_size);  
+  {
+    for(int n=0;n<nodes.size();n++){
+      for(int b=0;b<batch_size;b++) ptrs[b] = &from[b]->nodes[n];
+      nodes[n].insertCompleteBatch(ptrs.data());
+    }
+  }
+  {
+    for(int e=0;e<edges.size();e++){    
+      for(int b=0;b<batch_size;b++){
+	assert(from[b]->edges[e].send_node == edges[e].send_node && from[b]->edges[e].recv_node == edges[e].recv_node);	
+	ptrs[b] = &from[b]->edges[e];
+      }
+      edges[e].insertCompleteBatch(ptrs.data());
+    }
+  }
+  for(int b=0;b<batch_size;b++) ptrs[b] = &from[b]->global;
+  global.insertCompleteBatch(ptrs.data());
+}
+  
+
 
 template<typename FloatType>
 FloatType* stackAttr(FloatType *to_device, const Matrix<FloatType> &attr){

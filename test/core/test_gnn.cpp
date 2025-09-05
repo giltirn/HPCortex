@@ -11,6 +11,7 @@
 
 int main(int argc, char** argv){
   initialize(argc,argv);
+  testGraph();
   testExtractEdgeUpdateInputComponent();
   testInsertEdgeUpdateOutput();
   testEdgeAggregateSum();

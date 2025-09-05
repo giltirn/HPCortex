@@ -122,3 +122,72 @@ struct GraphInGraphOutLayerWrapper{
     return "";
   }      
 };
+
+void testGraph(){
+  std::mt19937 rng(1234);
+  typedef confDouble Config;
+  typedef double FloatType;
+
+  int batch_size=4;
+  
+  GraphInitialize ginit;
+  ginit.nnode = 3;
+  ginit.node_attr_sizes = std::vector<int>({3,4});
+  ginit.edge_attr_sizes = std::vector<int>({5,6});
+  //edges in circle
+  ginit.edge_map = std::vector<std::pair<int,int> >({  {0,1}, {1,2}, {2,0}, {1,0}, {2,1}, {0,2} });
+  ginit.global_attr_sizes = std::vector<int>({2});
+  ginit.batch_size = batch_size;
+
+  //test insertBatch, insertCompleteBatch
+  {
+    GraphInitialize ginit_unbatched(ginit);
+    ginit_unbatched.batch_size=1;
+    
+    std::vector<Graph<FloatType> > bgraphs(batch_size, ginit_unbatched);
+    for(int b=0;b<batch_size;b++) bgraphs[b].applyToAllAttributes([&](Matrix<FloatType> &m){ uniformRandom(m,rng); });
+
+    Graph<FloatType> graph(ginit);
+    for(int b=0;b<batch_size;b++) graph.insertBatch(bgraphs[b],b);
+
+    for(int n=0;n<ginit.nnode;n++){
+      for(int a=0;a<ginit.node_attr_sizes.size();a++){
+	autoView(a_v, graph.nodes[n].attributes[a], HostRead);
+	for(int b=0;b<batch_size;b++){
+	  autoView(fa_v, bgraphs[b].nodes[n].attributes[a], HostRead);
+	  assert(fa_v.size(0) == a_v.size(0));
+	  for(int i=0;i<fa_v.size(0);i++)
+	    assert(fa_v(i,0) == a_v(i,b));
+	}
+      }
+    }
+    for(int e=0;e<ginit.edge_map.size();e++){
+      for(int a=0;a<ginit.edge_attr_sizes.size();a++){
+	autoView(a_v, graph.edges[e].attributes[a], HostRead);
+	for(int b=0;b<batch_size;b++){
+	  autoView(fa_v, bgraphs[b].edges[e].attributes[a], HostRead);
+	  assert(fa_v.size(0) == a_v.size(0));
+	  for(int i=0;i<fa_v.size(0);i++)
+	    assert(fa_v(i,0) == a_v(i,b));
+	}
+      }
+    }
+    for(int a=0;a<ginit.global_attr_sizes.size();a++){
+      autoView(a_v, graph.global.attributes[a], HostRead);
+      for(int b=0;b<batch_size;b++){
+	autoView(fa_v, bgraphs[b].global.attributes[a], HostRead);
+	assert(fa_v.size(0) == a_v.size(0));
+	for(int i=0;i<fa_v.size(0);i++)
+	  assert(fa_v(i,0) == a_v(i,b));
+      }
+    }
+
+    Graph<FloatType> graph2(ginit);
+    std::vector<Graph<FloatType> const*> gptrs(batch_size);
+    for(int b=0;b<batch_size;b++) gptrs[b] = &bgraphs[b];    
+    graph2.insertCompleteBatch(gptrs.data());
+
+    assert(equal(graph,graph2,true));
+    
+  }
+}
