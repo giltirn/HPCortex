@@ -1,5 +1,6 @@
 #include <HPCortex.hpp>
 #include <ManagedArray.hpp>
+#include <Testing.hpp>
 
 void testManagedArray(){
   ///////////////////////////////////// INITIALIZATION/ACCESS /////////////////////////
@@ -260,10 +261,50 @@ void testManagedArray(){
   std::cout << "Tests passed" << std::endl;
 }
 
+
+void testManagedTypeArray(){
+  ManagedTypeArray< Tensor<double,2> > ar(2);
+  
+  std::vector<Tensor<double,2> > vr(2);
+  vr[0] = Tensor<double,2>(2,3);
+  vr[1] = Tensor<double,2>(1,4);  
+
+  std::mt19937 rng(1234);
+  uniformRandom(vr[0],rng);
+  uniformRandom(vr[1],rng);
+
+  ar[0] = vr[0];
+  ar[1] = vr[1];
+
+  {
+    autoView(ar_v, ar, DeviceReadWrite);
+    accelerator_for_gen(1,0,normal(), e, 2, {
+	auto tv = ar_v[e];
+	for(int i=0;i<tv.size(0);i++)
+	  for(int j=0;j<tv.size(1);j++)
+	    tv(i,j) = tv(i,j) + e+2*(j + tv.size(1)*i);
+      });
+  }
+  {
+    autoView(ar_v,ar, HostRead);
+    for(int e=0;e<2;e++){
+      autoView(tvo, vr[e], HostRead);
+      auto tv = ar_v[e];
+      for(int i=0;i<tv.size(0);i++)
+	for(int j=0;j<tv.size(1);j++)
+	  assert( abs_near(tv(i,j), tvo(i,j) + e+2*(j + tv.size(1)*i) , 1e-9 ) );
+    }
+  }
+  
+
+  std::cout << "testManagedTypeArray passed" << std::endl;
+}
+
+
 int main(int argc, char** argv){
   initialize(argc,argv);
   
   testManagedArray();
-
+  testManagedTypeArray();
   return 0;
 }

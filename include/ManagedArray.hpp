@@ -121,3 +121,68 @@ public:
 
   inline bool deviceResident() const{ return handle->device_in_sync; }
 };
+
+
+/**
+ * @brief A container representing an array of managed objects. The associated view allows accessing views of the individual elements by index
+ */
+template<typename T>
+class ManagedTypeArray{
+private:
+  std::vector<T> elems;
+  typedef ManagedArray<typename T::View> ElemViewArray;
+  mutable ElemViewArray tv;
+
+public:
+  ManagedTypeArray(){}
+  ManagedTypeArray(int size): elems(size), tv(size, MemoryManager::Pool::HostPool){}
+
+  T & operator[](const int i){ return elems[i]; }
+  const T & operator[](const int i) const{ return elems[i]; }
+  
+  struct View: public ElemViewArray::View{
+    ElemViewArray *parent_p;
+    
+    View(ViewMode mode, ElemViewArray &parent): parent_p(&parent), ElemViewArray::View(mode,parent){}    
+    
+    void free(){
+      {
+	autoView(p_v, (*parent_p), HostRead);
+	for(int i=0;i<p_v.size();i++) p_v[i].free();
+      }
+      this->ElemViewArray::View::free();
+    }
+  };
+
+
+  View view(ViewMode mode) const{
+    //populate views in tv
+    {
+      autoView(tv_v,tv,HostWrite);
+      for(int i=0;i<elems.size();i++)
+	tv_v[i] = elems[i].view(mode);
+    }
+    ViewMode vr_mode;
+    switch(mode){
+    case DeviceRead:
+    case DeviceWrite:
+    case DeviceReadWrite:
+      vr_mode = DeviceRead; break;
+    case HostRead:
+    case HostWrite:
+    case HostReadWrite:
+      vr_mode = HostRead; break;
+    default:
+      assert(0);
+    }
+    return View(vr_mode,tv); //open a read view for tv on the appropriate location
+  }
+
+  int size() const{ return elems.size(); }
+
+  void resize(int size){
+    elems.resize(size);
+    tv = ElemViewArray(size);
+  }
+    
+};
