@@ -49,7 +49,8 @@ public:
   BatchTensorDNNcomponent(BatchTensorDNNcomponent &&r) = default;
   
   //Forward pass
-  Tensor<FloatType,TensDim> value(const Tensor<FloatType,TensDim> &x, EnableDeriv enable_deriv = DerivNo);
+  template<typename InTensorType, enable_if_fwd_ref<InTensorType, Tensor<FloatType,TensDim> > = 0>
+  Tensor<FloatType,TensDim> value(InTensorType &&x, EnableDeriv enable_deriv = DerivNo);
 
   void deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,TensDim> &&dCost_by_dOut, Tensor<FloatType,TensDim> &dCost_by_dIn) const;
 

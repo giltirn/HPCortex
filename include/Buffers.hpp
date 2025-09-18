@@ -34,6 +34,13 @@ public:
     off = (off + 1) % ring.size();
     if(!off) filled = true;
   }
+  /**
+   * @brief Push a copy
+   */
+  inline void push(const T &v){
+    push(T(v));
+  }
+  
   inline T pop(){
     if(!filled) throw std::runtime_error("Cannot pop from an unfilled RingBuffer as the returned value will be uninitialized");
     return std::move(ring[off]);
@@ -64,6 +71,13 @@ public:
     val = std::move(v);
     valid=true;
   }
+  /**
+   * @brief Push a copy
+   */
+  inline void push(const T &v){
+    push(T(v));
+  }
+  
   inline T pop(){
     T ret(std::move(val));
     valid = false;
@@ -105,6 +119,13 @@ public:
     //when it cycles back to 0 we switch to the drain cycle
     if(!push_off) cycle = 1;
   }
+  /**
+   * @brief Push a copy
+   */
+  inline void push(const T &v){
+    push(T(v));
+  }
+ 
   inline T pop(){
     if(cycle == 0) throw std::runtime_error("Cannot pop FillEmptyRingBuffer when in a fill cycle");    
     T ret(std::move(ring[pop_off]));

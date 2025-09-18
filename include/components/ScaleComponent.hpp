@@ -48,8 +48,9 @@ public:
   }
   ScaleComponent(const ScaleComponent &r) = delete;
   ScaleComponent(ScaleComponent &&r) = default;
-  
-  Tensor<FloatType,TensDim> value(const Tensor<FloatType,TensDim> &in, EnableDeriv enable_deriv = DerivNo);
+
+  template<typename InTensorType, enable_if_fwd_ref<InTensorType, Tensor<FloatType,TensDim> > = 0 >
+  Tensor<FloatType,TensDim> value(InTensorType &&in, EnableDeriv enable_deriv = DerivNo);
   
   void deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,TensDim> &&dcost_by_dOut, Tensor<FloatType,TensDim> &dcost_by_dIn) const;
 

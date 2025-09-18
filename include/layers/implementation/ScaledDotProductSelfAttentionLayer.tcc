@@ -8,7 +8,7 @@ Tensor<typename Config::FloatType,3> ScaledDotProductSelfAttentionLayer<Config,I
     setup = true;
   }else assert(X.size(0) == C && X.size(2) == B);
 
-  return attentionQKV.value(X,X,X,enable_deriv);
+  return attentionQKV.value(Tensor<FloatType,3>(X),Tensor<FloatType,3>(X),std::move(X),enable_deriv); //pass r-values down, but be careful that they are all different!
 }
 
 template<typename Config, typename InputType, typename Store>

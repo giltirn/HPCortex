@@ -1,5 +1,25 @@
+template<typename FloatType, int TensDim>
+inline void _scalecpt_value(Tensor<FloatType,TensDim> &out, const Tensor<FloatType,TensDim> &in, const Vector<FloatType> &gamma, const Vector<FloatType> &beta,
+			    int _scale_dim, int scale_dim_size, int other_dim_vol, int _stride, int batch_size){
+  autoView(in_v,in,DeviceRead);
+  autoView(out_v,out,DeviceWrite);
+  autoView(gamma_v,gamma,DeviceRead);
+  autoView(beta_v,beta,DeviceRead);
+  
+  accelerator_for3d(b,batch_size, i, scale_dim_size, o, other_dim_vol, 1, {
+      size_t off = batchTensorDimensionBaseLin<TensDim>(_scale_dim, b,o, in_v.sizeArray()) + i*_stride;      
+      FloatType* in_p = in_v.data() + off;
+      FloatType* out_p = out_v.data() + off;
+      
+      (*out_p) = gamma_v(i)*(*in_p) + beta_v(i);	  
+    });
+}  
+
+
+
 template<typename Config, int TensDim>
-Tensor<typename Config::FloatType,TensDim> ScaleComponent<Config,TensDim>::value(const Tensor<FloatType,TensDim> &in, EnableDeriv enable_deriv){
+template<typename InTensorType, enable_if_fwd_ref<InTensorType, Tensor<typename Config::FloatType,TensDim> > >
+Tensor<typename Config::FloatType,TensDim> ScaleComponent<Config,TensDim>::value(InTensorType &&in, EnableDeriv enable_deriv){
   if(!setup){
     assert(in.size(scale_dim) == beta.size(0));
     
@@ -15,32 +35,17 @@ Tensor<typename Config::FloatType,TensDim> ScaleComponent<Config,TensDim>::value
   
   int batch_size = in.size(TensDim-1);
   int scale_dim_size = in.size(scale_dim);
-  size_t _stride = stride;
   
   Tensor<FloatType,TensDim> out(in.sizeArray());
-  int _scale_dim = scale_dim;
 
   if(!value_FLOPS.locked()){
     value_FLOPS.add(other_dim_vol*scale_dim_size*batch_size*2);
     value_FLOPS.lock();
   }
+
+  _scalecpt_value(out, in, gamma, beta, scale_dim, scale_dim_size, other_dim_vol, stride, batch_size);
   
-  {
-    autoView(in_v,in,DeviceRead);
-    autoView(out_v,out,DeviceWrite);
-    autoView(gamma_v,gamma,DeviceRead);
-    autoView(beta_v,beta,DeviceRead);
-    
-    accelerator_for3d(b,batch_size, i, scale_dim_size, o, other_dim_vol, 1, {
-	size_t off = batchTensorDimensionBaseLin<TensDim>(_scale_dim, b,o, in_v.sizeArray()) + i*_stride;      
-	FloatType* in_p = in_v.data() + off;
-	FloatType* out_p = out_v.data() + off;
-      	
-	(*out_p) = gamma_v(i)*(*in_p) + beta_v(i);	  
-      });
-  }
-  
-  if(enable_deriv) in_buf.push(Tensor<FloatType,TensDim>(in)); //TODO: allow pass by r-value and move here
+  if(enable_deriv) in_buf.push(std::forward<InTensorType>(in));
   
   return out;		  
 }

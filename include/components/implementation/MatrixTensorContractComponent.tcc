@@ -1,5 +1,8 @@
 template<typename Config, int TensDim>
-Tensor<typename Config::FloatType,TensDim> MatrixTensorContractComponent<Config,TensDim>::value(const Tensor<FloatType,TensDim> &in, EnableDeriv enable_deriv){
+template<typename InTensorType, enable_if_fwd_ref<InTensorType,Tensor<typename Config::FloatType,TensDim> > >
+Tensor<typename Config::FloatType,TensDim> MatrixTensorContractComponent<Config,TensDim>::value(InTensorType &&in_ref, EnableDeriv enable_deriv){
+  INPUT_CON(in, InTensorType);
+  
   if(!setup){
     batch_size = in.size(TensDim-1);  
     memcpy(in_dims,in.sizeArray(),TensDim*sizeof(int));
@@ -18,7 +21,7 @@ Tensor<typename Config::FloatType,TensDim> MatrixTensorContractComponent<Config,
   Tensor<FloatType,TensDim> out = matrixBatchTensorContractLeft(weights, in, TensDim-2, &value_FLOPS);
   value_FLOPS.lock();
   
-  if(enable_deriv) in_buf.push(Tensor<FloatType,TensDim>(in)); //TODO: Can avoid this copy in some case by allowing r-value references for inputs. Perhaps have 2 versions of "value", taking l-value and r-value refs, respectively?
+  if(enable_deriv) in_buf.push(in_con.release());
   return out;    
 }
 

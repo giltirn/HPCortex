@@ -29,12 +29,15 @@ public:
   Batch3tensorPairContractComponent(Batch3tensorPairContractComponent &&r) = default;
   
   //Forward pass
-  Tensor<FloatType,3> value(const Tensor<FloatType,3> &A, const Tensor<FloatType,3> &B, EnableDeriv enable_deriv = DerivNo){
-    if(enable_deriv){
-      A_buf.push(Tensor<FloatType,3>(A));
-      B_buf.push(Tensor<FloatType,3>(B));
-    }
+  template<typename InTensorType1, typename InTensorType2, enable_if_fwd_ref2<InTensorType1,InTensorType2,Tensor<FloatType,3> > = 0>
+  Tensor<FloatType,3> value(InTensorType1 &&A, InTensorType2 &&B, EnableDeriv enable_deriv = DerivNo){
     auto out = batch3tensorContract(A,B,contract_dim_A,contract_dim_B,nrm,&value_FLOPS);
+
+    if(enable_deriv){
+      A_buf.push(std::forward<InTensorType1>(A));
+      B_buf.push(std::forward<InTensorType2>(B));
+    }
+    
     value_FLOPS.lock();
     return out;
   }  

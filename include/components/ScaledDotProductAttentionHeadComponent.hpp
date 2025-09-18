@@ -45,7 +45,8 @@ public:
   ScaledDotProductAttentionHeadComponent(ScaledDotProductAttentionHeadComponent &&r) = default;
   
   //Forward pass
-  Tensor<FloatType,3> value(const Tensor<FloatType,3> &Q, const Tensor<FloatType,3> &K, const Tensor<FloatType,3> &V, EnableDeriv enable_deriv = DerivNo);
+  template<typename InTensorType1, typename InTensorType2, typename InTensorType3, enable_if_fwd_ref3<InTensorType1, InTensorType2,InTensorType3,Tensor<FloatType,3> > = 0>
+  Tensor<FloatType,3> value(InTensorType1 &&Q, InTensorType2 &&K, InTensorType3 &&V, EnableDeriv enable_deriv = DerivNo);
 
   void deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,3> &&dCost_by_dOut, Tensor<FloatType,3> &dCost_by_dQ, Tensor<FloatType,3> &dCost_by_dK, Tensor<FloatType,3> &dCost_by_dV) const;
 

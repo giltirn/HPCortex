@@ -1,5 +1,6 @@
 template<typename Config>
-Tensor<typename Config::FloatType,3> ScaledDotProductAttentionHeadComponent<Config>::value(const Tensor<FloatType,3> &Q, const Tensor<FloatType,3> &K, const Tensor<FloatType,3> &V, EnableDeriv enable_deriv){
+template<typename InTensorType1, typename InTensorType2, typename InTensorType3, enable_if_fwd_ref3<InTensorType1, InTensorType2,InTensorType3,Tensor<typename Config::FloatType,3> > >
+Tensor<typename Config::FloatType,3> ScaledDotProductAttentionHeadComponent<Config>::value(InTensorType1 &&Q, InTensorType2 &&K, InTensorType3 &&V, EnableDeriv enable_deriv){
   //Q(C,E,B) ,  K(C,E,B)  and V(C,E,B)
   assert(Q.size(1) == E && K.size(1) == E && V.size(1) == E);
 
@@ -12,10 +13,10 @@ Tensor<typename Config::FloatType,3> ScaledDotProductAttentionHeadComponent<Conf
   assert(Q.size(0) == C && K.size(0) == C && V.size(0)==C);
   assert(Q.size(2) == B && K.size(2) == B && V.size(2)==B);
 
-  Tensor<FloatType,3> Qp = multWQ.value(Q, enable_deriv);
-  Tensor<FloatType,3> Kp = multWK.value(K, enable_deriv);
-  Tensor<FloatType,3> Vp = multWV.value(V, enable_deriv);
-  return attention.value(Qp,Kp,Vp, enable_deriv);
+  Tensor<FloatType,3> Qp = multWQ.value(std::forward<InTensorType1>(Q), enable_deriv);
+  Tensor<FloatType,3> Kp = multWK.value(std::forward<InTensorType2>(K), enable_deriv);
+  Tensor<FloatType,3> Vp = multWV.value(std::forward<InTensorType3>(V), enable_deriv);
+  return attention.value(std::move(Qp),std::move(Kp),std::move(Vp), enable_deriv);
 }
 template<typename Config>
 void ScaledDotProductAttentionHeadComponent<Config>::deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,3> &&_dCost_by_dOut, Tensor<FloatType,3> &dCost_by_dQ, Tensor<FloatType,3> &dCost_by_dK, Tensor<FloatType,3> &dCost_by_dV) const{ 
