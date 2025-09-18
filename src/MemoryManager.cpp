@@ -8,20 +8,26 @@
 #include<sys/mman.h>
 #include<iostream>
 
+//#define MMAN_USE_MMAP
+
+#ifdef MMAN_USE_MMAP
+
 static inline void* mmap_alloc(const size_t byte_size){
   void *p = mmap (NULL, byte_size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, (off_t)0);
   if(p == MAP_FAILED){
-    std::ostringstream os; os << "Failed to mmap an anonymous region of size " << byte_size << "B";
+    std::ostringstream os; os << "Failed to mmap an anonymous region of size " << byte_size << "B for reason: " << strerror(errno);
     throw std::runtime_error(os.str());
   }
   return p;
 }
 static inline void mmap_free(void* pv, const size_t byte_size){
   if( munmap(pv, byte_size) != 0){
-    std::ostringstream os; os << "Failed to munmap an anonymous region of size " << byte_size << "B";
+    std::ostringstream os; os << "Failed to munmap an anonymous region of size " << byte_size << "B for reason: " << strerror(errno);
     throw std::runtime_error(os.str());
   }
 }
+
+#endif
 
 static inline double byte_to_MB(size_t B){
   return double(B)/1024./1024.;
@@ -43,7 +49,11 @@ MemoryManager::EntryIterator MemoryManager::allocEntry(size_t bytes, Pool pool){
     device_allocated_HWM = std::max(device_allocated_HWM, device_allocated);
     if(verbose) std::cout << "MemoryManager: Allocated device entry " << e.ptr << " of size " << bytes << ". Allocated amount is now " << device_allocated << " vs max " << device_pool_max_size << std::endl;
   }else{ //HostPool
+#ifdef MMAN_USE_MMAP
     e.ptr = mmap_alloc(bytes);
+#else
+    e.ptr = malloc(bytes);
+#endif    
     host_allocated += bytes;
     host_allocated_HWM = std::max(host_allocated_HWM, host_allocated);
     if(verbose) std::cout << "MemoryManager: Allocated host entry " << e.ptr << " of size " << bytes << ". Allocated amount is now " << host_allocated << " vs max " << host_pool_max_size << std::endl;
@@ -95,7 +105,11 @@ void MemoryManager::freeEntry(EntryIterator it, Pool pool){
     acceleratorFreeDevice(it->ptr); device_allocated -= it->bytes;
     if(verbose) std::cout << "MemoryManager: Freed device memory " << it->ptr << " of size " << it->bytes << ". Allocated amount is now " << device_allocated << " vs max " << device_pool_max_size << std::endl;
   }else{ //HostPool
+#ifdef MMAN_USE_MMAP
     mmap_free(it->ptr, it->bytes);
+#else
+    ::free(it->ptr);
+#endif    
     host_allocated -= it->bytes;
     if(verbose) std::cout << "MemoryManager: Freed host memory " << it->ptr << " of size " << it->bytes << ". Allocated amount is now " << host_allocated << " vs max " << host_pool_max_size << std::endl;	
   }

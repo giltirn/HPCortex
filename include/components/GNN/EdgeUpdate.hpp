@@ -13,6 +13,7 @@ private:
   GraphInitialize ginit;
   int nedge;
   int tens_size[3];
+  Matrix<elemCopyTemplate> copy_template;
 public:
   
   ExtractEdgeUpdateInputComponent(): setup(false){}

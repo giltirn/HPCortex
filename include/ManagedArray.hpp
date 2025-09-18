@@ -78,7 +78,6 @@ public:
 
     inline View(ViewMode mode, MemoryManager::HandleIterator handle, size_t _size):
       _size(_size), handle(handle), v(_size == 0 ? nullptr : (FloatType*)MemoryManager::globalPool().openView(mode,handle)) {
-      if(_size == 0) throw std::runtime_error("Attempting to open a view on a zero-size array");
     }
 
     inline View(ViewMode mode, const ManagedArray &parent): View(mode, parent.handle, parent._size){}

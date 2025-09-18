@@ -1,58 +1,68 @@
-
-
-
 template<typename FloatType>
 Tensor<FloatType,3> expectExtractEdgeUpdateInput(const Graph<FloatType> &in){
-  int nedge = in.edges.size();
+  int nedge = in.edges.nElem();
   int node_attr_total = 0;
-  for(int a=0;a<in.nodes[0].attributes.size();a++)
-    node_attr_total += in.nodes[0].attributes[a].size(0);
+  for(int a=0;a<in.nodes.nAttrib();a++)
+    node_attr_total += in.nodes.attribSize(a);
   int edge_attr_total = 0;
-  for(int a=0;a<in.edges[0].attributes.size();a++)
-    edge_attr_total += in.edges[0].attributes[a].size(0);
+  for(int a=0;a<in.edges.nAttrib();a++)
+    edge_attr_total += in.edges.attribSize(a);
   int glob_attr_total = 0;
-  for(int a=0;a<in.global.attributes.size();a++)
-    glob_attr_total += in.global.attributes[a].size(0);
+  for(int a=0;a<in.global.nAttrib();a++)
+    glob_attr_total += in.global.attribSize(a);
 
-  int batch_size = in.global.attributes[0].size(1);
+  int batch_size = in.global.batchSize();
 
   int out_size[3] = { nedge, 2*node_attr_total + edge_attr_total + glob_attr_total, batch_size };
 
   Tensor<FloatType,3> out(out_size);
   autoView(out_v,out,HostWrite);
-  for(int edge_idx=0; edge_idx < nedge; edge_idx++){
-    const Edge<FloatType> &edge = in.edges[edge_idx];
-    const Node<FloatType> &send_node = in.nodes[ edge.send_node ];
-    const Node<FloatType> &recv_node = in.nodes[ edge.recv_node ];
+  autoView(edges_v,in.edges.attributes,HostRead);
+  autoView(nodes_v,in.nodes.attributes,HostRead);
+  autoView(global_v,in.global.attributes,HostRead);
 
+  int nnode_attrib = in.nodes.nAttrib();
+  int nedge_attrib = in.edges.nAttrib();
+  int nglobal_attrib = in.global.nAttrib();
+  
+  for(int edge_idx=0; edge_idx < nedge; edge_idx++){
+    int send_node = in.edges.sendNode(edge_idx);
+    int recv_node = in.edges.recvNode(edge_idx);
+    
     int dim1_off=0;
-    for(int a=0;a<send_node.attributes.size();a++){
-      autoView(attr_v, send_node.attributes[a], HostRead);
-      for(int i=0;i<attr_v.size(0);i++)
+    for(int a=0;a<nedge_attrib;a++){
+      int attrib_size = in.edges.attribSize(a);
+      auto attr_v = edges_v[a];
+      
+      for(int i=0;i<attrib_size;i++)
 	for(int b=0;b<batch_size;b++)
-	  out_v(edge_idx,dim1_off +i,b) = attr_v(i,b);
-      dim1_off += attr_v.size(0);
+	  out_v(edge_idx,dim1_off +i,b) = attr_v(edge_idx,i,b);
+      dim1_off += attrib_size;
     }
-    for(int a=0;a<recv_node.attributes.size();a++){
-      autoView(attr_v, recv_node.attributes[a], HostRead);
-      for(int i=0;i<attr_v.size(0);i++)
+    for(int a=0;a<nnode_attrib;a++){
+      int attrib_size = in.nodes.attribSize(a);
+      auto attr_v = nodes_v[a];
+
+      for(int i=0;i<attrib_size;i++)
 	for(int b=0;b<batch_size;b++)
-	  out_v(edge_idx,dim1_off +i,b) = attr_v(i,b);
-      dim1_off += attr_v.size(0);
+	  out_v(edge_idx,dim1_off +i,b) = attr_v(send_node,i,b);
+      
+      dim1_off += attrib_size;
+
+      for(int i=0;i<attrib_size;i++)
+	for(int b=0;b<batch_size;b++)
+	  out_v(edge_idx,dim1_off +i,b) = attr_v(recv_node,i,b);
+
+      dim1_off += attrib_size;
     }
-    for(int a=0;a<edge.attributes.size();a++){
-      autoView(attr_v, edge.attributes[a], HostRead);
-      for(int i=0;i<attr_v.size(0);i++)
+    for(int a=0;a<nglobal_attrib;a++){    
+      int attrib_size = in.global.attribSize(a);
+      auto attr_v = global_v[a];
+      
+      for(int i=0;i<attrib_size;i++)
 	for(int b=0;b<batch_size;b++)
-	  out_v(edge_idx,dim1_off +i,b) = attr_v(i,b);
-      dim1_off += attr_v.size(0);
-    }
-    for(int a=0;a<in.global.attributes.size();a++){    
-      autoView(attr_v, in.global.attributes[a], HostRead);
-      for(int i=0;i<attr_v.size(0);i++)
-	for(int b=0;b<batch_size;b++)
-	  out_v(edge_idx,dim1_off +i,b) = attr_v(i,b);
-      dim1_off += attr_v.size(0);
+	  out_v(edge_idx,dim1_off +i,b) = attr_v(0,i,b);
+      dim1_off += attrib_size;
     }
     assert(dim1_off == out_size[1]);
   }
@@ -104,7 +114,6 @@ struct ExtractEdgeUpdateInputComponentWrapper{
   }      
 };
 
-
 void testExtractEdgeUpdateInputComponent(){
   std::mt19937 rng(1234);
   typedef confDouble Config;
@@ -120,7 +129,7 @@ void testExtractEdgeUpdateInputComponent(){
   ginit.batch_size =4;
   
   Graph<FloatType> graph(ginit);
-  graph.applyToAllAttributes([&](Matrix<FloatType> &m){ uniformRandom(m,rng); });
+  graph.applyToAllAttributes([&](Tensor<FloatType,3> &m){ uniformRandom(m,rng); });
 
   ExtractEdgeUpdateInputComponent<Config> eup_cpt;
   Tensor<FloatType,3> eup_in = eup_cpt.value(graph);
@@ -147,7 +156,6 @@ void testExtractEdgeUpdateInputComponent(){
   unflatten(gunflat,gflat);
   assert(equal(graph,gunflat,true));
   
-  
   ExtractEdgeUpdateInputComponentWrapper<Config> wrp(eup_cpt, graph.getInitializer(), flatSize(graph), eup_in.sizeArray());
   testComponentDeriv(wrp, 1e-4, true);
   
@@ -155,8 +163,32 @@ void testExtractEdgeUpdateInputComponent(){
 }
 
 
+template<typename FloatType>
+Graph<FloatType> expectInsertEdgeUpdateOutput(const Graph<FloatType> &in, const Tensor<FloatType,3> &edge_attr_update){
+  int nedge = in.edges.nElem();
+  int nedge_attr = in.edges.nAttrib();
+  int edge_attr_total = 0;
+  for(int a=0;a<nedge_attr;a++)
+    edge_attr_total += in.edges.attribSize(a);
+  int batch_size = in.nodes.batchSize();
 
+  Graph<FloatType> out(in);
+  autoView(tin_v,edge_attr_update,HostRead);
+  autoView(edges_v,out.edges.attributes,HostWrite);
 
+  int dim1_off = 0;
+  for(int a=0;a<nedge_attr;a++){
+    int attr_sz = in.edges.attribSize(a);      
+    auto attr_v = edges_v[a];
+    for(int edge_idx=0; edge_idx < nedge; edge_idx++)
+      for(int i=0;i<attr_sz;i++)
+	for(int b=0;b<batch_size;b++)
+	  attr_v(edge_idx,i,b) = tin_v(edge_idx,dim1_off +i,b);
+    dim1_off += attr_sz;
+  }
+
+  return out;
+}
 
 
 template<typename Config>
@@ -215,32 +247,6 @@ struct InsertEdgeUpdateOutputComponentWrapper{
   }      
 };
 
-
-template<typename FloatType>
-Graph<FloatType> expectInsertEdgeUpdateOutput(const Graph<FloatType> &in, const Tensor<FloatType,3> &edge_attr_update){
-  int nedge = in.edges.size();
-  int edge_attr_total = 0;
-  for(int a=0;a<in.edges[0].attributes.size();a++)
-    edge_attr_total += in.edges[0].attributes[a].size(0);
-  int batch_size = in.global.attributes[0].size(1);
-
-  Graph<FloatType> out(in);
-  autoView(tin_v,edge_attr_update,HostRead);
-  for(int edge_idx=0; edge_idx < nedge; edge_idx++){
-    Edge<FloatType> &edge = out.edges[edge_idx];
-    
-    int dim1_off = 0;
-    for(int a=0;a<edge.attributes.size();a++){
-      autoView(attr_v, edge.attributes[a], HostWrite);
-      for(int i=0;i<attr_v.size(0);i++)
-	for(int b=0;b<batch_size;b++)
-	  attr_v(i,b) = tin_v(edge_idx,dim1_off +i,b);
-      dim1_off += attr_v.size(0);
-    }
-  }
-  return out;
-}
-
 void testInsertEdgeUpdateOutput(){
   std::mt19937 rng(1234);
   typedef confDouble Config;
@@ -256,7 +262,7 @@ void testInsertEdgeUpdateOutput(){
   ginit.batch_size =4;
   
   Graph<FloatType> graph(ginit);
-  graph.applyToAllAttributes([&](Matrix<FloatType> &m){ uniformRandom(m,rng); });
+  graph.applyToAllAttributes([&](Tensor<FloatType,3> &m){ uniformRandom(m,rng); });
 
   InsertEdgeUpdateOutputComponent<Config> eup_cpt;
 
@@ -290,7 +296,7 @@ void testEdgeUpdateBlock(){
   ginit.batch_size =4;
   
   Graph<FloatType> graph(ginit);
-  graph.applyToAllAttributes([&](Matrix<FloatType> &m){ uniformRandom(m,rng); });
+  graph.applyToAllAttributes([&](Tensor<FloatType,3> &m){ uniformRandom(m,rng); });
 
   typedef Graph<FloatType> InputType;
    

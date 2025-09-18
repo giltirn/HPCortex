@@ -1,7 +1,7 @@
 template<typename Config>
 Tensor<typename Config::FloatType,2> ExtractGlobalUpdateInputComponent<Config>::value(const Graph<FloatType> &gaggr){
-  assert(gaggr.edges.size() == 1 && gaggr.edges[0].send_node == -1 && gaggr.edges[0].recv_node == -1);
-  assert(gaggr.nodes.size() == 1);    
+  assert(gaggr.edges.nElem() == 1 && gaggr.edges.sendNode(0) == -1 && gaggr.edges.recvNode(0) == -1);
+  assert(gaggr.nodes.nElem() == 1);    
     
   if(!setup){
     ginit = gaggr.getInitializer();
@@ -12,36 +12,49 @@ Tensor<typename Config::FloatType,2> ExtractGlobalUpdateInputComponent<Config>::
     tens_size[0] = node_attr_size_total + edge_attr_size_total + global_attr_size_total;
     tens_size[1] = ginit.batch_size;
 
+    int nedge_attr = ginit.edge_attr_sizes.size();
+    int nnode_attr = ginit.node_attr_sizes.size();
+    int nglob_attr = ginit.global_attr_sizes.size();
+    int ncopy = nnode_attr + nedge_attr + nglob_attr;
+    
+    copy_template = Vector<elemCopyTemplate>(ncopy, MemoryManager::Pool::HostPool);
+    {
+      autoView(cpt, copy_template, HostWrite);
+      int i=0;
+      int off = 0;
+      for(int na=0;na<nnode_attr;na++){ //stack agg. node attribs
+	int attr_sz = ginit.node_attr_sizes[na];
+	cpt(i++) = elemCopyTemplate(GraphElementType::Nodes, na, 0, off); 
+	off += attr_sz;
+      }
+      for(int ea=0;ea<nedge_attr;ea++){ //stack agg. edge attribs
+	int attr_sz = ginit.edge_attr_sizes[ea];
+	cpt(i++) = elemCopyTemplate(GraphElementType::Edges, ea, 0, off); 
+	off += attr_sz;
+      }
+      for(int ng=0;ng<nglob_attr;ng++){ //stack global attribs
+	int attr_sz = ginit.global_attr_sizes[ng];
+	cpt(i++) = elemCopyTemplate(GraphElementType::Global, ng, 0, off);
+	off += attr_sz;
+      }
+    }
+      
     setup = true;
   }
     
   Tensor<FloatType,2> out(tens_size);
-  autoView(out_v,out,DeviceWrite);
-
-  FloatType *to_base = out_v.data();
-  to_base = stackAttr(to_base, gaggr.nodes[0]);
-  to_base = stackAttr(to_base, gaggr.edges[0]);    
-  to_base = stackAttr(to_base, gaggr.global);
-
+  stackAttr(out, gaggr, copy_template);
   return out;
 }
 
 template<typename Config>
 void ExtractGlobalUpdateInputComponent<Config>::deriv(Tensor<FloatType,2> &&_dCost_by_dOut, Graph<FloatType> &dCost_by_dIn) const{
-  Tensor<FloatType,2> in(_dCost_by_dOut);
-  Graph<FloatType> &out = dCost_by_dIn;
-
+  Tensor<FloatType,2> dCost_by_dOut(_dCost_by_dOut);
   assert(setup);
-  out = Graph<FloatType>(ginit);
+  dCost_by_dIn = Graph<FloatType>(ginit);
     
-  assert(in.size(0) == tens_size[0] && in.size(1) == tens_size[1]);
-  
-  autoView(in_v,in,DeviceRead);
-  FloatType const* from_base = in_v.data();
-
-  from_base = unstackAttrAdd(out.nodes[0], from_base);
-  from_base = unstackAttrAdd(out.edges[0], from_base);
-  from_base = unstackAttrAdd(out.global, from_base);
+  assert(dCost_by_dOut.size(0) == tens_size[0] && dCost_by_dOut.size(1) == tens_size[1]);
+  unstackAttrAdd(dCost_by_dIn, dCost_by_dOut, copy_template);
 }
 
 template<typename Config>
@@ -56,8 +69,6 @@ std::array<int,2> ExtractGlobalUpdateInputComponent<Config>::outputTensorSize(co
   return out;
 }
 
-
-
 template<typename Config>
 Graph<typename Config::FloatType> InsertGlobalUpdateOutputComponent<Config>::value(const Graph<FloatType> &in, const Tensor<FloatType,2> &global_attr_update){
   if(!setup){
@@ -68,24 +79,19 @@ Graph<typename Config::FloatType> InsertGlobalUpdateOutputComponent<Config>::val
   assert(global_attr_update.size(0) == global_attr_size_total && global_attr_update.size(1) == ginit.batch_size);
         
   Graph<FloatType> out(in);
-  autoView(t_v, global_attr_update, DeviceRead);  
-  FloatType const *from_base = t_v.data();
-  from_base = unstackAttr(out.global, from_base);
+  unstackAttrSingleElem(out.global, global_attr_update);
   return out;
 }
 
 template<typename Config>
 void InsertGlobalUpdateOutputComponent<Config>::deriv(Graph<FloatType> &&_dCost_by_dOut, Graph<FloatType> &dCost_by_dIn_graph, Tensor<FloatType,2> &dCost_by_dIn_tens) const{
-  Graph<FloatType> in(std::move(_dCost_by_dOut));
+  Graph<FloatType> dCost_by_dOut(std::move(_dCost_by_dOut));
 
   dCost_by_dIn_tens = Tensor<FloatType,2>(global_attr_size_total, ginit.batch_size, 0.);
-  
-  autoView(out_v,dCost_by_dIn_tens,DeviceWrite);
-  FloatType * to_base = out_v.data();
-  to_base = stackAttr(to_base, in.global);  
-    
+  stackAttrSingleElem(dCost_by_dIn_tens, dCost_by_dOut.global);
+      
   //the contribution to the global attr is overwritten from the input graph, but not to the other components
-  dCost_by_dIn_graph = Graph<FloatType>(std::move(in));
+  dCost_by_dIn_graph = Graph<FloatType>(std::move(dCost_by_dOut));
   dCost_by_dIn_graph.global.setZero();
 }
 

@@ -13,7 +13,7 @@ void testGCNblock(){
   ginit.batch_size =4;
   
   Graph<FloatType> graph(ginit);
-  graph.applyToAllAttributes([&](Matrix<FloatType> &m){ uniformRandom(m,rng); });
+  graph.applyToAllAttributes([&](Tensor<FloatType,3> &m){ uniformRandom(m,rng); });
 
   typedef Graph<FloatType> InputType;
 

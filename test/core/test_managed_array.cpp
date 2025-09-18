@@ -295,8 +295,26 @@ void testManagedTypeArray(){
 	  assert( abs_near(tv(i,j), tvo(i,j) + e+2*(j + tv.size(1)*i) , 1e-9 ) );
     }
   }
-  
 
+  //constructors
+  {
+    ManagedTypeArray< Tensor<double,2> > arcp(ar);
+    for(int i=0;i<2;i++) assert(equal(arcp[i],ar[i]));
+
+    ManagedTypeArray< Tensor<double,2> > armv(std::move(arcp));
+    for(int i=0;i<2;i++) assert(equal(armv[i],ar[i]));
+  }
+  //assignment
+  {
+    ManagedTypeArray< Tensor<double,2> > arcp;
+    arcp = ar;
+    for(int i=0;i<2;i++) assert(equal(arcp[i],ar[i]));
+
+    ManagedTypeArray< Tensor<double,2> > armv;
+    armv = std::move(arcp);
+    for(int i=0;i<2;i++) assert(equal(armv[i],ar[i]));
+  }
+  
   std::cout << "testManagedTypeArray passed" << std::endl;
 }
 

@@ -1,50 +1,58 @@
 template<typename FloatType>
 Tensor<FloatType,3> expectExtractNodeUpdateInput(const Graph<FloatType> &in){
-  int nnode = in.nodes.size();
+  int nnode = in.nodes.nElem();
   int node_attr_total = 0;
-  for(int a=0;a<in.nodes[0].attributes.size();a++)
-    node_attr_total += in.nodes[0].attributes[a].size(0);
+  for(int a=0;a<in.nodes.nAttrib();a++)
+    node_attr_total += in.nodes.attribSize(a);
   int edge_attr_total = 0;
-  for(int a=0;a<in.edges[0].attributes.size();a++)
-    edge_attr_total += in.edges[0].attributes[a].size(0);
+  for(int a=0;a<in.edges.nAttrib();a++)
+    edge_attr_total += in.edges.attribSize(a);
   int glob_attr_total = 0;
-  for(int a=0;a<in.global.attributes.size();a++)
-    glob_attr_total += in.global.attributes[a].size(0);
+  for(int a=0;a<in.global.nAttrib();a++)
+    glob_attr_total += in.global.attribSize(a);
 
-  int batch_size = in.global.attributes[0].size(1);
+  int batch_size = in.nodes.batchSize();
 
   int out_size[3] = { nnode, node_attr_total + edge_attr_total + glob_attr_total, batch_size };
 
   Tensor<FloatType,3> out(out_size);
+  autoView(nodes_v, in.nodes.attributes, HostRead);
+  autoView(edges_v, in.edges.attributes, HostRead);
+  autoView(global_v, in.global.attributes, HostRead);
+    
   autoView(out_v,out,HostWrite);
-  for(int node_idx=0; node_idx < nnode; node_idx++){
-    const Edge<FloatType> &agg_edge = in.edges[ node_idx ];
-    const Node<FloatType> &node = in.nodes[ node_idx ];
 
-    int dim1_off=0;
-    for(int a=0;a<node.attributes.size();a++){
-      autoView(attr_v, node.attributes[a], HostRead);
-      for(int i=0;i<attr_v.size(0);i++)
+  int dim1_off=0;
+  for(int a=0;a<in.nodes.nAttrib();a++){
+    auto attr_v = nodes_v[a];
+    int attr_sz = in.nodes.attribSize(a);
+    for(int node_idx=0; node_idx < nnode; node_idx++)
+      for(int i=0;i<attr_sz;i++)
 	for(int b=0;b<batch_size;b++)
-	  out_v(node_idx,dim1_off +i,b) = attr_v(i,b);
-      dim1_off += attr_v.size(0);
-    }
-    for(int a=0;a<agg_edge.attributes.size();a++){
-      autoView(attr_v, agg_edge.attributes[a], HostRead);
-      for(int i=0;i<attr_v.size(0);i++)
+	  out_v(node_idx,dim1_off +i,b) = attr_v(node_idx,i,b);
+    dim1_off += attr_sz;
+  } 
+  for(int a=0;a<in.edges.nAttrib();a++){
+    auto attr_v = edges_v[a];
+    int attr_sz = in.edges.attribSize(a);
+    for(int node_idx=0; node_idx < nnode; node_idx++)
+      for(int i=0;i<attr_sz;i++)
 	for(int b=0;b<batch_size;b++)
-	  out_v(node_idx,dim1_off +i,b) = attr_v(i,b);
-      dim1_off += attr_v.size(0);
-    }
-    for(int a=0;a<in.global.attributes.size();a++){
-      autoView(attr_v, in.global.attributes[a], HostRead);
-      for(int i=0;i<attr_v.size(0);i++)
-	for(int b=0;b<batch_size;b++)
-	  out_v(node_idx,dim1_off +i,b) = attr_v(i,b);
-      dim1_off += attr_v.size(0);
-    }
-    assert(dim1_off == out_size[1]);
+	  out_v(node_idx,dim1_off +i,b) = attr_v(node_idx,i,b);
+    dim1_off += attr_sz;
   }
+  
+  for(int a=0;a<in.global.nAttrib();a++){
+    auto attr_v = global_v[a];
+    int attr_sz = in.global.attribSize(a);
+    for(int node_idx=0; node_idx < nnode; node_idx++)
+      for(int i=0;i<attr_sz;i++)
+	for(int b=0;b<batch_size;b++)
+	  out_v(node_idx,dim1_off +i,b) = attr_v(0,i,b);
+    dim1_off += attr_sz;
+  }
+  assert(dim1_off == out_size[1]);
+  
   return out;
 }
 
@@ -93,7 +101,6 @@ struct ExtractNodeUpdateInputComponentWrapper{
   }      
 };
 
-
 void testExtractNodeUpdateInputComponent(){
   std::mt19937 rng(1234);
   typedef confDouble Config;
@@ -110,7 +117,7 @@ void testExtractNodeUpdateInputComponent(){
   ginit.batch_size =4;
   
   Graph<FloatType> graph(ginit);
-  graph.applyToAllAttributes([&](Matrix<FloatType> &m){ uniformRandom(m,rng); });
+  graph.applyToAllAttributes([&](Tensor<FloatType,3> &m){ uniformRandom(m,rng); });
 
   ExtractNodeUpdateInputComponent<Config> eup_cpt;
   Tensor<FloatType,3> eup_in = eup_cpt.value(graph);
@@ -122,6 +129,33 @@ void testExtractNodeUpdateInputComponent(){
   
   std::cout << "testExtractNodeUpdateInputComponent passed" << std::endl;
 }
+
+template<typename FloatType>
+Graph<FloatType> expectInsertNodeUpdateOutput(const Graph<FloatType> &in, const Tensor<FloatType,3> &node_attr_update){
+  int nnode = in.nodes.nElem();
+  int node_attr_total = 0;
+  for(int a=0;a<in.nodes.nAttrib();a++)
+    node_attr_total += in.nodes.attribSize(a);
+  int batch_size = in.nodes.batchSize();
+
+  Graph<FloatType> out(in);
+  autoView(tin_v,node_attr_update,HostRead);
+  autoView(nodes_v, out.nodes.attributes, HostWrite);
+
+  int dim1_off = 0;
+  for(int a=0;a<in.nodes.nAttrib();a++){
+    auto attr_v = nodes_v[a];
+    int attr_sz = in.nodes.attribSize(a);
+    
+    for(int node_idx=0; node_idx < nnode; node_idx++)
+      for(int i=0;i<attr_sz;i++)
+	for(int b=0;b<batch_size;b++)
+	  attr_v(node_idx,i,b) = tin_v(node_idx,dim1_off +i,b);
+    dim1_off += attr_sz;
+  }
+  return out;
+}
+
 
 template<typename Config>
 struct InsertNodeUpdateOutputComponentWrapper{
@@ -180,35 +214,6 @@ struct InsertNodeUpdateOutputComponentWrapper{
   }      
 };
 
-
-
-
-
-template<typename FloatType>
-Graph<FloatType> expectInsertNodeUpdateOutput(const Graph<FloatType> &in, const Tensor<FloatType,3> &node_attr_update){
-  int nnode = in.nodes.size();
-  int node_attr_total = 0;
-  for(int a=0;a<in.nodes[0].attributes.size();a++)
-    node_attr_total += in.nodes[0].attributes[a].size(0);
-  int batch_size = in.global.attributes[0].size(1);
-
-  Graph<FloatType> out(in);
-  autoView(tin_v,node_attr_update,HostRead);
-  for(int node_idx=0; node_idx < nnode; node_idx++){
-    Node<FloatType> &node = out.nodes[node_idx];
-    
-    int dim1_off = 0;
-    for(int a=0;a<node.attributes.size();a++){
-      autoView(attr_v, node.attributes[a], HostWrite);
-      for(int i=0;i<attr_v.size(0);i++)
-	for(int b=0;b<batch_size;b++)
-	  attr_v(i,b) = tin_v(node_idx,dim1_off +i,b);
-      dim1_off += attr_v.size(0);
-    }
-  }
-  return out;
-}
-
 void testInsertNodeUpdateOutput(){
   std::mt19937 rng(1234);
   typedef confDouble Config;
@@ -224,7 +229,7 @@ void testInsertNodeUpdateOutput(){
   ginit.batch_size =4;
   
   Graph<FloatType> graph(ginit);
-  graph.applyToAllAttributes([&](Matrix<FloatType> &m){ uniformRandom(m,rng); });
+  graph.applyToAllAttributes([&](Tensor<FloatType,3> &m){ uniformRandom(m,rng); });
 
   InsertNodeUpdateOutputComponent<Config> eup_cpt;
 
@@ -258,7 +263,7 @@ void testNodeUpdateBlock(){
   ginit.batch_size =4;
   
   Graph<FloatType> graph(ginit);
-  graph.applyToAllAttributes([&](Matrix<FloatType> &m){ uniformRandom(m,rng); });
+  graph.applyToAllAttributes([&](Tensor<FloatType,3> &m){ uniformRandom(m,rng); });
 
   typedef Graph<FloatType> InputType;
    

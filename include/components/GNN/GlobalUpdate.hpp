@@ -12,7 +12,7 @@ private:
   bool setup;
   GraphInitialize ginit;
   int tens_size[2];
-
+  Vector<elemCopyTemplate> copy_template;
 public:
   ExtractGlobalUpdateInputComponent(): setup(false){}
 
@@ -32,6 +32,7 @@ public:
    */
   static std::array<int,2> outputTensorSize(const GraphInitialize &ginit);
 };
+
 
 /**
  * @brief A component to merge the outputs of the global update (the new global attributes) into the graph
@@ -58,6 +59,5 @@ public:
 
   static std::array<int,2> inputTensorSize(const GraphInitialize &ginit);
 };
-
 
 #include "implementation/GlobalUpdate.tcc"

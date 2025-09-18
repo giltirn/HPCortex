@@ -19,52 +19,32 @@ inline double energy(double x, double v, double k1, double k2, double L, double 
 
 Graph<double> graphify(double x, double v, double EK, double Epot, double L, const GraphInitialize &ginit_unbatched){
   Graph<double> out(ginit_unbatched);
+
   //nodes
   {
-    autoView(n, out.nodes[0].attributes[0], HostWrite);
-    n(0,0) = 0.; //position
-  }
-  {
-    autoView(n, out.nodes[0].attributes[1], HostWrite);
-    n(0,0) = 0.; //velocity
-  }
+    autoView(node_attr_v, out.nodes.attributes, HostWrite);
+    node_attr_v[0](0,0,0) = 0.; //position
+    node_attr_v[1](0,0,0) = 0.; //velocity
 
-  {
-    autoView(n, out.nodes[1].attributes[0], HostWrite);
-    n(0,0) = x; //position
-  }
-  {
-    autoView(n, out.nodes[1].attributes[1], HostWrite);
-    n(0,0) = v; //velocity
-  }
-  
-  {
-    autoView(n, out.nodes[2].attributes[0], HostWrite);
-    n(0,0) = L; //position
-  }
-  {
-    autoView(n, out.nodes[2].attributes[1], HostWrite);
-    n(0,0) = 0.; //velocity
-  }
+    node_attr_v[0](1,0,0) = x; //position
+    node_attr_v[1](1,0,0) = v; //velocity
 
+    node_attr_v[0](2,0,0) = L; //position
+    node_attr_v[1](2,0,0) = 0.; //velocity
+  }
+    
   //edges
   {
-    autoView(n, out.edges[0].attributes[0], HostWrite);
-    n(0,0) = x; //length
+    autoView(edge_attr_v, out.edges.attributes, HostWrite);
+    edge_attr_v[0](0,0,0) = x; //length
+    edge_attr_v[0](1,0,0) = L-x; //length
   }
-  {
-    autoView(n, out.edges[1].attributes[0], HostWrite);
-    n(0,0) = L-x; //length
-  }
-  
+    
   //global
   {
-    autoView(n, out.global.attributes[0], HostWrite);
-    n(0,0) = EK; //kinetic energy
-  }
-  {
-    autoView(n, out.global.attributes[1], HostWrite);
-    n(0,0) = Epot; //potential energy
+    autoView(global_attr_v, out.global.attributes, HostWrite);
+    global_attr_v[0](0,0,0) = EK; //kinetic energy
+    global_attr_v[1](0,0,0) = Epot; //potential energy
   }
   
   return out;
@@ -89,22 +69,22 @@ public:
     }
     
     FloatType out = 0.;
-    assert(y.nodes.size() == ypred.nodes.size());
-    for(int n=0;n<y.nodes.size();n++){
-      assert(y.nodes[n].attributes.size() == ypred.nodes[n].attributes.size());
-      for(int a=0;a<y.nodes[n].attributes.size();a++)
-	out += MSEcostFunc< Tensor<FloatType,2> >::loss(y.nodes[n].attributes[a], ypred.nodes[n].attributes[a]);
-    }
-    assert(y.edges.size() == ypred.edges.size());
-    for(int e=0;e<y.edges.size();e++){
-      assert(y.edges[e].attributes.size() == ypred.edges[e].attributes.size() && y.edges[e].send_node == ypred.edges[e].send_node && y.edges[e].recv_node == ypred.edges[e].recv_node);
-      
-      for(int a=0;a<y.edges[e].attributes.size();a++)
-	out += MSEcostFunc< Tensor<FloatType,2> >::loss(y.edges[e].attributes[a], ypred.edges[e].attributes[a]);
-    }
+    assert(y.nodes.nElem() == ypred.nodes.nElem());
+    assert(y.nodes.nAttrib() == ypred.nodes.nAttrib());    
+    for(int a=0;a<y.nodes.nAttrib();a++)
+      out += MSEcostFunc< Tensor<FloatType,3> >::loss(y.nodes.attributes[a], ypred.nodes.attributes[a]);
+    
+    assert(y.edges.nElem() == ypred.edges.nElem());
+    assert(y.edges.nAttrib() == ypred.edges.nAttrib());
+    assert(y.edges.edge_map == ypred.edges.edge_map);
+    for(int a=0;a<y.edges.nAttrib();a++)
+      out += MSEcostFunc< Tensor<FloatType,3> >::loss(y.edges.attributes[a], ypred.edges.attributes[a]);
 
-    for(int a=0;a<y.global.attributes.size();a++)
-      out += MSEcostFunc< Tensor<FloatType,2> >::loss(y.global.attributes[a], ypred.global.attributes[a]);
+    assert(y.global.nAttrib() == ypred.global.nAttrib());    
+    
+    for(int a=0;a<y.global.nAttrib();a++)
+      out += MSEcostFunc< Tensor<FloatType,3> >::loss(y.global.attributes[a], ypred.global.attributes[a]);
+    
     return out;
   }
 
@@ -113,16 +93,15 @@ public:
     assert(setup);
     PredictionType out(ginit);
     
-    for(int n=0;n<y.nodes.size();n++){
-      for(int a=0;a<y.nodes[n].attributes.size();a++)
-	out.nodes[n].attributes[a] = MSEcostFunc< Tensor<FloatType,2> >::layer_deriv(y.nodes[n].attributes[a], ypred.nodes[n].attributes[a]);
-    }
-    for(int e=0;e<y.edges.size();e++){
-      for(int a=0;a<y.edges[e].attributes.size();a++)
-	out.edges[e].attributes[a] = MSEcostFunc< Tensor<FloatType,2> >::layer_deriv(y.edges[e].attributes[a], ypred.edges[e].attributes[a]);
-    }
-    for(int a=0;a<y.global.attributes.size();a++)
-      out.global.attributes[a] = MSEcostFunc< Tensor<FloatType,2> >::layer_deriv(y.global.attributes[a], ypred.global.attributes[a]);
+    for(int a=0;a<y.nodes.nAttrib();a++)
+      out.nodes.attributes[a] = MSEcostFunc< Tensor<FloatType,3> >::layer_deriv(y.nodes.attributes[a], ypred.nodes.attributes[a]);
+    
+    for(int a=0;a<y.edges.nAttrib();a++)
+      out.edges.attributes[a] = MSEcostFunc< Tensor<FloatType,3> >::layer_deriv(y.edges.attributes[a], ypred.edges.attributes[a]);
+    
+    for(int a=0;a<y.global.nAttrib();a++)
+      out.global.attributes[a] = MSEcostFunc< Tensor<FloatType,3> >::layer_deriv(y.global.attributes[a], ypred.global.attributes[a]);
+
     return out;
   }
 };
@@ -186,34 +165,33 @@ struct GraphDataLoader{
     Elem out;
     out.x = Graph<double>(ginit_batched);
     out.y = Graph<double>(ginit_batched);
+
+    std::vector<Graph<double> const*> from_ptrs_x(batch_size), from_ptrs_y(batch_size);
     for(int b=0;b<batch_size;b++){
       int idx = indices[b];
-      out.x.insertBatch(in_out_data_train[idx].first,b);
-      out.y.insertBatch(in_out_data_train[idx].second,b);
+      from_ptrs_x[b] = &in_out_data_train[idx].first;
+      from_ptrs_y[b] = &in_out_data_train[idx].second;
     }
+    out.x.insertCompleteBatch(from_ptrs_x.data());
+    out.y.insertCompleteBatch(from_ptrs_y.data());
+    
     return out;
   }
   size_t size() const{ return in_out_data_train.size(); }
 };
 
 std::vector<double> getX(const Graph<double> &graph, int batch_idx = 0){
-  std::vector<double> out(graph.nodes.size());
-  for(int n=0;n<graph.nodes.size();n++){  
-    autoView(a_v, graph.nodes[n].attributes[0], HostRead);
-    out[n] = a_v(0,batch_idx);
-  }
+  std::vector<double> out(graph.nodes.nElem());
+  autoView(node_pos_v, graph.nodes.attributes[0], HostRead);
+  for(int n=0;n<graph.nodes.nElem();n++)
+    out[n] = node_pos_v(n,0,batch_idx);
   return out;
 }
 std::pair<double,double> getEnergies(const Graph<double> &graph, int batch_idx = 0){
   std::pair<double,double> out;
-  {
-    autoView(a_v, graph.global.attributes[0],HostRead);
-    out.first = a_v(0,batch_idx);
-  }
-  {
-    autoView(a_v, graph.global.attributes[1],HostRead);
-    out.second = a_v(0,batch_idx);
-  }
+  autoView(global_attr_v, graph.global.attributes, HostRead);
+  out.first = global_attr_v[0](0,0,batch_idx);
+  out.second = global_attr_v[1](0,0,batch_idx);
   return out;
 }
 
@@ -342,7 +320,8 @@ void springSystem(){
   int ntest = std::min(20, int(in_out_data_valid.size()));
   for(int test=0;test<ntest;test++){
     Graph<FloatType> ing(ginit);
-    ing.insertBatch(in_out_data_valid[test].first,0);
+    std::vector<Graph<FloatType> const*> bptrs(ginit.batch_size, &in_out_data_valid[test].first);
+    ing.insertCompleteBatch(bptrs.data());
     
     Graph<FloatType> og = loss.predict(ing);
 

@@ -1,17 +1,19 @@
 template<typename FloatType>
-Graph<FloatType> expectNodeAggregateGlobalSum(const Graph<FloatType> &in){ //finish me
+Graph<FloatType> expectNodeAggregateGlobalSum(const Graph<FloatType> &in){
   Graph<FloatType> out(in);
-  out.nodes.resize(1);
-  
-  bool first = true;
-  for(auto &node : in.nodes){
-    for(int a=0;a<node.attributes.size();a++){
-      if(first) out.nodes[0].attributes[a] = node.attributes[a];
-      else out.nodes[0].attributes[a] += node.attributes[a];
-    }
-    first = false;
-  }
+  for(int a=0;a<in.nodes.nAttrib();a++)
+    out.nodes.attributes[a] = Tensor<FloatType,3>(1,in.nodes.attribSize(a),in.nodes.batchSize());
 
+  autoView(out_attr_v, out.nodes.attributes, HostWrite);
+  autoView(in_attr_v, in.nodes.attributes, HostRead);
+  
+  for(int a=0;a<in.nodes.nAttrib();a++){
+    for(int n=0;n<in.nodes.nElem();n++)
+      for(int i=0;i<in.nodes.attribSize(a);i++)
+	for(int b=0;b<in.nodes.batchSize();b++)
+	  if(n==0) out_attr_v[a](0,i,b) = in_attr_v[a](n,i,b);
+	  else out_attr_v[a](0,i,b) += in_attr_v[a](n,i,b);
+  }
   return out;
 }
 
@@ -56,7 +58,6 @@ struct NodeAggregateGlobalSumComponentWrapper{
   }      
 };
 
-
 void testNodeAggregateGlobalSum(){
   std::mt19937 rng(1234);
   typedef confDouble Config;
@@ -72,7 +73,7 @@ void testNodeAggregateGlobalSum(){
   ginit.batch_size =4;
   
   Graph<FloatType> graph(ginit);
-  graph.applyToAllAttributes([&](Matrix<FloatType> &m){ uniformRandom(m,rng); });
+  graph.applyToAllAttributes([&](Tensor<FloatType,3> &m){ uniformRandom(m,rng); });
 
   NodeAggregateGlobalSumComponent<Config> esum_cpt;
   Graph<FloatType> esum_got = esum_cpt.value(graph);
@@ -84,3 +85,4 @@ void testNodeAggregateGlobalSum(){
   
   std::cout << "testNodeAggregateGlobalSum passed" << std::endl;
 }
+

@@ -5,68 +5,66 @@ Tensor<typename Config::FloatType,3> ExtractEdgeUpdateInputComponent<Config>::va
     nedge = ginit.edge_map.size();
     int node_attr_size_total = ginit.totalAttribSize(ginit.node_attr_sizes);
     int edge_attr_size_total = ginit.totalAttribSize(ginit.edge_attr_sizes);
-    int global_attr_size_total =  ginit.totalAttribSize(ginit.global_attr_sizes);
+    int global_attr_size_total = ginit.totalAttribSize(ginit.global_attr_sizes);
     
     tens_size[0] = ginit.edge_map.size();
     tens_size[1] = 2*node_attr_size_total + edge_attr_size_total + global_attr_size_total;
     tens_size[2] = ginit.batch_size;
 
+    int nedge_attr = ginit.edge_attr_sizes.size();
+    int nnode_attr = ginit.node_attr_sizes.size();
+    int nglob_attr = ginit.global_attr_sizes.size();
+    int ncopy_per_edge = nedge_attr + 2*nnode_attr + nglob_attr;
+
+    //pointer list will be [edges,nodes,globals]
+    //elemCopyTemplate(int gelem_ptr_idx, int gelem_attrib, int gelem_elem, int stacked_offset)
+  
+    copy_template = Matrix<elemCopyTemplate>(nedge, ncopy_per_edge, MemoryManager::Pool::HostPool);
+    {
+      autoView(cpt, copy_template, HostWrite);
+      for(int edge_idx=0;edge_idx<nedge;edge_idx++){
+	int i=0;
+	int off = 0;
+	for(int ea=0;ea<nedge_attr;ea++){ //stack self attribs
+	  int attr_sz = ginit.edge_attr_sizes[ea];
+	  cpt(edge_idx,i++) = elemCopyTemplate(GraphElementType::Edges, ea, edge_idx, off); 
+	  off += attr_sz;
+	}
+	
+	for(int na=0;na<nnode_attr;na++){ //stack send, recv node attribs
+	  int send_node = in.edges.edge_map[edge_idx].first;
+	  int recv_node = in.edges.edge_map[edge_idx].second;
+	  int attr_sz = ginit.node_attr_sizes[na];
+	  cpt(edge_idx,i++) = elemCopyTemplate(GraphElementType::Nodes, na, send_node, off);
+	  off += attr_sz;
+	  cpt(edge_idx,i++) = elemCopyTemplate(GraphElementType::Nodes, na, recv_node, off);
+	  off += attr_sz;
+	}
+	for(int ng=0;ng<nglob_attr;ng++){
+	  int attr_sz = ginit.global_attr_sizes[ng];
+	  cpt(edge_idx,i++) = elemCopyTemplate(GraphElementType::Global, ng, 0, off);
+	  off += attr_sz;
+	}
+      }
+    }
     setup = true;
   }
 
-  Tensor<FloatType,3> out(tens_size);
-  autoView(out_v,out,DeviceWrite);
 
-  FloatType *to_base = out_v.data();
-  for(int edge_idx=0; edge_idx < nedge; edge_idx++){
-    const Edge<FloatType> &edge = in.edges[edge_idx];
-    const Node<FloatType> &send_node = in.nodes[ edge.send_node ];
-    const Node<FloatType> &recv_node = in.nodes[ edge.recv_node ];
-
-    //stack attributes of send node
-    to_base = stackAttr(to_base, send_node);
-      
-    //then receive node      
-    to_base = stackAttr(to_base, recv_node);
-      
-    //then edge
-    to_base = stackAttr(to_base, edge);
-        
-    //then global
-    to_base = stackAttr(to_base, in.global);
-  }
+  Tensor<FloatType,3> out(tens_size); //[edge, flat_attr_idx, batch]
+  stackAttr(out, in, copy_template);
   return out;
 }
   
 template<typename Config>
 void ExtractEdgeUpdateInputComponent<Config>::deriv(Tensor<FloatType,3> &&_dCost_by_dOut, Graph<FloatType> &dCost_by_dIn) const{
-  Tensor<FloatType,3> in(_dCost_by_dOut);
-  Graph<FloatType> &out = dCost_by_dIn;
+  Tensor<FloatType,3> dCost_by_dOut(_dCost_by_dOut);
 
   assert(setup);
-  out = Graph<FloatType>(ginit);
+  dCost_by_dIn = Graph<FloatType>(ginit);
     
-  assert(in.size(0) == tens_size[0] && in.size(1) == tens_size[1] && in.size(2) == tens_size[2]);
-  
-  autoView(in_v,in,DeviceRead);
-  FloatType const* from_base = in_v.data();
-  for(int edge_idx=0; edge_idx < nedge; edge_idx++){
-    Edge<FloatType> &edge = out.edges[edge_idx];
-    Node<FloatType> &send_node = out.nodes[ edge.send_node ];
-    Node<FloatType> &recv_node = out.nodes[ edge.recv_node ];
-
-    //stack attributes of send node
-    from_base = unstackAttrAdd(send_node, from_base);
-
-    //then receive node      
-    from_base = unstackAttrAdd(recv_node, from_base);
-
-    //then edge
-    from_base = unstackAttrAdd(edge, from_base);
-
-    //then global
-    from_base = unstackAttrAdd(out.global, from_base);
-  }
+  assert(dCost_by_dOut.size(0) == tens_size[0] && dCost_by_dOut.size(1) == tens_size[1] && dCost_by_dOut.size(2) == tens_size[2]);
+  unstackAttrAdd(dCost_by_dIn, dCost_by_dOut, copy_template);
 }
 
 template<typename Config>
@@ -87,40 +85,29 @@ template<typename Config>
 Graph<typename Config::FloatType> InsertEdgeUpdateOutputComponent<Config>::value(const Graph<FloatType> &in, const Tensor<FloatType,3> &edge_attr_update){
   if(!setup){
     ginit = in.getInitializer();
-    tens_size[0] = in.edges.size();
-    tens_size[1] = in.edges[0].totalAttribSize();
+    tens_size[0] = in.edges.nElem();
+    tens_size[1] = in.edges.totalAttribSize();
     tens_size[2] = ginit.batch_size;
     setup = true;
   }
   assert(edge_attr_update.size(0) == tens_size[0] && edge_attr_update.size(1) == tens_size[1] && edge_attr_update.size(2) == tens_size[2]);
         
   Graph<FloatType> out(in);
-    
-  autoView(e_v,edge_attr_update,DeviceRead);
-    
-  FloatType const* from_base = e_v.data();
-  for(auto &edge : out.edges) from_base = unstackAttr(edge, from_base);
-
+  unstackAttr(out.edges, edge_attr_update); 
   return out;
 }
   
 template<typename Config>
 void InsertEdgeUpdateOutputComponent<Config>::deriv(Graph<FloatType> &&_dCost_by_dOut, Graph<FloatType> &dCost_by_dIn_graph, Tensor<FloatType,3> &dCost_by_dIn_tens) const{
-  Graph<FloatType> in(std::move(_dCost_by_dOut));
+  Graph<FloatType> dCost_by_dOut(std::move(_dCost_by_dOut));
     
-  Tensor<FloatType,3> &out = dCost_by_dIn_tens;
-
   assert(setup);
-  out = Tensor<FloatType,3>(tens_size);    
-  //assert(bool(in.getInitializer() == ginit));
-  
-  autoView(out_v,out,DeviceWrite);
-  FloatType * to_base = out_v.data();
-  for(auto const &edge : in.edges) to_base = stackAttr(to_base, edge);
+  dCost_by_dIn_tens = Tensor<FloatType,3>(tens_size);
+  stackAttr(dCost_by_dIn_tens, dCost_by_dOut.edges);
   
   //the contribution to the edges is overwritten from the input graph, but not to the other components
-  dCost_by_dIn_graph = Graph<FloatType>(std::move(in));
-  for(auto &edge : dCost_by_dIn_graph.edges) edge.setZero();
+  dCost_by_dIn_graph = Graph<FloatType>(std::move(dCost_by_dOut));
+  dCost_by_dIn_graph.edges.setZero();
 }
 
 template<typename Config>

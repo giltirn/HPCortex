@@ -1,23 +1,25 @@
-
-
-
 template<typename FloatType>
 Graph<FloatType> expectEdgeAggregateSum(const Graph<FloatType> &in){
   Graph<FloatType> out(in);
-  out.edges.resize(in.nodes.size());
+  for(int a=0;a<out.edges.nAttrib();a++)
+    out.edges.attributes[a] = Tensor<FloatType,3>(in.nodes.nElem(), in.edges.attribSize(a), in.edges.batchSize());
 
-  for(int n=0;n<in.nodes.size();n++){
-    Edge<FloatType> &edge_out = out.edges[n];
-    edge_out.send_node = -1;
-    edge_out.recv_node = n;
-    edge_out.attributes.resize( in.edges[0].attributes.size() );
+  autoView(edges_in_v, in.edges.attributes,HostRead);
+  autoView(edges_out_v, out.edges.attributes,HostWrite);
+  out.edges.edge_map.resize(in.nodes.nElem());
+  
+  for(int n=0;n<in.nodes.nElem();n++){
+    out.edges.edge_map[n].first = -1;
+    out.edges.edge_map[n].second = n;
 
     bool first = true;
-    for(auto const &edge_in : in.edges)
-      if(edge_in.recv_node == n){
-	for(int a=0;a<edge_in.attributes.size();a++){
-	  if(first) edge_out.attributes[a] = edge_in.attributes[a];
-	  else edge_out.attributes[a] += edge_in.attributes[a];
+    for(int e=0;e<in.edges.nElem();e++)
+      if(in.edges.recvNode(e) == n){
+	for(int a=0;a<in.edges.nAttrib();a++){
+	  for(int i=0;i<in.edges.attribSize(a);i++)
+	    for(int b=0;b<in.edges.batchSize();b++)
+	      if(first) edges_out_v[a](n,i,b) = edges_in_v[a](e,i,b);
+	      else edges_out_v[a](n,i,b) += edges_in_v[a](e,i,b);
 	}
 	first = false;
       }
@@ -80,7 +82,7 @@ void testEdgeAggregateSum(){
   ginit.batch_size =4;
   
   Graph<FloatType> graph(ginit);
-  graph.applyToAllAttributes([&](Matrix<FloatType> &m){ uniformRandom(m,rng); });
+  graph.applyToAllAttributes([&](Tensor<FloatType,3> &m){ uniformRandom(m,rng); });
 
   EdgeAggregateSumComponent<Config> esum_cpt;
   Graph<FloatType> esum_got = esum_cpt.value(graph);
@@ -94,25 +96,25 @@ void testEdgeAggregateSum(){
 }
 
 
-
-
 template<typename FloatType>
 Graph<FloatType> expectEdgeAggregateGlobalSum(const Graph<FloatType> &in){
   Graph<FloatType> out(in);
-  out.edges.resize(1);
-  
-  Edge<FloatType> &edge_out = out.edges[0];
-  edge_out.send_node = -1;
-  edge_out.recv_node = -1;
-  edge_out.attributes.resize( in.edges[0].attributes.size() );
+  for(int a=0;a<in.edges.nAttrib();a++)
+    out.edges.attributes[a] = Tensor<FloatType,3>(1,in.edges.attribSize(a),in.edges.batchSize());
 
-  bool first = true;
-  for(int e=0;e<in.edges.size();e++){
-    for(int a=0;a<in.edges[e].attributes.size();a++){
-      if(first) edge_out.attributes[a] = in.edges[e].attributes[a];
-      else edge_out.attributes[a] += in.edges[e].attributes[a];
+  out.edges.edge_map.resize(1);
+  out.edges.edge_map[0].first = out.edges.edge_map[0].second = -1;
+
+  autoView(out_edges_v,out.edges.attributes,HostWrite);
+  autoView(in_edges_v,in.edges.attributes,HostRead);
+  
+  for(int a=0;a<in.edges.nAttrib();a++){
+    for(int e=0;e<in.edges.nElem();e++){
+      for(int i=0;i<in.edges.attribSize(a);i++)
+	for(int b=0;b<in.edges.batchSize();b++)
+	  if(e==0) out_edges_v[a](0,i,b) = in_edges_v[a](e,i,b);
+	  else out_edges_v[a](0,i,b) += in_edges_v[a](e,i,b);
     }
-    first = false;
   }
 
   return out;
@@ -159,7 +161,6 @@ struct EdgeAggregateGlobalSumComponentWrapper{
   }      
 };
 
-
 void testEdgeAggregateGlobalSum(){
   std::mt19937 rng(1234);
   typedef confDouble Config;
@@ -175,7 +176,7 @@ void testEdgeAggregateGlobalSum(){
   ginit.batch_size =4;
   
   Graph<FloatType> graph(ginit);
-  graph.applyToAllAttributes([&](Matrix<FloatType> &m){ uniformRandom(m,rng); });
+  graph.applyToAllAttributes([&](Tensor<FloatType,3> &m){ uniformRandom(m,rng); });
 
   EdgeAggregateGlobalSumComponent<Config> esum_cpt;
   Graph<FloatType> esum_got = esum_cpt.value(graph);

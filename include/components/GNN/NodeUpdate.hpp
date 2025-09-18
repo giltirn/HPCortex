@@ -12,6 +12,7 @@ private:
   bool setup;
   GraphInitialize ginit;
   int tens_size[3];
+  Matrix<elemCopyTemplate> copy_template;
 public:
   
   ExtractNodeUpdateInputComponent(): setup(false){}

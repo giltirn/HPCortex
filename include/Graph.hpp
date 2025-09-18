@@ -3,36 +3,31 @@
 #include <numeric>
 
 template<typename FloatType>
-struct AttributedGraphElement{
-  std::vector< Matrix<FloatType> > attributes; /**< Attributes, indexed as [attrib_type_idx][attrib_idx, batch_idx] */
+struct AttributedGraphElements{
+  typedef ManagedTypeArray< Tensor<FloatType,3> > AttributesType;
+  AttributesType attributes; /**< Attributes, indexed as [attrib_type_idx][elem_idx,attrib_idx, batch_idx] */
 
-  AttributedGraphElement<FloatType> & operator+=(const AttributedGraphElement<FloatType> &r);
+  AttributedGraphElements(){}
+  
+  AttributedGraphElements<FloatType> & operator+=(const AttributedGraphElements<FloatType> &r);
 
   /**
    * @brief Zero-initialize the attributes according to the provided sizes and batch size
    */
-  void initialize(const std::vector<int> &attr_sizes, int batch_size);
+  void initialize(int nelem, const std::vector<int> &attr_sizes, int batch_size);
 
   /**
    * @brief Return the array of attribute sizes
    */
-
   std::vector<int> getAttributeSizes() const;
   
-  /**
-   * @brief Insert unbatched attribute information into this batched object
-   * @param from The unbatched element
-   * @param bidx The batch index
-   */
-  void insertBatch(const AttributedGraphElement<FloatType> &from, int bidx);
-
   /**
    * @brief Insert unbatched attribute information into this batched object for all batch indices
    * @param from An array of pointers to unbatched elements of size batch_size
    * 
    * Much faster than using insertBatch repeatedly
    */
-  void insertCompleteBatch(AttributedGraphElement<FloatType> const* const* from);
+  void insertCompleteBatch(AttributedGraphElements<FloatType> const* const* from);
   
   /**
    * @brief Zero the attributes
@@ -43,43 +38,66 @@ struct AttributedGraphElement{
    * @brief Return the sum of the dimension of all attributes
    */
   int totalAttribSize() const;
-};
 
-/**
- * @brief A graph node
- */
-template<typename FloatType>
-struct Node: public AttributedGraphElement<FloatType>{
-};
-
-/**
- * @brief A graph edge
- */
-template<typename FloatType>
-struct Edge: public AttributedGraphElement<FloatType>{
-  int send_node;
-  int recv_node;
-
-  Edge<FloatType> & operator+=(const Edge<FloatType> &r);
-  
   /**
-   * @brief Insert unbatched edge information into this batched object
-   * @param from The unbatched edge
-   * @param bidx The batch index
+   * @brief Return the vector size of an attribute
    */
-  void insertBatch(const Edge<FloatType> &from, int bidx);
-   
+  int attribSize(int attrib) const{ return attributes[attrib].size(1); }
+
+  /**
+   * @brief Return the number of graph elements
+   */
+  int nElem() const{ return attributes[0].size(0); }
+
+  /**
+   * @brief Return the number of attributes
+   */
+  int nAttrib() const{ return attributes.size(); }
+
+  /**
+   * @brief Return the batch size
+   */  
+  int batchSize() const{ return attributes[0].size(2); }
+};
+
+/**
+ * @brief A collection of graph nodes
+ */
+template<typename FloatType>
+struct Nodes: public AttributedGraphElements<FloatType>{
+};
+
+/**
+ * @brief A collection of graph edges
+ */
+template<typename FloatType>
+struct Edges: public AttributedGraphElements<FloatType>{
+  std::vector<std::pair<int,int> > edge_map;  /**< The edge connectivity as [send, recv]*/
+
+  Edges<FloatType> & operator+=(const Edges<FloatType> &r);
+  
   /**
    * @brief Zero-initialize the edge information and attributes according to the provided sizes and batch size
    */
-  void initialize(int send_node, int recv_node, const std::vector<int> &attr_sizes, int batch_size);
+  void initialize(const std::vector<std::pair<int,int> > &_edge_map, const std::vector<int> &attr_sizes, int batch_size);
+
+  /**
+   * @brief Return the send node index associated with the given edge
+   */
+  int sendNode(int edge) const{ return edge_map[edge].first; }
+
+  /**
+   * @brief Return the receive node index associated with the given edge
+   */
+  int recvNode(int edge) const{ return edge_map[edge].second; }
+  
 };
 
 /**
  * @brief Graph global attributes
  */
 template<typename FloatType>
-struct GlobalAttributes: public AttributedGraphElement<FloatType>{
+struct Globals: public AttributedGraphElements<FloatType>{
 };
 
 
@@ -106,9 +124,9 @@ struct GraphInitialize{
  */
 template<typename FloatType>
 struct Graph{
-  std::vector<Node<FloatType> > nodes; /**< Graph nodex */
-  std::vector<Edge<FloatType> > edges; /**< Graph edges */
-  GlobalAttributes<FloatType> global; /**< Graph global attributes*/
+  Nodes<FloatType> nodes; /**< Graph nodes */
+  Edges<FloatType> edges; /**< Graph edges */
+  Globals<FloatType> global; /**< Graph global attributes*/
 
   Graph(){}
 
@@ -123,7 +141,7 @@ struct Graph{
   GraphInitialize getInitializer() const;
 
   /**
-   * @brief Apply a lambda operation to all attributes. The function signature should be [](Matrix<FloatType> &attr){ ... }
+   * @brief Apply a lambda operation to all attributes. The function signature should be [](Tensor<FloatType,3> &attr){ ... }
    */
   template<typename Action>
   void applyToAllAttributes(const Action &act);
@@ -132,70 +150,104 @@ struct Graph{
 
   Graph<FloatType> operator+(const Graph<FloatType> &r) const;
   
-  
-  /**
-   * @brief Insert unbatched graph information into this batched object
-   * @param from The unbatched graph
-   * @param bidx The batch index
-   */
-  void insertBatch(const Graph<FloatType> &from, int bidx);
-
   /**
    * @brief Insert unbatched graph information into this batched object for all batch indices
    * @param from An array of pointers to unbatched graphs of size batch_size
-   * 
-   * Much faster than using insertBatch repeatedly
    */
   void insertCompleteBatch(Graph<FloatType> const* const* from);
 };
 
-
-
+/**
+ * @brief Enum for graph components
+ */
+enum class GraphElementType { Edges=0, Nodes=1, Global=2 };
 
 /**
- * @brief Insert unbatched attribute information into a batched attribute
- * @param into The batched attribute
- * @param from The unbatched attribute
- * @param bidx The batch index
+ * @brief Information struct describing copies between graph elements and stacked attribute tensors
  */
-template<typename FloatType>
-void batchInsertAttrib(Matrix<FloatType> &into, const Matrix<FloatType> &from, int bidx);
+struct elemCopyTemplate{
+GraphElementType gelem_type; /**< Which of the AttributedGraphElements to copy from/to*/
+  int gelem_attrib; /**< Attribute index */
+  int gelem_elem; /**< Element index */
+  int stacked_offset; /**< Offset within stacked output dimension*/
+  
+  elemCopyTemplate(GraphElementType gelem_type, int gelem_attrib, int gelem_elem, int stacked_offset): gelem_type(gelem_type), gelem_attrib(gelem_attrib), gelem_elem(gelem_elem), stacked_offset(stacked_offset){}  
+};
 
 /**
- * @brief "Stack" an attribute matrix into the last two dimensions of an output Tensor, with a *device* pointer to the running current offset provided and output
+ * @brief "Stack" a graph's attributes associated with a specific element type into the last two dimensions of a 3D output Tensor with indices [out_elem, stacked_attrib_idx, batch_idx]. The source attributes are specified by a template
  */
 template<typename FloatType>
-FloatType* stackAttr(FloatType *to_device, const Matrix<FloatType> &attr);
-
+void stackAttr(Tensor<FloatType,3> &to,
+	       const AttributedGraphElements<FloatType> &from
+	       );
+/**
+ * @brief The inverse operation to the above
+ */
 template<typename FloatType>
-FloatType* stackAttr(FloatType *to_device, const AttributedGraphElement<FloatType> &elem);
+void unstackAttr(AttributedGraphElements<FloatType> &to,
+		      const Tensor<FloatType,3> &from
+		 );
 
 /**
- * @brief "Unstack" an attribute matrix from the last two dimensions of an input Tensor, adding the result to the existing output, with a *device* pointer to the running current offset provided and output
+ * @brief Specifically for AttributedGraphElements instances with one element (e.g. global attributes), stack its attributes into a 2D output Tensor with indices [stacked_attrib_idx, batch_idx]
  */
 template<typename FloatType>
-FloatType const* unstackAttrAdd(Matrix<FloatType> &attr, FloatType const* from_device);
-
+void stackAttrSingleElem(Tensor<FloatType,2> &to,
+			 const AttributedGraphElements<FloatType> &from
+			 );
+/**
+ * @brief The inverse operation to the above.
+ */
 template<typename FloatType>
-FloatType const* unstackAttrAdd(AttributedGraphElement<FloatType> &elem, FloatType const* from_device);
+void unstackAttrSingleElem(AttributedGraphElements<FloatType> &to,
+			   const Tensor<FloatType,2> &from
+			   );
 
 /**
- * @brief "Unstack" an attribute matrix from the last two dimensions of an input Tensor, with a *device* pointer to the running current offset provided and output
+ * @brief "Stack" a graph's attributes from arbitrary element types into the last two dimensions of a 3D output Tensor with indices [out_elem, stacked_attrib_idx, batch_idx]. 
+ The source attributes are specified by a template matrix providing an elemCopyTemplate indexed by the output element index and the copies associated with that element
  */
 template<typename FloatType>
-FloatType const* unstackAttr(Matrix<FloatType> &attr, FloatType const* from_device);
-
+void stackAttr(Tensor<FloatType,3> &to,
+	       const Graph<FloatType> &from,
+	       const Matrix<elemCopyTemplate> &copy_template //[out_elem, copy]
+	       );
+/**
+ * @brief The inverse operation to the above. As multiple stacked outputs can be associated with a single input element (e.g. one node can contribute to the updates of multiple edges), the inverse contributions are summed into the output.
+ */
 template<typename FloatType>
-FloatType const* unstackAttr(AttributedGraphElement<FloatType> &elem, FloatType const* from_device);
+void unstackAttrAdd(Graph<FloatType> &to,
+		    const Tensor<FloatType,3> &from,
+		    const Matrix<elemCopyTemplate> &copy_template //[out_elem, copy]
+		    );
+  
+/**
+ * @brief "Stack" a graph's attributes from arbitrary element types into a 2D output Tensor with indices [stacked_attrib_idx, batch_idx]. 
+ The source attributes are specified by a template providing a list of copies
+ */
+template<typename FloatType>
+void stackAttr(Tensor<FloatType,2> &to,
+	       const Graph<FloatType> &from,
+	       const Vector<elemCopyTemplate> &copy_template //[copy]
+	       );
+/**
+ * @brief The inverse operation to the above. As multiple stacked outputs can be associated with a single input element (e.g. one node can contribute to the updates of multiple edges), the inverse contributions are summed into the output.
+ */
+template<typename FloatType>
+void unstackAttrAdd(Graph<FloatType> &to,
+		    const Tensor<FloatType,2> &from,
+		    const Vector<elemCopyTemplate> &copy_template //[copy]
+		    );
 
 /** 
  * @brief Support for obtaining the flattened size of a Graph and composite objects
  */
 template<typename FloatType>
-int flatSize(const Matrix<FloatType> &m);
+int flatSize(const Tensor<FloatType,3> &m);
 
 template<typename FloatType>
-int flatSize(const AttributedGraphElement<FloatType> &attr);
+int flatSize(const AttributedGraphElements<FloatType> &elem);
 
 template<typename FloatType>
 int flatSize(const Graph<FloatType> &g);
@@ -204,13 +256,13 @@ int flatSize(const Graph<FloatType> &g);
  * @brief Flatten a graph element, outputing to the provided *host* pointer, and returning a pointer to the next array location
  */
 template<typename FloatType>
-FloatType* flatten(FloatType *to_host_ptr, const AttributedGraphElement<FloatType> &elem);
+FloatType* flatten(FloatType *to_host_ptr, const AttributedGraphElements<FloatType> &elem);
 
 /**
  * @brief Unflatten a graph element, inputing from the provided *host* pointer, and returning a pointer to the next array location
  */
 template<typename FloatType>
-FloatType const* unflatten(AttributedGraphElement<FloatType> &elem, FloatType const *in_host_ptr);
+FloatType const* unflatten(AttributedGraphElements<FloatType> &elem, FloatType const *in_host_ptr);
 
 /**
  * @brief Flatten a graph, outputing to the provided *host* pointer, and returning a pointer to the next array location

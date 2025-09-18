@@ -8,7 +8,7 @@ template<typename Config>
 class EdgeAggregateSumComponent{
   int nnode;
   int nedge_attr;
-  std::vector<std::vector<int> > receive_map;
+  ManagedTypeArray<Vector<int> > receive_map;
   GraphInitialize ginit;
   GraphInitialize ginit_out;
   bool setup;
@@ -21,7 +21,6 @@ public:
    * @brief Output a new graph where the edge vector has been replaced by aggregated edges, one per node. 
    *        The send_node index in these will be set to -1 to indicate that they are aggregated edges
    */
-  //output one aggregate edge per node
   Graph<FloatType> value(const Graph<FloatType> &graph);
   
   void deriv(Graph<FloatType> &&_dCost_by_dOut, Graph<FloatType> &dCost_by_dIn) const;

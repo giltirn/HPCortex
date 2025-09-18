@@ -49,8 +49,8 @@ BinaryWriter::BinaryWriter(const std::string &filename, const Endianness end): d
   if(end != Endianness::System && end != endianness()) do_flip = true;
   std::cout << "Writing to " << filename << " in " << toString( end == Endianness::System ? endianness() : end) << " endian" << std::endl;
   of.open(filename, std::ios::binary);
-  writeValue((uint8_t)1); //allow inference of endianness
-  writeValue(3.14159f); //allow test of inference!    
+  write((uint8_t)1); //allow inference of endianness
+  write(3.14159f); //allow test of inference!    
 }
 
 
