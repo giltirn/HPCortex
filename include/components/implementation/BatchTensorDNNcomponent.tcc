@@ -1,11 +1,6 @@
 template<typename Config, int TensDim, typename ActivationFunc>
 template<typename InTensorType, enable_if_fwd_ref<InTensorType, Tensor<typename Config::FloatType,TensDim> > >
 Tensor<typename Config::FloatType,TensDim> BatchTensorDNNcomponent<Config,TensDim,ActivationFunc>::value(InTensorType &&in, EnableDeriv enable_deriv){
-  //INPUT_CON(in,InTensorType);
-  
-  //DDST(in_ref) in_con(std::forward<InTensorType>(in_ref));
-  //auto const &in = in_con.v;
-  
   if(!setup){
     batch_size = in.size(TensDim-1);  
     memcpy(in_dims,in.sizeArray(),TensDim*sizeof(int));

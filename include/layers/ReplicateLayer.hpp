@@ -9,7 +9,7 @@ class ReplicateLayerLeader{
   typedef typename Store::type StoredType;
   typedef LAYERTYPEOUTPUTTYPE(StoredType) LayerInputOutputType;
   LayerInputOutputType in_buf;
-  std::vector<LayerInputOutputType> above_deriv;
+  LayerInputOutputType above_deriv;
   
   Store leaf;
   int N;
@@ -19,7 +19,7 @@ class ReplicateLayerLeader{
   int step_count;
   int getparams_count;
 
-  ReplicateLayerLeader(Store &&leaf, int N): leaf(std::move(leaf)), N(N), val_count(0), deriv_count(0), update_count(0), step_count(0), getparams_count(0), above_deriv(N){}
+  ReplicateLayerLeader(Store &&leaf, int N): leaf(std::move(leaf)), N(N), val_count(0), deriv_count(0), update_count(0), step_count(0), getparams_count(0){}
 
   inline void cinc(int &i){ i = (i+1) % N; }
   
@@ -27,23 +27,25 @@ class ReplicateLayerLeader{
     if(val_count == 0)
       in_buf = leaf.v.value(x,enable_deriv); //x is assumed to be the same for all calls from children (not checked)
     cinc(val_count);
-    return in_buf;    
+    return val_count == 0 ? std::move(in_buf) : in_buf; //note 0 because cinc called on previous line!
   }
   
   //we want to allow for children to call deriv,update,step etc in any order, although the order must remain consistent to preserve the indexing of the parameters in the parameter vector
   
   int deriv(Vector<FloatType> &cost_deriv, int off, LayerInputOutputType &&_above_deriv, InputType* input_above_deriv_return){
-    above_deriv[deriv_count] = std::move(_above_deriv);
     int ret = off;
-    if(deriv_count == N-1){
-      //Out^(i) = x
-      //dCost / dx_j = \sum_i  dCost/Out^(i)_j  -> above_deriv for layer below
-      //             = \sum_i  dCost/Out^(i)_j 
-      for(int i=1;i<N;i++){
-	above_deriv[0] += above_deriv[i];
-      }
-      ret = leaf.v.deriv(cost_deriv, off, std::move(above_deriv[0]), input_above_deriv_return ); //last instance will have the correct offset assuming 
-    }    
+
+    //Out^(i) = x
+    //dCost / dx_j = \sum_i  dCost/Out^(i)_j  -> above_deriv for layer below
+    //             = \sum_i  dCost/Out^(i)_j     
+    if(deriv_count == 0)
+      above_deriv = std::move(_above_deriv);
+    else
+      above_deriv += _above_deriv;
+    
+    if(deriv_count == N-1)
+      ret = leaf.v.deriv(cost_deriv, off, std::move(above_deriv), input_above_deriv_return ); //last instance will have the correct offset assuming 
+    
     cinc(deriv_count);
     return ret;
   }
