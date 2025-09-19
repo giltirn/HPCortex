@@ -82,7 +82,8 @@ std::array<int,3> ExtractEdgeUpdateInputComponent<Config>::outputTensorSize(cons
 
 
 template<typename Config>
-Graph<typename Config::FloatType> InsertEdgeUpdateOutputComponent<Config>::value(const Graph<FloatType> &in, const Tensor<FloatType,3> &edge_attr_update){
+template<typename InputGraphType, enable_if_fwd_ref<InputGraphType, Graph<typename Config::FloatType> > >
+Graph<typename Config::FloatType> InsertEdgeUpdateOutputComponent<Config>::value(InputGraphType &&in, const Tensor<FloatType,3> &edge_attr_update){
   if(!setup){
     ginit = in.getInitializer();
     tens_size[0] = in.edges.nElem();
@@ -92,7 +93,7 @@ Graph<typename Config::FloatType> InsertEdgeUpdateOutputComponent<Config>::value
   }
   assert(edge_attr_update.size(0) == tens_size[0] && edge_attr_update.size(1) == tens_size[1] && edge_attr_update.size(2) == tens_size[2]);
         
-  Graph<FloatType> out(in);
+  Graph<FloatType> out(std::forward<InputGraphType>(in)); //avoid copy if possible
   unstackAttr(out.edges, edge_attr_update); 
   return out;
 }

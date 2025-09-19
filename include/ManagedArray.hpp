@@ -131,7 +131,7 @@ private:
   std::vector<T> elems;
   typedef ManagedArray<typename T::View> ElemViewArray;
   mutable ElemViewArray tv;
-
+  
 public:
   ManagedTypeArray(){}
   ManagedTypeArray(int size): elems(size), tv(size, MemoryManager::Pool::HostPool){}
@@ -179,6 +179,18 @@ public:
 
   int size() const{ return elems.size(); }
 
+  /**
+   * @brief Resize the array, using a lambda function to construct in-place each element. The lambda should take the element index and return the element
+   */
+  template<typename ElemConstructFunc>
+  void resize(int size, const ElemConstructFunc &construct){
+    elems.resize(0);
+    elems.reserve(size);
+    for(int i=0;i<size;i++)
+      elems.push_back(construct(i));
+    tv = ElemViewArray(size);
+  }
+  
   void resize(int size){
     elems.resize(size);
     tv = ElemViewArray(size);

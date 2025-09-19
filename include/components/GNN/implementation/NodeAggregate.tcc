@@ -1,21 +1,11 @@
-template<typename Config>
-Graph<typename Config::FloatType> NodeAggregateGlobalSumComponent<Config>::value(const Graph<FloatType> &in){
-  if(!setup){
-    ginit = in.getInitializer();
-    ginit_out = ginit;
-    ginit_out.nnode = 1;
-    nnode_attr = ginit.node_attr_sizes.size();
-    setup = true;
-  }
-    
-  Graph<FloatType> out(ginit_out);
-  out.edges = in.edges;
-  out.global = in.global;
-
-  autoView(in_node_attr_v, in.nodes.attributes, DeviceRead);
-  autoView(out_node_attr_v, out.nodes.attributes, DeviceWrite);
+template<typename FloatType>
+inline void _node_aggregate_global_sum_cpt_value(typename AttributedGraphElements<FloatType>::AttributesType &out_nodes,
+						 const typename AttributedGraphElements<FloatType>::AttributesType &in_nodes,
+						 int batch_size, int nnode_attr){
+  autoView(in_node_attr_v, in_nodes, DeviceRead);
+  autoView(out_node_attr_v, out_nodes, DeviceWrite);
   
-  accelerator_for_2d_gen(1,1,normal(),b,in.nodes.batchSize(), a, nnode_attr, {
+  accelerator_for_2d_gen(1,1,normal(),b, batch_size, a, nnode_attr, {
       auto in_attr_v = in_node_attr_v[a];
       auto out_attr_v = out_node_attr_v[a];
 					   
@@ -26,6 +16,25 @@ Graph<typename Config::FloatType> NodeAggregateGlobalSumComponent<Config>::value
 	out_attr_v(0,i,b) = val;
       }
     });
+}
+
+
+template<typename Config>
+template<typename InGraphType, enable_if_fwd_ref<InGraphType,Graph<typename Config::FloatType> > >
+Graph<typename Config::FloatType> NodeAggregateGlobalSumComponent<Config>::value(InGraphType &&in){
+  if(!setup){
+    ginit = in.getInitializer();
+    ginit_out = ginit;
+    ginit_out.nnode = 1;
+    nnode_attr = ginit.node_attr_sizes.size();
+    setup = true;
+  }
+    
+  Graph<FloatType> out(ginit_out);
+  copyOrMoveGraphElement(out, std::forward<InGraphType>(in), GraphElementType::Global);
+  copyOrMoveGraphElement(out, std::forward<InGraphType>(in), GraphElementType::Edges);
+
+  _node_aggregate_global_sum_cpt_value<FloatType>(out.nodes.attributes, in.nodes.attributes, in.nodes.batchSize(), nnode_attr);
   
   if(!value_flops.locked()){    
     for(int n=0;n<in.nodes.nElem();n++){
@@ -42,8 +51,8 @@ void NodeAggregateGlobalSumComponent<Config>::deriv(Graph<FloatType> &&_dCost_by
   assert(setup);
   Graph<FloatType> dCost_by_dOut(std::move(_dCost_by_dOut));
   dCost_by_dIn = Graph<FloatType>(ginit);
-  dCost_by_dIn.edges = dCost_by_dOut.edges;
-  dCost_by_dIn.global = dCost_by_dOut.global;
+  dCost_by_dIn.edges = std::move(dCost_by_dOut.edges);
+  dCost_by_dIn.global = std::move(dCost_by_dOut.global);
 
   autoView(out_node_attr_v, dCost_by_dIn.nodes.attributes, DeviceWrite);
   autoView(in_node_attr_v, dCost_by_dOut.nodes.attributes, DeviceRead);

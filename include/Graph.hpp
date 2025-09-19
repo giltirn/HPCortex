@@ -163,6 +163,15 @@ struct Graph{
 enum class GraphElementType { Edges=0, Nodes=1, Global=2 };
 
 /**
+ * @brief Depending on the reference type of 'from', either copy or move a particular graph element type into the output 'to'
+ */
+template<typename FloatType>
+void copyOrMoveGraphElement(Graph<FloatType> &to, const Graph<FloatType> &from, const GraphElementType type);
+
+template<typename FloatType>
+void copyOrMoveGraphElement(Graph<FloatType> &to, Graph<FloatType> &&from, const GraphElementType type);
+
+/**
  * @brief Information struct describing copies between graph elements and stacked attribute tensors
  */
 struct elemCopyTemplate{

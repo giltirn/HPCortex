@@ -52,7 +52,8 @@ public:
   /**
    * @brief Replace the edges in the input graph with those in the provided 3-tensor indexed by [edge_idx][stacked_edge_attribs][batch_idx]
    */
-  Graph<FloatType> value(const Graph<FloatType> &in, const Tensor<FloatType,3> &edge_attr_update);
+  template<typename InputGraphType, enable_if_fwd_ref<InputGraphType, Graph<FloatType> > = 0 >
+  Graph<FloatType> value(InputGraphType &&in, const Tensor<FloatType,3> &edge_attr_update);
 
   void deriv(Graph<FloatType> &&_dCost_by_dOut, Graph<FloatType> &dCost_by_dIn_graph, Tensor<FloatType,3> &dCost_by_dIn_tens) const;
 

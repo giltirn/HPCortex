@@ -99,7 +99,7 @@ public:
   LayerOutputType value(const InputType &x, EnableDeriv enable_deriv = DerivNo){
     auto v1 = leaf1.v.value(x,enable_deriv);
     auto v2 = leaf2.v.value(x,enable_deriv);    
-    return cpt.value(v1,v2);    
+    return cpt.value(std::move(v1),std::move(v2));    
   }
 
   //input_above_deriv_return is the derivative of the cost with respect to the inputs

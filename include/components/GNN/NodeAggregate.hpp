@@ -18,7 +18,8 @@ public:
   /**
    * @brief Output a new graph where the node vector has been replaced a single aggregated node
    */
-  Graph<FloatType> value(const Graph<FloatType> &graph);
+  template<typename InGraphType, enable_if_fwd_ref<InGraphType,Graph<FloatType> > =0 >
+  Graph<FloatType> value(InGraphType &&graph);
   
   void deriv(Graph<FloatType> &&_dCost_by_dOut, Graph<FloatType> &dCost_by_dIn) const;
 

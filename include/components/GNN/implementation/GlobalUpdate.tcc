@@ -70,7 +70,8 @@ std::array<int,2> ExtractGlobalUpdateInputComponent<Config>::outputTensorSize(co
 }
 
 template<typename Config>
-Graph<typename Config::FloatType> InsertGlobalUpdateOutputComponent<Config>::value(const Graph<FloatType> &in, const Tensor<FloatType,2> &global_attr_update){
+template<typename InputGraphType, enable_if_fwd_ref<InputGraphType, Graph<typename Config::FloatType> > >
+Graph<typename Config::FloatType> InsertGlobalUpdateOutputComponent<Config>::value(InputGraphType &&in, const Tensor<FloatType,2> &global_attr_update){
   if(!setup){
     ginit = in.getInitializer();
     global_attr_size_total =  ginit.totalAttribSize(ginit.global_attr_sizes);
@@ -78,7 +79,7 @@ Graph<typename Config::FloatType> InsertGlobalUpdateOutputComponent<Config>::val
   }
   assert(global_attr_update.size(0) == global_attr_size_total && global_attr_update.size(1) == ginit.batch_size);
         
-  Graph<FloatType> out(in);
+  Graph<FloatType> out(std::forward<InputGraphType>(in));
   unstackAttrSingleElem(out.global, global_attr_update);
   return out;
 }

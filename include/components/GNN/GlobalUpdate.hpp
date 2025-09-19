@@ -48,8 +48,9 @@ private:
 public:
   
   InsertGlobalUpdateOutputComponent(): setup(false){}
-  
-  Graph<FloatType> value(const Graph<FloatType> &in, const Tensor<FloatType,2> &global_attr_update);
+
+  template<typename InputGraphType, enable_if_fwd_ref<InputGraphType, Graph<FloatType> > = 0 >
+  Graph<FloatType> value(InputGraphType &&in, const Tensor<FloatType,2> &global_attr_update);
   
   void deriv(Graph<FloatType> &&_dCost_by_dOut, Graph<FloatType> &dCost_by_dIn_graph, Tensor<FloatType,2> &dCost_by_dIn_tens) const;
 

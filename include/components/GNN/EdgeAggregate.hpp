@@ -21,7 +21,8 @@ public:
    * @brief Output a new graph where the edge vector has been replaced by aggregated edges, one per node. 
    *        The send_node index in these will be set to -1 to indicate that they are aggregated edges
    */
-  Graph<FloatType> value(const Graph<FloatType> &graph);
+  template<typename InGraphType, enable_if_fwd_ref<InGraphType,Graph<FloatType> > =0 >
+  Graph<FloatType> value(InGraphType &&graph);
   
   void deriv(Graph<FloatType> &&_dCost_by_dOut, Graph<FloatType> &dCost_by_dIn) const;
 
@@ -48,7 +49,8 @@ public:
    * @brief Output a new graph where the edge vector has been replaced a single aggregated edge
    *        The send_node and recv_node index in these will be set to -1 to indicate that they are aggregated edges
    */
-  Graph<FloatType> value(const Graph<FloatType> &graph);
+  template<typename InGraphType, enable_if_fwd_ref<InGraphType,Graph<FloatType> > =0 >
+  Graph<FloatType> value(InGraphType &&graph);
   
   void deriv(Graph<FloatType> &&_dCost_by_dOut, Graph<FloatType> &dCost_by_dIn) const;
 

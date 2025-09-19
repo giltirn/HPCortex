@@ -72,7 +72,8 @@ std::array<int,3> ExtractNodeUpdateInputComponent<Config>::outputTensorSize(cons
 }
 
 template<typename Config>
-Graph<typename Config::FloatType> InsertNodeUpdateOutputComponent<Config>::value(const Graph<FloatType> &in, const Tensor<FloatType,3> &node_attr_update){
+template<typename InputGraphType, enable_if_fwd_ref<InputGraphType, Graph<typename Config::FloatType> > >
+Graph<typename Config::FloatType> InsertNodeUpdateOutputComponent<Config>::value(InputGraphType &&in, const Tensor<FloatType,3> &node_attr_update){
   if(!setup){
     ginit = in.getInitializer();
     int node_attr_size_total = ginit.totalAttribSize(ginit.node_attr_sizes);
@@ -83,7 +84,7 @@ Graph<typename Config::FloatType> InsertNodeUpdateOutputComponent<Config>::value
   }
   assert(node_attr_update.size(0) == tens_size[0] && node_attr_update.size(1) == tens_size[1] && node_attr_update.size(2) == tens_size[2]);
         
-  Graph<FloatType> out(in);    
+  Graph<FloatType> out(std::forward<InputGraphType>(in));    
   autoView(n_v,node_attr_update,DeviceRead);
   unstackAttr(out.nodes, node_attr_update);
   return out;

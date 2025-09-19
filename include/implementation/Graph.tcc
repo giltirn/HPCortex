@@ -78,9 +78,7 @@ void AttributedGraphElements<FloatType>::insertCompleteBatch(AttributedGraphElem
 
 template<typename FloatType>
 void AttributedGraphElements<FloatType>::initialize(int nelem, const std::vector<int> &attr_sizes, int batch_size){
-  attributes.resize(attr_sizes.size());
-  for(int a=0;a<attr_sizes.size();a++)
-    attributes[a] = Tensor<FloatType,3>(nelem,attr_sizes[a], batch_size, FloatType(0.));
+  attributes.resize(attr_sizes.size(), [&](int a){ return Tensor<FloatType,3>(nelem,attr_sizes[a], batch_size, FloatType(0.)); } );
 }
 
 template<typename FloatType>
@@ -184,6 +182,32 @@ void Graph<FloatType>::insertCompleteBatch(Graph<FloatType> const* const* from){
   {
     for(int b=0;b<batch_size;b++) ptrs[b] = &from[b]->global;
     global.insertCompleteBatch(ptrs.data());
+  }
+}
+
+
+template<typename FloatType>
+void copyOrMoveGraphElement(Graph<FloatType> &to, const Graph<FloatType> &from, const GraphElementType type){
+  switch(type){
+  case GraphElementType::Edges:
+    to.edges = from.edges; break;
+  case GraphElementType::Nodes:
+    to.nodes = from.nodes; break;
+  case GraphElementType::Global:
+    to.global = from.global; break;
+  }
+};
+  
+
+template<typename FloatType>
+void copyOrMoveGraphElement(Graph<FloatType> &to, Graph<FloatType> &&from, const GraphElementType type){
+  switch(type){
+  case GraphElementType::Edges:
+    to.edges = std::move(from.edges); break;
+  case GraphElementType::Nodes:
+    to.nodes = std::move(from.nodes); break;
+  case GraphElementType::Global:
+    to.global = std::move(from.global); break;
   }
 }
 
