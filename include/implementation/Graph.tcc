@@ -11,28 +11,22 @@ template<typename FloatType>
 void AttributedGraphElements<FloatType>::insertCompleteBatch(AttributedGraphElements<FloatType> const* const* from){
   int nelem = nElem();
   int batch_size = batchSize();
-  
-  typedef typename AttributedGraphElements<FloatType>::AttributesType AttributesType;
-  ManagedArray<typename AttributesType::View> fviews(batch_size);
-  {
-    autoView(fviews_v,fviews,HostWrite);
-    for(int b=0;b<batch_size;b++){
-      assert(from[b]->attributes.size() == attributes.size());
-      for(int a=0;a<nAttrib();a++){
-	int isize = attribSize(a);
+
+  ManagedArray<typename Tensor<FloatType,3>::View> fviews(batch_size);
+  for(int a=0;a<nAttrib();a++){
+    int isize = attribSize(a);
+    {
+      autoView(fviews_v,fviews,HostWrite);      
+      for(int b=0;b<batch_size;b++){
 	assert(from[b]->attributes[a].size(0)==nelem && from[b]->attributes[a].size(1)==isize && from[b]->attributes[a].size(2)==1);
+	fviews_v[b] = from[b]->attributes[a].view(DeviceRead);
       }
-      fviews_v[b] = from[b]->attributes.view(DeviceRead);
     }
-  }
-
-  {
-    autoView(fviews_v,fviews,DeviceRead);
-    autoView(out_attr_v,this->attributes,DeviceWrite);
+    
+    {
+      autoView(fviews_v,fviews,DeviceRead);
+      autoView(out_attr_v,this->attributes[a],DeviceWrite);
   
-    for(int a=0;a<nAttrib();a++){
-      int isize = attribSize(a);
-
       constexpr int iblocksize = 16;
       int iblocks = (isize + iblocksize - 1)/iblocksize;
     
@@ -52,7 +46,7 @@ void AttributedGraphElements<FloatType>::insertCompleteBatch(AttributedGraphElem
 	    {
 	      int ii=t;
 	      for(int bb=0;bb<bblocksize_actual;bb++)
-		if(ii < iblocksize_actual) bstore[ii + (iblocksize+1)*bb] = fviews_v[boff + bb][a].data()[ii + ioff + isize * e];
+		if(ii < iblocksize_actual) bstore[ii + (iblocksize+1)*bb] = fviews_v[boff + bb].data()[ii + ioff + isize * e];
 	    }
 	    acceleratorSynchronizeBlock();
 
@@ -61,7 +55,7 @@ void AttributedGraphElements<FloatType>::insertCompleteBatch(AttributedGraphElem
 	      int i=ii+ioff;
 	      int bb=t;
 	      while(bb < bblocksize_actual){
-		out_attr_v[a].data()[ bb + boff + batch_size*(i + isize*e) ] = bstore[ii + (iblocksize+1)*bb];
+		out_attr_v.data()[ bb + boff + batch_size*(i + isize*e) ] = bstore[ii + (iblocksize+1)*bb];
 		bb += iblocksize;
 	      }
 	    }
@@ -72,8 +66,8 @@ void AttributedGraphElements<FloatType>::insertCompleteBatch(AttributedGraphElem
     {
       autoView(fviews_v,fviews,HostRead);
       for(int b=0;b<batch_size;b++) fviews_v[b].free();
-    }
-  }//attributes
+    }	
+  }//attrib
 }
 
 template<typename FloatType>
