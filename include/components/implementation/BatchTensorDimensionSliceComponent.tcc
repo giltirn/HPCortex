@@ -1,6 +1,6 @@
 template<typename Config, int TensDim>
 Tensor<typename Config::FloatType,TensDim-1> BatchTensorDimensionSliceComponent<Config,TensDim>::value(const Tensor<FloatType,TensDim> &in){
-  if(!setup){
+  if(!setup || in.size(TensDim-1) != in_size[TensDim-1] ){
     memcpy(in_size, in.sizeArray(), TensDim*sizeof(int));
     int dd=0;
     for(int d=0;d<TensDim;d++)

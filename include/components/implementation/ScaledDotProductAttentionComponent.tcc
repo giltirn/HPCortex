@@ -4,7 +4,7 @@ Tensor<typename Config::FloatType,3> ScaledDotProductAttentionComponent<Config>:
   //Q(C,d_k,B) ,  K(C,d_k,B)  and V(C,d_v,B)
   assert(Q.size(1) == d_k && K.size(1) == d_k && V.size(1) == d_v);
 
-  if(!setup){
+  if(!setup || Q.size(2) != B){
     C = Q.size(0);
     B = Q.size(2);
     setup = true;

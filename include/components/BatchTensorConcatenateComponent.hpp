@@ -30,6 +30,8 @@ public:
 	  tens_dims[i][d] = in[i]->size(d);
       setup = true;
     }
+    for(int i=0;i<Ntens;i++) tens_dims[i][TensDim-1] = in[i]->size(TensDim-1); //update batch size
+    
     return batchTensorConcatenate(in, Ntens, concat_dim);
   }
   //The output tensors array should point to tensor instances, but don't have to be appropriately sized

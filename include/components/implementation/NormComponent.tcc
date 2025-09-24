@@ -1,6 +1,6 @@
 template<typename Config, int TensDim>
 Tensor<typename Config::FloatType,TensDim> NormComponent<Config,TensDim>::value(const Tensor<FloatType,TensDim> &in, EnableDeriv enable_deriv){
-  if(!setup){
+  if(!setup || in.size(TensDim-1) != in_size[TensDim-1] ){
     memcpy(in_size, in.sizeArray(), TensDim*sizeof(int));
     other_dim_vol = 1;
     for(int d=0;d<TensDim-1;d++)

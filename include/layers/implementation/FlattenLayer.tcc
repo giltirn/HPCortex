@@ -5,8 +5,9 @@ Matrix<typename Config::FloatType> FlattenLayer<Config,InputType,Store>::value(c
     memcpy(_input_tens_size, in.sizeArray(), in.dimension() * sizeof(int));
     init = true;
   }
-  
   constexpr int tens_dim = in.dimension();
+  _input_tens_size[tens_dim-1] = in.size(tens_dim-1);
+  
   int batch_size = in.size(tens_dim-1);
   int out_size = 1;
   for(int i=0;i<tens_dim-1;i++)

@@ -419,3 +419,69 @@ std::vector<FloatType> softMaxVector(const std::vector<FloatType> &v, FloatType 
 
   return out;
 }
+
+/**
+ * @brief For a model/layer with tensor input/output type, test the value and deriv functions to ensure they are consistent across multiple choices of batch size
+ */
+template<typename LayerType>
+void testModelDiffBatchSizes(LayerType &layer, int const* other_dim_sizes){
+  std::mt19937 rng(7666);
+  typedef typename LayerType::InputType XtensorType;
+  constexpr int Dim = XtensorType::Dimension;
+  
+  int size[Dim]; memcpy(size, other_dim_sizes, (Dim-1)*sizeof(int));
+
+  //1 batch of 4
+  size[Dim-1] = 4;  
+  XtensorType x4(size);
+  uniformRandom(x4,rng);
+  auto y4 = layer.value(x4,DerivYes);
+  typedef decltype(y4) YtensorType;
+
+  YtensorType above_deriv4(y4.sizeArray());
+  uniformRandom(above_deriv4,rng);
+  XtensorType in_deriv4(size);
+  Vector<FloatType> param_deriv4(layer.nparams(),0.);
+  layer.deriv(param_deriv4,0,YtensorType(above_deriv4), &in_deriv4);
+
+  //2 batches of 2
+  YtensorType y4_rec2(y4.sizeArray());
+  XtensorType in_deriv4_rec2(size);
+  Vector<FloatType> param_deriv4_rec2(layer.nparams(),0.);
+  for(int i=0;i<2;i++){
+    XtensorType x2 = x4.sliceLastDimension(2*i,2*i+1);
+    YtensorType y2 = layer.value(x2,DerivYes);
+    y4_rec2.insertSliceLastDimension(y2,2*i,2*i+1);
+
+    YtensorType above_deriv = above_deriv4.sliceLastDimension(2*i,2*i+1);
+    XtensorType in_deriv(x2.sizeArray());
+    Vector<FloatType> param_deriv(layer.nparams(),0.);
+    layer.deriv(param_deriv,0, std::move(above_deriv), &in_deriv);
+
+    param_deriv4_rec2 += param_deriv;
+    in_deriv4_rec2.insertSliceLastDimension(in_deriv,2*i,2*i+1);
+  }
+  assert(abs_near(y4,y4_rec2,FloatType(1e-6),true));
+  assert(abs_near(param_deriv4,param_deriv4_rec2,FloatType(1e-6),true));
+  assert(abs_near(in_deriv4,in_deriv4_rec2,FloatType(1e-6),true));
+  
+  YtensorType y4_rec1(y4.sizeArray());
+  XtensorType in_deriv4_rec1(size);
+  Vector<FloatType> param_deriv4_rec1(layer.nparams(),0.);
+  for(int i=0;i<4;i++){
+    XtensorType x1 = x4.sliceLastDimension(i,i);
+    YtensorType y1 = layer.value(x1,DerivYes);
+    y4_rec1.insertSliceLastDimension(y1,i,i);
+
+    YtensorType above_deriv = above_deriv4.sliceLastDimension(i,i);
+    XtensorType in_deriv(x1.sizeArray());
+    Vector<FloatType> param_deriv(layer.nparams(),0.);
+    layer.deriv(param_deriv,0, std::move(above_deriv), &in_deriv);
+
+    param_deriv4_rec1 += param_deriv;
+    in_deriv4_rec1.insertSliceLastDimension(in_deriv,i,i);
+  }
+  assert(abs_near(y4,y4_rec1,FloatType(1e-6),true));
+  assert(abs_near(param_deriv4,param_deriv4_rec1,FloatType(1e-6),true));
+  assert(abs_near(in_deriv4,in_deriv4_rec1,FloatType(1e-6),true));
+}

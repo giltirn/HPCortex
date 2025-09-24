@@ -49,6 +49,8 @@ Tensor<typename Config::FloatType,3> ExtractEdgeUpdateInputComponent<Config>::va
     }
     setup = true;
   }
+  if(in.edges.batchSize() != ginit.batch_size)
+    ginit.batch_size = tens_size[2] = in.edges.batchSize();
 
 
   Tensor<FloatType,3> out(tens_size); //[edge, flat_attr_idx, batch]
@@ -91,6 +93,9 @@ Graph<typename Config::FloatType> InsertEdgeUpdateOutputComponent<Config>::value
     tens_size[2] = ginit.batch_size;
     setup = true;
   }
+  if(ginit.batch_size != in.edges.batchSize())
+    ginit.batch_size = tens_size[2] = in.edges.batchSize();
+  
   assert(edge_attr_update.size(0) == tens_size[0] && edge_attr_update.size(1) == tens_size[1] && edge_attr_update.size(2) == tens_size[2]);
         
   Graph<FloatType> out(std::forward<InputGraphType>(in)); //avoid copy if possible

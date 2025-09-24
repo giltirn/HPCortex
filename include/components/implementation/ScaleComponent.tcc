@@ -20,7 +20,7 @@ inline void _scalecpt_value(Tensor<FloatType,TensDim> &out, const Tensor<FloatTy
 template<typename Config, int TensDim>
 template<typename InTensorType, enable_if_fwd_ref<InTensorType, Tensor<typename Config::FloatType,TensDim> > >
 Tensor<typename Config::FloatType,TensDim> ScaleComponent<Config,TensDim>::value(InTensorType &&in, EnableDeriv enable_deriv){
-  if(!setup){
+  if(!setup || in.size(TensDim-1)!=in_size[TensDim-1] ){
     assert(in.size(scale_dim) == beta.size(0));
     
     memcpy(in_size, in.sizeArray(), TensDim*sizeof(int));

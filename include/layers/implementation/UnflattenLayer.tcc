@@ -1,17 +1,15 @@
 template<typename Config, int OutDimension, typename InputType, typename Store>
 Tensor<typename Config::FloatType,OutDimension> UnflattenLayer<Config,OutDimension,InputType,Store>::value(const InputType &x, EnableDeriv enable_deriv){
   LayerInputTensorType in = leaf.v.value(x, enable_deriv);
-  int batch_size = _output_tens_size[OutDimension-1];
+  int batch_size = in.size(1);
+  _output_tens_size[OutDimension-1] = batch_size;
+  
   size_t flat_size = 1;
   for(int i=0;i<OutDimension-1;i++)
     flat_size *= _output_tens_size[i];
 
   if(in.size(0) != flat_size){
     std::ostringstream ss; ss << "Expected input matrix first dimension size " << flat_size << ", got " << in.size(0);    
-    throw std::runtime_error(ss.str());
-  }
-  if(in.size(1) != batch_size){
-    std::ostringstream ss; ss << "Expected input matrix second dimension size = batch_size = " << batch_size << ", got " << in.size(1);    
     throw std::runtime_error(ss.str());
   }
 

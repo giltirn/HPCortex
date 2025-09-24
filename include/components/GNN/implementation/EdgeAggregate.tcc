@@ -54,6 +54,8 @@ Graph<typename Config::FloatType> EdgeAggregateSumComponent<Config>::value(InGra
       
     setup = true;
   }
+  if(ginit.batch_size != in.edges.batchSize())
+    ginit.batch_size = ginit_out.batch_size = in.edges.batchSize();  
 
   Graph<FloatType> out(ginit_out);
   copyOrMoveGraphElement(out, std::forward<InGraphType>(in), GraphElementType::Global);
@@ -136,6 +138,9 @@ Graph<typename Config::FloatType> EdgeAggregateGlobalSumComponent<Config>::value
     ginit_out.edge_map[0].second = -1;      
     setup = true;
   }
+  if(ginit.batch_size != in.edges.batchSize())
+    ginit.batch_size = ginit_out.batch_size = in.edges.batchSize();  
+  
   Graph<FloatType> out(ginit_out);
   copyOrMoveGraphElement(out, std::forward<InGraphType>(in), GraphElementType::Global);
   copyOrMoveGraphElement(out, std::forward<InGraphType>(in), GraphElementType::Nodes);

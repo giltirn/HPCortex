@@ -2,7 +2,7 @@ template<typename Config, typename InputType, typename Store>
 Tensor<typename Config::FloatType,3> ScaledDotProductSelfAttentionLayer<Config,InputType,Store>::value(const InputType &x, EnableDeriv enable_deriv ){
   Tensor<FloatType,3> X = leaf.v.value(x,enable_deriv);
   assert(X.size(1) == E);
-  if(!setup){
+  if(!setup || X.size(2) != B){
     C = X.size(0);
     B = X.size(2);
     setup = true;

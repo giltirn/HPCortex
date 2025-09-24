@@ -3,7 +3,7 @@ template<typename InTensorType, enable_if_fwd_ref<InTensorType,Tensor<typename C
 Tensor<typename Config::FloatType,TensDim> MatrixTensorContractComponent<Config,TensDim>::value(InTensorType &&in_ref, EnableDeriv enable_deriv){
   INPUT_CON(in, InTensorType);
   
-  if(!setup){
+  if(!setup || in.size(TensDim-1) != batch_size ){
     batch_size = in.size(TensDim-1);  
     memcpy(in_dims,in.sizeArray(),TensDim*sizeof(int));
   

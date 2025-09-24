@@ -8,7 +8,7 @@ Tensor<typename Config::FloatType,3> ConvolutionLayer1D<Config,InputType,Store,A
 
   //std::cout << "Conv1d padded input to size " << in.sizeArrayString() << std::endl;
   
-  if(!init){
+  if(!init || batch_size != in.size(2) ){
     batch_size = in.size(2);
     padded_data_len = in.size(1);
     init=true;

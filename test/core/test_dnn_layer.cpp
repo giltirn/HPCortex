@@ -114,6 +114,7 @@ struct BatchTensorDNNcomponentWrapper{
   }       
 };
 
+
 void testBatchTensorDNNcomponentAndLayer(){
   std::mt19937 rng(1234);
     
@@ -162,11 +163,15 @@ void testBatchTensorDNNcomponentAndLayer(){
 	Tensor<FloatType,4> got2 = m.value(x);
 	assert(abs_near(got2,expect, 1e-6, true));
 	testDeriv(m, x.sizeArray(), expect.sizeArray(), 1e-8);
+
+	testModelDiffBatchSizes(m, tens_sizes);
       }else{
 	auto m = batch_tensor_dnn_layer<4>(weights, contract_dim, activation, input_layer<Config,Tensor<FloatType,4> >());
 	Tensor<FloatType,4> got2 = m.value(x);
 	assert(abs_near(got2,expect, 1e-6, true));
 	testDeriv(m, x.sizeArray(), expect.sizeArray(), 1e-8);
+
+	testModelDiffBatchSizes(m, tens_sizes);
       }
       
     }
@@ -250,11 +255,15 @@ void testBatchTensorDNNcomponentAndLayer2D(){
       Matrix<FloatType> got2 = m.value(x);
       assert(abs_near(got2,expect, 1e-6, true));
       testDeriv(m, x.sizeArray(), expect.sizeArray(), 1e-8);
+
+      testModelDiffBatchSizes(m, tens_sizes);
     }else{
       auto m = batch_tensor_dnn_layer<2>(weights, contract_dim, activation, input_layer<Config>());
       Matrix<FloatType> got2 = m.value(x);
       assert(abs_near(got2,expect, 1e-6, true));
       testDeriv(m, x.sizeArray(), expect.sizeArray(), 1e-8);
+
+      testModelDiffBatchSizes(m, tens_sizes);
     }
   }      
 

@@ -29,6 +29,8 @@ Graph<typename Config::FloatType> NodeAggregateGlobalSumComponent<Config>::value
     nnode_attr = ginit.node_attr_sizes.size();
     setup = true;
   }
+  if(ginit.batch_size != in.nodes.batchSize())
+    ginit.batch_size = ginit_out.batch_size = in.nodes.batchSize();
     
   Graph<FloatType> out(ginit_out);
   copyOrMoveGraphElement(out, std::forward<InGraphType>(in), GraphElementType::Global);

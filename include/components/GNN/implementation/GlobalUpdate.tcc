@@ -41,7 +41,9 @@ Tensor<typename Config::FloatType,2> ExtractGlobalUpdateInputComponent<Config>::
       
     setup = true;
   }
-    
+  if(ginit.batch_size != gaggr.global.batchSize())
+    ginit.batch_size = tens_size[1] = gaggr.global.batchSize();
+  
   Tensor<FloatType,2> out(tens_size);
   stackAttr(out, gaggr, copy_template);
   return out;
@@ -77,6 +79,9 @@ Graph<typename Config::FloatType> InsertGlobalUpdateOutputComponent<Config>::val
     global_attr_size_total =  ginit.totalAttribSize(ginit.global_attr_sizes);
     setup = true;
   }
+  if(ginit.batch_size != in.global.batchSize())
+    ginit.batch_size = in.global.batchSize();
+    
   assert(global_attr_update.size(0) == global_attr_size_total && global_attr_update.size(1) == ginit.batch_size);
         
   Graph<FloatType> out(std::forward<InputGraphType>(in));

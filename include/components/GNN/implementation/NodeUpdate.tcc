@@ -42,6 +42,8 @@ Tensor<typename Config::FloatType,3> ExtractNodeUpdateInputComponent<Config>::va
     
     setup = true;
   }
+  if(ginit.batch_size != in.nodes.batchSize())
+    ginit.batch_size = tens_size[2] = in.nodes.batchSize();
 
   Tensor<FloatType,3> out(tens_size);
   stackAttr(out, in, copy_template);
@@ -82,6 +84,9 @@ Graph<typename Config::FloatType> InsertNodeUpdateOutputComponent<Config>::value
     tens_size[2] = ginit.batch_size;
     setup = true;
   }
+  if(ginit.batch_size != in.nodes.batchSize())
+    ginit.batch_size = tens_size[2] = in.nodes.batchSize();
+  
   assert(node_attr_update.size(0) == tens_size[0] && node_attr_update.size(1) == tens_size[1] && node_attr_update.size(2) == tens_size[2]);
         
   Graph<FloatType> out(std::forward<InputGraphType>(in));    
