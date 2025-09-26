@@ -3,24 +3,8 @@ Tensor<typename Config::FloatType,OutDimension> UnflattenLayer<Config,OutDimensi
   LayerInputTensorType in = leaf.v.value(x, enable_deriv);
   int batch_size = in.size(1);
   _output_tens_size[OutDimension-1] = batch_size;
-  
-  size_t flat_size = 1;
-  for(int i=0;i<OutDimension-1;i++)
-    flat_size *= _output_tens_size[i];
 
-  if(in.size(0) != flat_size){
-    std::ostringstream ss; ss << "Expected input matrix first dimension size " << flat_size << ", got " << in.size(0);    
-    throw std::runtime_error(ss.str());
-  }
-
-  Tensor<FloatType,OutDimension> out(_output_tens_size);
-  autoView(out_v,out,DeviceWrite);
-  autoView(in_v,in,DeviceRead);
-  accelerator_for2d(b,batch_size, i,flat_size, 1,{
-      //rely on the fact that the batch index is the fastest moving,  eg. for a 3 tensor   off = b + batch_size*(z + zsize*(y + ysize*x))      i=(z + zsize*(y + ysize*x)) 
-      out_v.data()[b + batch_size*i] = in_v(i,b);
-    });
-  return out;
+  return unflattenFromBatchVector<OutDimension>(in, _output_tens_size);
 }
 template<typename Config, int OutDimension, typename InputType, typename Store>
 int UnflattenLayer<Config,OutDimension,InputType,Store>::deriv(Vector<FloatType> &cost_deriv, int off, Tensor<FloatType,OutDimension> &&_above_deriv, InputType* input_above_deriv_return) const{

@@ -428,6 +428,7 @@ void testModelDiffBatchSizes(LayerType &layer, int const* other_dim_sizes){
   std::mt19937 rng(7666);
   typedef typename LayerType::InputType XtensorType;
   constexpr int Dim = XtensorType::Dimension;
+  typedef typename LayerType::FloatType FloatType;
   
   int size[Dim]; memcpy(size, other_dim_sizes, (Dim-1)*sizeof(int));
 

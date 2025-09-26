@@ -685,6 +685,19 @@ Vector<FloatType> flattenNsameDim(Tensor<FloatType,Dim> const* const* tens, int 
 template<int Dim, typename FloatType>
 void unflattenNsameDim(Tensor<FloatType,Dim>* const* tens, int N, const Vector<FloatType> &v);
 
+
+/**
+ * @brief Flatten a batched tensor to a batch-vector, Tensor<FloatType,Dim> -> Matrix<FloatType> where the matrix column count is the batch size and the row count is the product of the size of all tensor dimensions other than the batch size
+ */
+template<int Dim, typename FloatType>
+Matrix<FloatType> flattenToBatchVector(const Tensor<FloatType,Dim> &tens);
+
+/**
+ * @brief Unflatten a batched vector to a batch-vector, Matrix<FloatType> -> Tensor<FloatType,Dim> where the matrix column count is the batch size and the row count is the product of the size of all tensor dimensions other than the batch size.
+ */
+template<int Dim, typename FloatType>
+Tensor<FloatType,Dim> unflattenFromBatchVector(const Matrix<FloatType> &vec, int const *tens_dim);
+
 /**
  * @brief Concatenate (stack) Ntens tensors along a dimension concat_dim < Dim-1 (last dim is assumed to be the batch index). 
  * @param in The input tensor array

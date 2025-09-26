@@ -7,23 +7,8 @@ Matrix<typename Config::FloatType> FlattenLayer<Config,InputType,Store>::value(c
   }
   constexpr int tens_dim = in.dimension();
   _input_tens_size[tens_dim-1] = in.size(tens_dim-1);
-  
-  int batch_size = in.size(tens_dim-1);
-  int out_size = 1;
-  for(int i=0;i<tens_dim-1;i++)
-    out_size *= in.size(i);
 
-  Matrix<FloatType> out(out_size,batch_size);
-
-  //std::cout << "FLATTEN input tensor of dim " << tens_dim << " of size " << in.sizeArrayString() << " to matrix of size " << out_size << " " << batch_size << std::endl;
-  
-  autoView(out_v,out,DeviceWrite);
-  autoView(in_v,in,DeviceRead);
-  accelerator_for2d(b,batch_size, i,out_size, 1,{
-      //rely on the fact that the batch index is the fastest moving,  eg. for a 3 tensor   off = b + batch_size*(z + zsize*(y + ysize*x))      i=(z + zsize*(y + ysize*x))
-      out_v(i,b) = in_v.data()[b + i*batch_size];
-    });
-  return out;
+  return flattenToBatchVector(in);
 }
 template<typename Config, typename InputType, typename Store>
 int FlattenLayer<Config,InputType,Store>::deriv(Vector<FloatType> &cost_deriv, int off, Matrix<FloatType> &&_above_deriv, InputType* input_above_deriv_return) const{
