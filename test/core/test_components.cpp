@@ -345,9 +345,9 @@ struct ScaleComponentWrapper{
 
   std::string inCoord(size_t i, int b, int batch_size) const{
     std::ostringstream ss;
-    int size_b[TensDim]; memcpy(size_b,size,(TensDim-1)*sizeof(int)); size_b[TensDim-1] = batch_size;
+    batchTensorSize(size_b, TensDim-1, size, batch_size);
     int coord[TensDim];
-    tensorOffsetUnmap<TensDim>(coord, size, b+batch_size*i);
+    tensorOffsetUnmap<TensDim>(coord, size_b, b+batch_size*i);
     ss << "(";
     for(int c=0;c<TensDim;c++)
       ss << coord[c] << (c<TensDim-1 ? ", " : "");
