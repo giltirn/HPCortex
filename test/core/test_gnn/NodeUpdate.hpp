@@ -64,31 +64,27 @@ struct ExtractNodeUpdateInputComponentWrapper{
   GraphInitialize ginit;
   int graph_flat_size;
   int tens_flat_size;
-  int tens_sz[3];
+  int tens_sz[2];
   
-  ExtractNodeUpdateInputComponentWrapper(ExtractNodeUpdateInputComponent<Config> &cpt, const GraphInitialize &ginit, const int graph_flat_size, const int _tens_sz[3]): cpt(cpt), ginit(ginit), graph_flat_size(graph_flat_size){
-    memcpy(tens_sz, _tens_sz, 3*sizeof(int));
-    tens_flat_size = 1;
-    for(int i=0;i<3;i++)
-      tens_flat_size *= tens_sz[i];
+  ExtractNodeUpdateInputComponentWrapper(ExtractNodeUpdateInputComponent<Config> &cpt, const GraphInitialize &ginit, const int graph_flat_size, const int _tens_sz[2]): cpt(cpt), ginit(ginit), graph_flat_size(graph_flat_size){
+    memcpy(tens_sz, _tens_sz, 2*sizeof(int));
+    tens_flat_size = tens_sz[0]*tens_sz[1];
   }
 
   size_t outputLinearSize() const{ return tens_flat_size; }
   size_t inputLinearSize() const{ return graph_flat_size; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
-    Graph<FloatType> graph(ginit);
-    unflatten(graph, in);
-    Tensor<FloatType,3> out = cpt.value(graph);
-    return flatten(out);
+  Matrix<FloatType> value(const Matrix<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
+    ginit.batch_size = in.size(1);
+    Graph<FloatType> graph = unflattenFromBatchVector(in, ginit);
+    return flattenToBatchVector(cpt.value(graph));
   }
-  void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
-    Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);
-    Tensor<FloatType,3> above_deriv(tens_sz);
-    unflatten(above_deriv,above_deriv_lin);
-    Graph<FloatType> cost_deriv_inputs_graph(ginit);
+  void deriv(Vector<FloatType> &cost_deriv_params, int off, Matrix<FloatType> &&_above_deriv_lin, Matrix<FloatType> &cost_deriv_inputs){
+    batchTensorSize(tens_sz_b, 3, tens_sz, _above_deriv_lin.size(1));
+    Tensor<FloatType,3> above_deriv = unflattenFromBatchVector<3>(_above_deriv_lin, tens_sz_b);
+    Graph<FloatType> cost_deriv_inputs_graph;
     cpt.deriv(std::move(above_deriv), cost_deriv_inputs_graph);
-    cost_deriv_inputs = flatten(cost_deriv_inputs_graph);
+    cost_deriv_inputs = flattenToBatchVector(cost_deriv_inputs_graph);
   }
     
   void update(int off, const Vector<FloatType> &new_params){}
@@ -96,7 +92,7 @@ struct ExtractNodeUpdateInputComponentWrapper{
   inline int nparams() const{ return cpt.nparams(); }
   void getParams(Vector<FloatType> &into, int off){}
 
-  std::string inCoord(size_t i) const{
+  std::string inCoord(size_t i, int b, int batch_size) const{
     return "";
   }      
 };
@@ -124,9 +120,9 @@ void testExtractNodeUpdateInputComponent(){
   Tensor<FloatType,3> eup_in_expect = expectExtractNodeUpdateInput(graph);
   assert(equal(eup_in_expect, eup_in, true)); 
   
-  ExtractNodeUpdateInputComponentWrapper<Config> wrp(eup_cpt, graph.getInitializer(), flatSize(graph), eup_in.sizeArray());
+  ExtractNodeUpdateInputComponentWrapper<Config> wrp(eup_cpt, graph.getInitializer(), rowsAsBatchVector(graph), eup_in.sizeArray());
   testComponentDeriv(wrp, 1e-4, true);
-  
+  testComponentDiffBatchSizes(wrp);
   std::cout << "testExtractNodeUpdateInputComponent passed" << std::endl;
 }
 
@@ -165,43 +161,42 @@ struct InsertNodeUpdateOutputComponentWrapper{
   GraphInitialize ginit;
   int graph_flat_size;
   int tens_flat_size;
-  int tens_sz[3];
+  int tens_sz[2];
   
-  InsertNodeUpdateOutputComponentWrapper(InsertNodeUpdateOutputComponent<Config> &cpt, const GraphInitialize &ginit, const int graph_flat_size, const int _tens_sz[3]): cpt(cpt), ginit(ginit), graph_flat_size(graph_flat_size){
-    memcpy(tens_sz, _tens_sz, 3*sizeof(int));
-    tens_flat_size = 1;
-    for(int i=0;i<3;i++)
-      tens_flat_size *= tens_sz[i];
+  InsertNodeUpdateOutputComponentWrapper(InsertNodeUpdateOutputComponent<Config> &cpt, const GraphInitialize &ginit, const int graph_flat_size, const int _tens_sz[2]): cpt(cpt), ginit(ginit), graph_flat_size(graph_flat_size){
+    memcpy(tens_sz, _tens_sz, 2*sizeof(int));    
+    tens_flat_size = tens_sz[0]*tens_sz[1];
   }
 
   size_t outputLinearSize() const{ return graph_flat_size; }
   size_t inputLinearSize() const{ return graph_flat_size + tens_flat_size; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
-    autoView(in_v,in,HostRead);
-    FloatType const* p = in_v.data();    
-    Graph<FloatType> graph(ginit);
-    p = unflatten(graph, p);
-    
-    Tensor<FloatType,3> node_attr_update(tens_sz);
-    p = unflatten(node_attr_update, p);
+  Matrix<FloatType> value(const Matrix<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
+    int batch_size = in.size(1);
+    ginit.batch_size = batch_size;
+    batchTensorSize(tens_sz_b, 3, tens_sz, batch_size);
 
-    Graph<FloatType> out = cpt.value(graph, node_attr_update);
-    return flatten(out);
+    Graph<FloatType> graph(ginit);
+    int poff = unflattenFromBatchVector(graph, in, 0);
+    
+    Tensor<FloatType,3> node_attr_update(tens_sz_b);
+    unflattenFromBatchVector(node_attr_update, in, poff);
+
+    return flattenToBatchVector(cpt.value(graph, node_attr_update));
   }
-  void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
-    Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);
-    Graph<FloatType> above_deriv(ginit);
-    unflatten(above_deriv, above_deriv_lin);
-    Tensor<FloatType,3> cost_deriv_inputs_tens(tens_sz);
-    Graph<FloatType> cost_deriv_inputs_graph(ginit);
+  void deriv(Vector<FloatType> &cost_deriv_params, int off, Matrix<FloatType> &&_above_deriv_lin, Matrix<FloatType> &cost_deriv_inputs){
+    int batch_size = _above_deriv_lin.size(1);
+    ginit.batch_size = batch_size;
+    
+    Graph<FloatType> above_deriv = unflattenFromBatchVector(_above_deriv_lin, ginit);
+
+    Tensor<FloatType,3> cost_deriv_inputs_tens;
+    Graph<FloatType> cost_deriv_inputs_graph;
     cpt.deriv(std::move(above_deriv), cost_deriv_inputs_graph, cost_deriv_inputs_tens);
 
-    cost_deriv_inputs = Vector<FloatType>(inputLinearSize());
-    autoView(out_v, cost_deriv_inputs, HostWrite);
-    FloatType *p = out_v.data();
-    p = flatten(p,cost_deriv_inputs_graph);
-    p = flatten(p,cost_deriv_inputs_tens);
+    cost_deriv_inputs = Matrix<FloatType>(inputLinearSize(), batch_size);
+    int poff = flattenToBatchVector(cost_deriv_inputs, cost_deriv_inputs_graph, 0);
+    flattenToBatchVector(cost_deriv_inputs, cost_deriv_inputs_tens, poff);    
   }
     
   void update(int off, const Vector<FloatType> &new_params){}
@@ -209,7 +204,7 @@ struct InsertNodeUpdateOutputComponentWrapper{
   inline int nparams() const{ return cpt.nparams(); }
   void getParams(Vector<FloatType> &into, int off){}
 
-  std::string inCoord(size_t i) const{
+  std::string inCoord(size_t i, int b, int batch_size) const{
     return "";
   }      
 };
@@ -242,8 +237,9 @@ void testInsertNodeUpdateOutput(){
   Graph<FloatType> gexpect = expectInsertNodeUpdateOutput(graph, eup_in);
   assert(equal(gup, gexpect,true));
 
-  InsertNodeUpdateOutputComponentWrapper<Config> wrp(eup_cpt, ginit, flatSize(graph), eup_in.sizeArray());
+  InsertNodeUpdateOutputComponentWrapper<Config> wrp(eup_cpt, ginit, rowsAsBatchVector(graph), eup_in.sizeArray());
   testComponentDeriv(wrp, 1e-4, true);
+  testComponentDiffBatchSizes(wrp);
   
   std::cout << "testInsertNodeUpdateOutput passed" << std::endl;
 }
@@ -292,8 +288,9 @@ void testNodeUpdateBlock(){
   Graph<FloatType> got = nup_out.value(graph, DerivNo);
   assert(abs_near(got,expect,FloatType(1e-5),true));
   
-  GraphInGraphOutLayerWrapper<Config, decltype(nup_out)> wrp(nup_out, ginit, flatSize(graph));
-  testComponentDeriv(wrp, 1e-4, true);
+  GraphInGraphOutLayerWrapper<Config, decltype(nup_out)> wrp(nup_out, ginit, rowsAsBatchVector(graph));
+  testComponentDeriv(wrp, ginit.batch_size, 1e-4, true);
+  testComponentDiffBatchSizes(wrp);
       
   std::cout << "testNodeUpdateBlock passed" << std::endl;
 }

@@ -687,6 +687,24 @@ void unflattenNsameDim(Tensor<FloatType,Dim>* const* tens, int N, const Vector<F
 
 
 /**
+ * @brief Flatten a batched tensor to a batch-vector, Tensor<FloatType,Dim> -> Matrix<FloatType> where the matrix column count is the batch size 
+ * The row count is arbitrary but >= product of the size of all tensor dimensions other than the batch size. The starting output row is provided by row_off.
+ * This is intended to allow stacking of tensors into a single batch-matrix
+ * @return Return the output row index one past the end of the flattened input tensor dimension
+ */
+template<int Dim, typename FloatType>
+int flattenToBatchVector(Matrix<FloatType> &into, const Tensor<FloatType,Dim> &from, int row_off);
+
+/**
+ * @brief Unflatten a batched vector a batch-tensor, Matrix<FloatType> -> Tensor<FloatType,Dim> where the matrix column count is the batch size 
+ * The row count is arbitrary but >= product of the size of all tensor dimensions other than the batch size. The starting input row is provided by row_off.
+ * This is intended to allow unstacking of tensors from a single batch-matrix
+ * @return Return the output row index one past the end of the flattened input tensor dimension
+ */
+template<int Dim, typename FloatType>
+int unflattenFromBatchVector(Tensor<FloatType,Dim> &into, const Matrix<FloatType> &from, int row_off);
+
+/**
  * @brief Flatten a batched tensor to a batch-vector, Tensor<FloatType,Dim> -> Matrix<FloatType> where the matrix column count is the batch size and the row count is the product of the size of all tensor dimensions other than the batch size
  */
 template<int Dim, typename FloatType>
@@ -768,7 +786,14 @@ Vector<FloatType> transformBatchVector(int vecdim, const Tensor<FloatType,Dim> &
  */
 template<typename FloatType, int Dim>
 void untransformBatchVector(int vecdim, Tensor<FloatType,Dim> &tens, const Vector<FloatType> &from);
-  
+
+/**
+ * @brief Create an integer size array OUT_NAME of dimension DIM, copying DIM-1 elements from pointer FROM and filling in the batch dimension size with BATCH_SIZE
+ */
+#define batchTensorSize(OUT_NAME, DIM, FROM, BATCH_SIZE) \
+  int OUT_NAME[DIM]; memcpy(OUT_NAME,FROM,(DIM-1)*sizeof(int)); OUT_NAME[DIM-1] = BATCH_SIZE;
+
+
 #include "implementation/Tensors.tcc"
 
 // #ifndef TENSORS_EXTERN_TEMPLATE_INST

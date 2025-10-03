@@ -292,10 +292,22 @@ void testDeriv(ModelType &model, int const* in_sizes, int const* out_sizes, type
   }
 };
 
+//A simple cost model for easy evaluation of derivatives : cost = \sum_ib c_ib * out_ib   for linearized index i
+template<typename TensType>
+typename TensType::FloatType testCost(const Matrix<typename TensType::FloatType> &c, const TensType &v){
+  typename TensType::FloatType out = 0.;
+  int batch_size = c.size(1);
+  doHost2(c,v,{
+      for(int i=0;i<c.size(0);i++)
+	for(int b=0;b<batch_size;b++)
+	  out += v_v.data()[b+batch_size*i] * c_v(i,b);
+    });
+  return out;
+}
 
 //Same as the above but uses a wrapper object to linearize all inputs and outputs to vectors, allowing more complex usage patterns
 template<typename ComponentWrapper>
-void testComponentDeriv(ComponentWrapper &cpt, typename ComponentWrapper::FloatType delta = typename ComponentWrapper::FloatType(1e-4), bool _2nd_order =false){
+void testComponentDeriv(ComponentWrapper &cpt, int batch_size, typename ComponentWrapper::FloatType delta = typename ComponentWrapper::FloatType(1e-4), bool _2nd_order =false){
   typedef typename ComponentWrapper::FloatType FloatType;
   
   std::mt19937 rng(1987);
@@ -328,19 +340,19 @@ void testComponentDeriv(ComponentWrapper &cpt, typename ComponentWrapper::FloatT
   size_t vout = cpt.outputLinearSize();
   size_t vin = cpt.inputLinearSize();
   
-  //let  cost = \sum_i c_i * out_i
-  //above_deriv = dcost/dout_i = c_i
-  Vector<FloatType> c(vout);
+  //let  cost = \sum_ib c_ib * out_ib
+  //above_deriv = dcost/dout_ib = c_ib
+  Matrix<FloatType> c(vout,batch_size);
   uniformRandom(c,rng);
 
-  Vector<FloatType> in_base(vin);
+  Matrix<FloatType> in_base(vin, batch_size);
   uniformRandom(in_base, rng);
 
-  Vector<FloatType> val_base = cpt.value(in_base, DerivYes);
+  Matrix<FloatType> val_base = cpt.value(in_base, DerivYes);
   Vector<FloatType> pderiv_got(nparam,0.);
 
-  Vector<FloatType> inderiv_got;
-  cpt.deriv(pderiv_got,0, Vector<FloatType>(c), inderiv_got);
+  Matrix<FloatType> inderiv_got;
+  cpt.deriv(pderiv_got,0, Matrix<FloatType>(c), inderiv_got);
   
   //Test parameter derivs
   //param_deriv = \sum_i dcost/dout_i  dout_i/dparam_j  =  \sum_i c_i dout_i/dparam_j
@@ -351,7 +363,7 @@ void testComponentDeriv(ComponentWrapper &cpt, typename ComponentWrapper::FloatT
     doHost(pup, { pup_v(j) += delta; });
     cpt.update(0,pup);
     
-    Vector<FloatType> vup = cpt.value(in_base);
+    Matrix<FloatType> vup = cpt.value(in_base);
     FloatType new_cost = testCost(c, vup);
     FloatType der = (new_cost - cost_base)/delta;
     
@@ -376,29 +388,34 @@ void testComponentDeriv(ComponentWrapper &cpt, typename ComponentWrapper::FloatT
   cpt.update(0,base_params);
 
   for(size_t j=0; j<vin; j++){
-    Vector<FloatType> xup(in_base);
-    doHost(xup, { xup_v.data()[j] += delta; });
+    for(int b=0;b<batch_size;b++){
+      Matrix<FloatType> xup(in_base);
+      doHost(xup, { xup_v(j,b) += delta; });
 
-    Vector<FloatType> vup = cpt.value(xup);
-    FloatType new_cost = testCost(c, vup);   
-    FloatType der = (new_cost - cost_base)/delta;
+      Matrix<FloatType> vup = cpt.value(xup);
+      FloatType new_cost = testCost(c, vup);   
+      FloatType der = (new_cost - cost_base)/delta;
 
-    if(_2nd_order){
-      xup = in_base;
-      doHost(xup, { xup_v.data()[j] -= delta; });
+      if(_2nd_order){
+	xup = in_base;
+	doHost(xup, { xup_v(j,b) -= delta; });
 
-      vup = cpt.value(xup);
-      FloatType new_cost_neg = testCost(c, vup);
-      der = (new_cost - new_cost_neg)/(2*delta);
-    }     
+	vup = cpt.value(xup);
+	FloatType new_cost_neg = testCost(c, vup);
+	der = (new_cost - new_cost_neg)/(2*delta);
+      }     
     
-    doHost(inderiv_got, {
-	FloatType der_got = inderiv_got_v.data()[j];
-	std::cout << "Cost deriv wrt input linear idx " << j << "=" << cpt.inCoord(j) << " got " << der_got << " expect " << der << std::endl;
-	assert(abs_near(der, der_got, 1e-4)); 
-      });      
+      doHost(inderiv_got, {
+	  FloatType der_got = inderiv_got_v(j,b);
+	  std::cout << "Cost deriv wrt input linear idx " << j << " batch " << b << " =" << cpt.inCoord(j,b,batch_size) << " got " << der_got << " expect " << der << std::endl;
+	  assert(abs_near(der, der_got, 1e-4)); 
+	});      
+    }
   }
+   
 };
+
+
 
 
 //Reference implementation of softmax
@@ -478,6 +495,75 @@ void testModelDiffBatchSizes(LayerType &layer, int const* other_dim_sizes){
     XtensorType in_deriv(x1.sizeArray());
     Vector<FloatType> param_deriv(layer.nparams(),0.);
     layer.deriv(param_deriv,0, std::move(above_deriv), &in_deriv);
+
+    param_deriv4_rec1 += param_deriv;
+    in_deriv4_rec1.insertSliceLastDimension(in_deriv,i,i);
+  }
+  assert(abs_near(y4,y4_rec1,FloatType(1e-6),true));
+  assert(abs_near(param_deriv4,param_deriv4_rec1,FloatType(1e-6),true));
+  assert(abs_near(in_deriv4,in_deriv4_rec1,FloatType(1e-6),true));
+}
+
+
+
+
+
+/**
+ * @brief For a component wrapper test the value and deriv functions to ensure they are consistent across multiple choices of batch size
+ */
+template<typename WrapperType>
+void testComponentDiffBatchSizes(WrapperType &cpt){
+  std::mt19937 rng(7666);
+  typedef typename WrapperType::FloatType FloatType;
+
+  int x_lin = cpt.inputLinearSize();
+  int y_lin = cpt.outputLinearSize();
+  
+  //1 batch of 4
+  Matrix<FloatType> x4(x_lin,4);
+  uniformRandom(x4,rng);
+  Matrix<FloatType> y4 = cpt.value(x4,DerivYes);
+
+  Matrix<FloatType> above_deriv4(y_lin, 4);
+  uniformRandom(above_deriv4,rng);
+  Matrix<FloatType> in_deriv4(x_lin, 4);
+  Vector<FloatType> param_deriv4(cpt.nparams(),0.);
+  cpt.deriv(param_deriv4,0,Matrix<FloatType>(above_deriv4), in_deriv4);
+
+  //2 batches of 2
+  Matrix<FloatType> y4_rec2(y_lin, 4);
+  Matrix<FloatType> in_deriv4_rec2(x_lin, 4);
+  Vector<FloatType> param_deriv4_rec2(cpt.nparams(),0.);
+  for(int i=0;i<2;i++){
+    Matrix<FloatType> x2 = x4.sliceLastDimension(2*i,2*i+1);
+    Matrix<FloatType> y2 = cpt.value(x2,DerivYes);
+    y4_rec2.insertSliceLastDimension(y2,2*i,2*i+1);
+
+    Matrix<FloatType> above_deriv = above_deriv4.sliceLastDimension(2*i,2*i+1);
+    Matrix<FloatType> in_deriv(x_lin, 2);
+    Vector<FloatType> param_deriv(cpt.nparams(),0.);
+    cpt.deriv(param_deriv,0, std::move(above_deriv), in_deriv);
+
+    param_deriv4_rec2 += param_deriv;
+    in_deriv4_rec2.insertSliceLastDimension(in_deriv,2*i,2*i+1);
+  }
+  assert(abs_near(y4,y4_rec2,FloatType(1e-6),true));
+  assert(abs_near(param_deriv4,param_deriv4_rec2,FloatType(1e-6),true));
+  assert(abs_near(in_deriv4,in_deriv4_rec2,FloatType(1e-6),true));
+
+  //4 batches of 1
+  Matrix<FloatType> y4_rec1(y_lin, 4);
+  Matrix<FloatType> in_deriv4_rec1(x_lin, 4);
+  Vector<FloatType> param_deriv4_rec1(cpt.nparams(),0.);
+  for(int i=0;i<4;i++){
+    Matrix<FloatType> x1 = x4.sliceLastDimension(i,i);
+    Matrix<FloatType> y1 = cpt.value(x1,DerivYes);
+    y4_rec1.insertSliceLastDimension(y1,i,i);
+
+    Matrix<FloatType> above_deriv = above_deriv4.sliceLastDimension(i,i);
+    Matrix<FloatType> in_deriv(x_lin, 1);
+    Vector<FloatType> param_deriv(cpt.nparams(),0.);
+    cpt.deriv(param_deriv,0, std::move(above_deriv), in_deriv);
 
     param_deriv4_rec1 += param_deriv;
     in_deriv4_rec1.insertSliceLastDimension(in_deriv,i,i);

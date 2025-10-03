@@ -20,58 +20,45 @@ struct PairSplitLayerWrapper{
   int in_sz1;
   int sz2;
   int in_sz2;
-  int batch_size;
-  PairSplitLayerWrapper(ChainType1 &chain1, ChainType2 &chain2, int sz1, int in_sz1, int sz2, int in_sz2, int batch_size): chain1(chain1),chain2(chain2),sz1(sz1),in_sz1(in_sz1),sz2(sz2),in_sz2(in_sz2),batch_size(batch_size){
-    size_lin_in = in_sz1 * batch_size + in_sz2 * batch_size;
-    size_lin_out = sz1 * batch_size + sz2 * batch_size;
+  
+  PairSplitLayerWrapper(ChainType1 &chain1, ChainType2 &chain2, int sz1, int in_sz1, int sz2, int in_sz2): chain1(chain1),chain2(chain2),sz1(sz1),in_sz1(in_sz1),sz2(sz2),in_sz2(in_sz2){
+    size_lin_in = in_sz1 + in_sz2;
+    size_lin_out = sz1 + sz2;
   }
   
   size_t outputLinearSize() const{ return size_lin_out; }
   size_t inputLinearSize() const{ return size_lin_in; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
+  Matrix<FloatType> value(const Matrix<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
+    int batch_size = in.size(1);
     std::pair< Matrix<FloatType>, Matrix<FloatType> > inm;
     inm.first = Matrix<FloatType>(in_sz1,batch_size);
     inm.second = Matrix<FloatType>(in_sz2,batch_size);
-    {
-      autoView(in_v,in,HostRead);
-      FloatType const* p = in_v.data();
-      p = unflatten(inm.first,p);
-      p = unflatten(inm.second,p);
-    }
-    Vector<FloatType> out(size_lin_out);
-    {
-      autoView(out_v,out,HostWrite);
-      auto v1 = chain1.value(inm,enable_deriv);
-      auto v2 = chain2.value(inm,enable_deriv);
-      FloatType* p = out_v.data();
-      p = flatten(p, v1);
-      p = flatten(p, v2);
-    }
+    unflattenFromBatchVector(inm.first,in,0);
+    unflattenFromBatchVector(inm.second,in,in_sz1);
+
+    Matrix<FloatType> out(size_lin_out,batch_size);
+    auto v1 = chain1.value(inm,enable_deriv);
+    auto v2 = chain2.value(inm,enable_deriv);
+    flattenToBatchVector(out,v1,0);
+    flattenToBatchVector(out,v2,sz1);
     return out;
   }
-  void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
-    Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);
+  void deriv(Vector<FloatType> &cost_deriv_params, int off, Matrix<FloatType> &&_above_deriv_lin, Matrix<FloatType> &cost_deriv_inputs){
+    int batch_size = _above_deriv_lin.size(1);
     Matrix<FloatType> above_deriv_1(sz1,batch_size), above_deriv_2(sz2,batch_size);
-    {
-      autoView(above_deriv_lin_v,above_deriv_lin,HostRead);
-      FloatType const* p = above_deriv_lin_v.data();
-      p = unflatten(above_deriv_1, p);
-      p = unflatten(above_deriv_2, p);
-    }
+    unflattenFromBatchVector(above_deriv_1,_above_deriv_lin,0);
+    unflattenFromBatchVector(above_deriv_2,_above_deriv_lin,sz1);
+    
     std::pair< Matrix<FloatType>, Matrix<FloatType> > cost_deriv_inputs_m;
     off = chain1.deriv(cost_deriv_params, off, std::move(above_deriv_1), &cost_deriv_inputs_m);
     chain2.deriv(cost_deriv_params, off, std::move(above_deriv_2), &cost_deriv_inputs_m);
     assert( cost_deriv_inputs_m.first.size(0) == in_sz1 && cost_deriv_inputs_m.first.size(1) == batch_size );
     assert( cost_deriv_inputs_m.second.size(0) == in_sz2 && cost_deriv_inputs_m.second.size(1) == batch_size );
 
-    cost_deriv_inputs = Vector<FloatType>(size_lin_in);
-    {
-      autoView(out_v, cost_deriv_inputs,HostWrite);
-      FloatType * p = out_v.data();
-      p = flatten(p, cost_deriv_inputs_m.first);
-      p = flatten(p, cost_deriv_inputs_m.second);
-    }
+    cost_deriv_inputs = Matrix<FloatType>(size_lin_in,batch_size);
+    flattenToBatchVector(cost_deriv_inputs, cost_deriv_inputs_m.first, 0);
+    flattenToBatchVector(cost_deriv_inputs, cost_deriv_inputs_m.second, in_sz1);
   }
     
   void update(int off, const Vector<FloatType> &new_params){
@@ -88,8 +75,8 @@ struct PairSplitLayerWrapper{
     chain2.getParams(into,off);
   }
 
-  std::string inCoord(size_t i) const{
-    return std::to_string(i);
+  std::string inCoord(size_t i,int b, int batch_size) const{
+    return std::to_string(i)+","+std::to_string(b);
   }       
 };
 
@@ -203,8 +190,9 @@ void testPairSplitLayer(){
     assert(abs_near(expect1,got1,FloatType(1e-6),true));
     assert(abs_near(expect2,got2,FloatType(1e-6),true));
   }
-  PairSplitLayerWrapper<decltype(chain1),decltype(chain2)> wrp(chain1, chain2, sz1, in_sz1, sz2, in_sz2, B);
-  testComponentDeriv(wrp, FloatType(1e-6));
+  PairSplitLayerWrapper<decltype(chain1),decltype(chain2)> wrp(chain1, chain2, sz1, in_sz1, sz2, in_sz2);
+  testComponentDeriv(wrp, B, FloatType(1e-6));
+  testComponentDiffBatchSizes(wrp);
   
   std::cout << "testPairSplitLayer passed" << std::endl;
 }
@@ -222,59 +210,45 @@ struct PairSplitJoinLayerWrapper{
   int in_sz1;
   int sz2;
   int in_sz2;
-  int batch_size;
-  PairSplitJoinLayerWrapper(Model &model, int sz1, int in_sz1, int sz2, int in_sz2, int batch_size): model(model),sz1(sz1),in_sz1(in_sz1),sz2(sz2),in_sz2(in_sz2),batch_size(batch_size){
-    size_lin_in = in_sz1 * batch_size + in_sz2 * batch_size;
-    size_lin_out = sz1 * batch_size + sz2 * batch_size;
+
+  PairSplitJoinLayerWrapper(Model &model, int sz1, int in_sz1, int sz2, int in_sz2): model(model),sz1(sz1),in_sz1(in_sz1),sz2(sz2),in_sz2(in_sz2){
+    size_lin_in = in_sz1 + in_sz2;
+    size_lin_out = sz1 + sz2;
   }
   
   size_t outputLinearSize() const{ return size_lin_out; }
   size_t inputLinearSize() const{ return size_lin_in; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
+  Matrix<FloatType> value(const Matrix<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
+    int batch_size = in.size(1);
     std::pair< Matrix<FloatType>, Matrix<FloatType> > inm;
     inm.first = Matrix<FloatType>(in_sz1,batch_size);
     inm.second = Matrix<FloatType>(in_sz2,batch_size);
-    {
-      autoView(in_v,in,HostRead);
-      FloatType const* p = in_v.data();
-      p = unflatten(inm.first,p);
-      p = unflatten(inm.second,p);
-    }
-    Vector<FloatType> out(size_lin_out);
-    {
-      autoView(out_v,out,HostWrite);
-      auto v = model.value(inm,enable_deriv);
-      FloatType* p = out_v.data();
-      p = flatten(p, v.first);
-      p = flatten(p, v.second);
-    }
+    int off = unflattenFromBatchVector(inm.first,in,0);
+    unflattenFromBatchVector(inm.second,in,off);
+    
+    Matrix<FloatType> out(size_lin_out,batch_size);
+    auto v = model.value(inm,enable_deriv);
+    off = flattenToBatchVector(out,v.first,0);
+    flattenToBatchVector(out,v.second,off);
     return out;
   }
-  void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
-    Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);
+  void deriv(Vector<FloatType> &cost_deriv_params, int off, Matrix<FloatType> &&_above_deriv_lin, Matrix<FloatType> &cost_deriv_inputs){
+    int batch_size = _above_deriv_lin.size(1);
     std::pair< Matrix<FloatType>, Matrix<FloatType> > above_deriv;
     above_deriv.first = Matrix<FloatType>(sz1,batch_size);
     above_deriv.second = Matrix<FloatType>(sz2,batch_size);
+    int poff = unflattenFromBatchVector(above_deriv.first, _above_deriv_lin, 0);
+    unflattenFromBatchVector(above_deriv.second, _above_deriv_lin, poff);    
 
-    {
-      autoView(above_deriv_lin_v,above_deriv_lin,HostRead);
-      FloatType const* p = above_deriv_lin_v.data();
-      p = unflatten(above_deriv.first, p);
-      p = unflatten(above_deriv.second, p);
-    }
     std::pair< Matrix<FloatType>, Matrix<FloatType> > cost_deriv_inputs_m;
     model.deriv(cost_deriv_params,off, std::move(above_deriv), &cost_deriv_inputs_m);
     assert( cost_deriv_inputs_m.first.size(0) == in_sz1 && cost_deriv_inputs_m.first.size(1) == batch_size );
     assert( cost_deriv_inputs_m.second.size(0) == in_sz2 && cost_deriv_inputs_m.second.size(1) == batch_size );
 
-    cost_deriv_inputs = Vector<FloatType>(size_lin_in);
-    {
-      autoView(out_v, cost_deriv_inputs,HostWrite);
-      FloatType * p = out_v.data();
-      p = flatten(p, cost_deriv_inputs_m.first);
-      p = flatten(p, cost_deriv_inputs_m.second);
-    }
+    cost_deriv_inputs = Matrix<FloatType>(size_lin_in,batch_size);
+    poff = flattenToBatchVector(cost_deriv_inputs, cost_deriv_inputs_m.first, 0);
+    flattenToBatchVector(cost_deriv_inputs, cost_deriv_inputs_m.second, poff);
   }
     
   void update(int off, const Vector<FloatType> &new_params){
@@ -288,8 +262,8 @@ struct PairSplitJoinLayerWrapper{
     model.getParams(into,off);
   }
 
-  std::string inCoord(size_t i) const{
-    return std::to_string(i);
+  std::string inCoord(size_t i,int b,int batch_size) const{
+    return std::to_string(i)+","+std::to_string(b);
   }       
 };
 
@@ -397,9 +371,9 @@ void testDivergingConverging(){
     assert(abs_near(expect1,got.first,FloatType(1e-6),true));
     assert(abs_near(expect2,got.second,FloatType(1e-6),true));
   }
-  PairSplitJoinLayerWrapper<decltype(conv)> wrp(conv, sz1, in_sz1, sz2, in_sz2, B);
-  testComponentDeriv(wrp, FloatType(1e-6));
-  
+  PairSplitJoinLayerWrapper<decltype(conv)> wrp(conv, sz1, in_sz1, sz2, in_sz2);
+  testComponentDeriv(wrp,B, FloatType(1e-6));
+  testComponentDiffBatchSizes(wrp);
   std::cout << "testDivergingConverging passed" << std::endl;
 }
   

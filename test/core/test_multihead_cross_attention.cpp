@@ -23,21 +23,21 @@ struct MultiHeadCrossAttentionLayerWrapper{
   typedef typename LayerType::FloatType FloatType;
   
   LayerType &cpt;
-  int sizeKV[3];
-  int sizeQ[3];
-  int sizeOut[3];
+  int sizeKV[2];
+  int sizeQ[2];
+  int sizeOut[2];
   
   size_t size_lin_KV;
   size_t size_lin_Q;
   size_t size_lin_Out;
 
   MultiHeadCrossAttentionLayerWrapper(LayerType &cpt, int const* szOut, int const *szKV, int const *szQ): cpt(cpt){
-    memcpy(sizeKV,szKV,3*sizeof(int));
-    memcpy(sizeQ,szQ,3*sizeof(int));
-    memcpy(sizeOut,szOut,3*sizeof(int));
+    memcpy(sizeKV,szKV,2*sizeof(int));
+    memcpy(sizeQ,szQ,2*sizeof(int));
+    memcpy(sizeOut,szOut,2*sizeof(int));
     
     size_lin_KV = size_lin_Q = size_lin_Out = 1;
-    for(int i=0;i<3;i++){
+    for(int i=0;i<2;i++){
       size_lin_KV *= szKV[i];
       size_lin_Q *= szQ[i];
       size_lin_Out *= szOut[i];
@@ -47,29 +47,28 @@ struct MultiHeadCrossAttentionLayerWrapper{
   size_t outputLinearSize() const{ return size_lin_Out; }
   size_t inputLinearSize() const{ return size_lin_KV + size_lin_Q; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
-    std::pair<Tensor<FloatType,3>, Tensor<FloatType,3> > X({ Tensor<FloatType,3>(sizeKV), Tensor<FloatType,3>(sizeQ) });
-    {
-      autoView(in_v,in,HostRead);
-      FloatType const* p = in_v.data();
-      p = unflatten(X.first,p); unflatten(X.second,p);
-    }           
-    return flatten(cpt.value(X,enable_deriv));
+  Matrix<FloatType> value(const Matrix<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
+    int batch_size = in.size(1);
+    batchTensorSize(sizeKV_b, 3, sizeKV, batch_size);
+    batchTensorSize(sizeQ_b, 3, sizeQ, batch_size);
+    
+    std::pair<Tensor<FloatType,3>, Tensor<FloatType,3> > X({ Tensor<FloatType,3>(sizeKV_b), Tensor<FloatType,3>(sizeQ_b) });
+    int off = unflattenFromBatchVector(X.first,in,0);
+    unflattenFromBatchVector(X.second,in,off);
+    return flattenToBatchVector(cpt.value(X,enable_deriv));
   }
-  void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
-    Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);
-    Tensor<FloatType,3> above_deriv(sizeOut);
-    unflatten(above_deriv,above_deriv_lin);
+  void deriv(Vector<FloatType> &cost_deriv_params, int off, Matrix<FloatType> &&_above_deriv_lin, Matrix<FloatType> &cost_deriv_inputs){
+    int batch_size = _above_deriv_lin.size(1);
+    batchTensorSize(sizeOut_b, 3, sizeOut, batch_size);
+
+    Tensor<FloatType,3> above_deriv = unflattenFromBatchVector<3>(_above_deriv_lin,sizeOut_b);
 
     std::pair<Tensor<FloatType,3>, Tensor<FloatType,3> > dcost_by_dIn;
     cpt.deriv(cost_deriv_params, off, std::move(above_deriv), &dcost_by_dIn);
     
-    cost_deriv_inputs = Vector<FloatType>(size_lin_KV+size_lin_Q);
-    {
-      autoView(out_v, cost_deriv_inputs, HostRead);
-      FloatType* p = out_v.data();
-      p = flatten(p,dcost_by_dIn.first); flatten(p,dcost_by_dIn.second);
-    }      
+    cost_deriv_inputs = Matrix<FloatType>(size_lin_KV+size_lin_Q, batch_size);
+    int poff = flattenToBatchVector(cost_deriv_inputs,dcost_by_dIn.first,0);
+    flattenToBatchVector(cost_deriv_inputs,dcost_by_dIn.second,poff);
   }
     
   void update(int off, const Vector<FloatType> &new_params){
@@ -83,8 +82,8 @@ struct MultiHeadCrossAttentionLayerWrapper{
     cpt.getParams(into, off);
   }
 
-  std::string inCoord(size_t i) const{
-    std::ostringstream ss; ss << i << std::endl;
+  std::string inCoord(size_t i, int b, int batch_size) const{
+    std::ostringstream ss; ss << i << "," << b;
     return ss.str();
   }
    
@@ -153,7 +152,8 @@ void testMultiHeadCrossAttention(){
     assert(abs_near(got,expect,FloatType(1e-4),true));
 
     MultiHeadCrossAttentionLayerWrapper<std::decay<decltype(model)>::type> wrp(model, expect.sizeArray(), X.first.sizeArray(), X.second.sizeArray());
-    testComponentDeriv(wrp, FloatType(1e-6)); //same testing method as layers but more flexible, requiring a wrapper. We use this here because the input type is not a Tensor
+    testComponentDeriv(wrp, B, FloatType(1e-6)); //same testing method as layers but more flexible, requiring a wrapper. We use this here because the input type is not a Tensor
+    testComponentDiffBatchSizes(wrp);
   }
   std::cout << "Tests passed" << std::endl;
 }

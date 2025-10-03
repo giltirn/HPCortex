@@ -98,18 +98,17 @@ struct GraphInGraphOutLayerWrapper{
   size_t outputLinearSize() const{ return graph_flat_size; }
   size_t inputLinearSize() const{ return graph_flat_size; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
-    Graph<FloatType> ing(ginit);
-    unflatten(ing, in);   
-    return flatten(layer.value(ing, enable_deriv) );
+  Matrix<FloatType> value(const Matrix<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
+    ginit.batch_size = in.size(1);
+    Graph<FloatType> ing = unflattenFromBatchVector(in, ginit);
+    return flattenToBatchVector(layer.value(ing, enable_deriv) );
   }
-  void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
-    Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);
-    Graph<FloatType> above_deriv(ginit);
-    unflatten(above_deriv, above_deriv_lin);
+  void deriv(Vector<FloatType> &cost_deriv_params, int off, Matrix<FloatType> &&_above_deriv_lin, Matrix<FloatType> &cost_deriv_inputs){
+    ginit.batch_size = _above_deriv_lin.size(1);
+    Graph<FloatType> above_deriv = unflattenFromBatchVector(_above_deriv_lin, ginit);
     Graph<FloatType> cost_deriv_ing;
     layer.deriv(cost_deriv_params, off, std::move(above_deriv), &cost_deriv_ing);
-    cost_deriv_inputs = flatten(cost_deriv_ing);
+    cost_deriv_inputs = flattenToBatchVector(cost_deriv_ing);
   }
     
   void update(int off, const Vector<FloatType> &new_params){
@@ -124,7 +123,7 @@ struct GraphInGraphOutLayerWrapper{
     layer.getParams(into,off);
   }
 
-  std::string inCoord(size_t i) const{
+  std::string inCoord(size_t i, int b, int batch_size) const{
     return "";
   }      
 };

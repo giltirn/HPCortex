@@ -6,31 +6,30 @@ struct SoftMaxComponentWrapper{
   EXTRACT_CONFIG_TYPES;
   
   SoftMaxComponent<Config,Dim> &cpt;
-  int size[Dim];
+  int size[Dim-1];
   size_t size_lin;
 
   SoftMaxComponentWrapper(SoftMaxComponent<Config,Dim> &cpt, int const *sz): cpt(cpt){
-    memcpy(size,sz,Dim*sizeof(int));
+    memcpy(size,sz,(Dim-1)*sizeof(int));
     size_lin = 1;
-    for(int d=0;d<Dim;d++) size_lin *= sz[d];
+    for(int d=0;d<Dim-1;d++) size_lin *= sz[d];
   }
 
   size_t outputLinearSize() const{ return size_lin; }
   size_t inputLinearSize() const{ return size_lin; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
-    Tensor<FloatType,Dim> A(size);
-    unflatten(A,in);
-    Tensor<FloatType,Dim> C = cpt.value(A, enable_deriv);
-    return flatten(C);
+  Matrix<FloatType> value(const Matrix<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
+    batchTensorSize(size_b,Dim,size,in.size(1));
+    Tensor<FloatType,Dim> A = unflattenFromBatchVector<Dim>(in, size_b);
+    return flattenToBatchVector(cpt.value(A, enable_deriv));
   }
-  void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
-    Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);
-    Tensor<FloatType,Dim> above_deriv(size);
-    unflatten(above_deriv,above_deriv_lin);
+  void deriv(Vector<FloatType> &cost_deriv_params, int off, Matrix<FloatType> &&_above_deriv_lin, Matrix<FloatType> &cost_deriv_inputs){
+    int batch_size = _above_deriv_lin.size(1);
+    batchTensorSize(size_b,Dim,size,batch_size);
+    Tensor<FloatType,Dim> above_deriv = unflattenFromBatchVector<Dim>(_above_deriv_lin, size_b);
     Tensor<FloatType,Dim> dcost_by_dIn;
     cpt.deriv(std::move(above_deriv), dcost_by_dIn);
-    cost_deriv_inputs = flatten(dcost_by_dIn);
+    cost_deriv_inputs = flattenToBatchVector(dcost_by_dIn);
   }
     
   void update(int off, const Vector<FloatType> &new_params){}
@@ -38,10 +37,11 @@ struct SoftMaxComponentWrapper{
   inline int nparams() const{ return cpt.nparams(); }
   void getParams(Vector<FloatType> &into, int off){}
 
-  std::string inCoord(size_t i) const{
+  std::string inCoord(size_t i, int b, int batch_size) const{
+    batchTensorSize(size_b,Dim,size,batch_size);
     std::ostringstream ss;
     int coord[Dim];
-    tensorOffsetUnmap<Dim>(coord, size, i);
+    tensorOffsetUnmap<Dim>(coord, size_b, b+i*batch_size);
     ss << "(";
     for(int d=0;d<Dim;d++)
       ss << coord[d] << (d==Dim-1? ")" : ", ");
@@ -146,10 +146,12 @@ void testSoftMaxComponent(){
   //Check derivatives
   for(int d=0;d<3;d++){
     std::cout << "Testing derivs for softmax on dim " << d << std::endl;
-    int size[4] = {2,3,4,5};
+    int size[3] = {2,3,4};
+    int batch_size = 5;
     SoftMaxComponent<Config,4> cpt(d, beta);
     SoftMaxComponentWrapper<Config,4> wrp(cpt,size);
-    testComponentDeriv(wrp);
+    testComponentDeriv(wrp,batch_size);
+    testComponentDiffBatchSizes(wrp);
   }
   std::cout << "testSoftMaxComponent passed" << std::endl;
 }
@@ -242,31 +244,29 @@ struct BatchedMatrixRowSoftMaxComponentWrapper{
   EXTRACT_CONFIG_TYPES;
   
   BatchedMatrixRowSoftMaxComponent<Config> &cpt;
-  int size[3];
+  int size[2];
   size_t size_lin;
 
   BatchedMatrixRowSoftMaxComponentWrapper(BatchedMatrixRowSoftMaxComponent<Config> &cpt, int const *sz): cpt(cpt){
-    memcpy(size,sz,3*sizeof(int));
+    memcpy(size,sz,2*sizeof(int));
     size_lin = 1;
-    for(int d=0;d<3;d++) size_lin *= sz[d];
+    for(int d=0;d<2;d++) size_lin *= sz[d];
   }
 
   size_t outputLinearSize() const{ return size_lin; }
   size_t inputLinearSize() const{ return size_lin; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
-    Tensor<FloatType,3> A(size);
-    unflatten(A,in);
-    Tensor<FloatType,3> C = cpt.value(A, enable_deriv);
-    return flatten(C);
+  Matrix<FloatType> value(const Matrix<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
+    batchTensorSize(size_b,3,size,in.size(1));
+    Tensor<FloatType,3> A = unflattenFromBatchVector<3>(in, size_b);
+    return flattenToBatchVector(cpt.value(A, enable_deriv));
   }
-  void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
-    Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);
-    Tensor<FloatType,3> above_deriv(size);
-    unflatten(above_deriv,above_deriv_lin);
+  void deriv(Vector<FloatType> &cost_deriv_params, int off, Matrix<FloatType> &&_above_deriv_lin, Matrix<FloatType> &cost_deriv_inputs){
+    batchTensorSize(size_b,3,size,_above_deriv_lin.size(1));
+    Tensor<FloatType,3> above_deriv = unflattenFromBatchVector<3>(_above_deriv_lin,size_b);
     Tensor<FloatType,3> dcost_by_dIn;
     cpt.deriv(std::move(above_deriv), dcost_by_dIn);
-    cost_deriv_inputs = flatten(dcost_by_dIn);
+    cost_deriv_inputs = flattenToBatchVector(dcost_by_dIn);
   }
     
   void update(int off, const Vector<FloatType> &new_params){}
@@ -274,10 +274,11 @@ struct BatchedMatrixRowSoftMaxComponentWrapper{
   inline int nparams() const{ return cpt.nparams(); }
   void getParams(Vector<FloatType> &into, int off){}
 
-  std::string inCoord(size_t i) const{
+  std::string inCoord(size_t i, int b, int batch_size) const{
+    batchTensorSize(size_b,3,size,batch_size);
     std::ostringstream ss;
     int coord[3];
-    tensorOffsetUnmap<3>(coord, size, i);
+    tensorOffsetUnmap<3>(coord, size_b, b+batch_size*i);
     ss << "(";
     for(int d=0;d<3;d++)
       ss << coord[d] << (d==3-1? ")" : ", ");
@@ -323,7 +324,8 @@ void testBatchedMatrixRowSoftMaxComponent(){
     assert(abs_near(vgot,vexpect,FloatType(1e-4),true));
  
     BatchedMatrixRowSoftMaxComponentWrapper<Config> wrp(cpt,size);
-    testComponentDeriv(wrp);
+    testComponentDeriv(wrp,size[2]);
+    testComponentDiffBatchSizes(wrp);
   }
   std::cout << "testBatchedMatrixRowSoftMaxComponent passed" << std::endl;
 }

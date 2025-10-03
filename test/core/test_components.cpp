@@ -6,40 +6,46 @@ struct Batch3tensorPairContractComponentWrapper{
   EXTRACT_CONFIG_TYPES;
   
   Batch3tensorPairContractComponent<Config> &cpt;
-  int C_size[3];
-  int A_size[3];
-  int B_size[3];
+  int C_size[2];
+  int A_size[2];
+  int B_size[2];
 
   size_t A_lin;
   size_t B_lin;
   size_t C_lin;
 
   Batch3tensorPairContractComponentWrapper(Batch3tensorPairContractComponent<Config> &cpt, int const *A_sz, int const* B_sz, int const *C_sz): cpt(cpt){
-    memcpy(A_size,A_sz,3*sizeof(int));
-    memcpy(B_size,B_sz,3*sizeof(int));
-    memcpy(C_size,C_sz,3*sizeof(int));
-    A_lin = size_t(A_size[0])*A_size[1]*A_size[2];
-    B_lin = size_t(B_size[0])*B_size[1]*B_size[2];
-    C_lin = size_t(C_size[0])*C_size[1]*C_size[2];
+    memcpy(A_size,A_sz,2*sizeof(int));
+    memcpy(B_size,B_sz,2*sizeof(int));
+    memcpy(C_size,C_sz,2*sizeof(int));
+    A_lin = size_t(A_size[0])*A_size[1];
+    B_lin = size_t(B_size[0])*B_size[1];
+    C_lin = size_t(C_size[0])*C_size[1];
   }
 
   size_t outputLinearSize() const{ return C_lin; }
   size_t inputLinearSize() const{ return A_lin + B_lin; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
-    Tensor<FloatType,3> A(A_size), B(B_size);
-    unflatten2(A,B,in);
+  Matrix<FloatType> value(const Matrix<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
+    int batch_size = in.size(1);
+    int A_size3[3] = {A_size[0],A_size[1],batch_size};
+    int B_size3[3] = {B_size[0],B_size[1],batch_size};
+    Tensor<FloatType,3> A(A_size3), B(B_size3);
+    unflattenFromBatchVector(A,in,0);
+    unflattenFromBatchVector(B,in,A_lin);
     Tensor<FloatType,3> C = cpt.value(A,B,enable_deriv);
-    return flatten(C);
+    return flattenToBatchVector(C);
   }
-  void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
-    Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);
-    Tensor<FloatType,3> above_deriv(C_size);
-    unflatten(above_deriv,above_deriv_lin);
+  void deriv(Vector<FloatType> &cost_deriv_params, int off, Matrix<FloatType> &&_above_deriv_lin, Matrix<FloatType> &cost_deriv_inputs){
+    Matrix<FloatType> above_deriv_lin = std::move(_above_deriv_lin);
+    int batch_size = above_deriv_lin.size(1);
+    int C_size3[3] = {C_size[0],C_size[1],batch_size};
+    Tensor<FloatType,3> above_deriv = unflattenFromBatchVector<3>(above_deriv_lin,C_size3);
     Tensor<FloatType,3> dcost_by_dA, dcost_by_dB;
     cpt.deriv(std::move(above_deriv), dcost_by_dA, dcost_by_dB);
-    cost_deriv_inputs = flatten2(dcost_by_dA, dcost_by_dB);
-    assert(cost_deriv_inputs.size(0) == A_lin + B_lin);
+    cost_deriv_inputs = Matrix<FloatType>(A_lin+B_lin,batch_size);
+    flattenToBatchVector(cost_deriv_inputs, dcost_by_dA, 0);
+    flattenToBatchVector(cost_deriv_inputs, dcost_by_dB, A_lin);
   }
     
   void update(int off, const Vector<FloatType> &new_params){}
@@ -47,22 +53,23 @@ struct Batch3tensorPairContractComponentWrapper{
   inline int nparams() const{ return cpt.nparams(); }
   void getParams(Vector<FloatType> &into, int off){}
 
-  std::string inCoord(size_t i) const{
+  std::string inCoord(size_t i, int b, int batch_size) const{
+    int A_size3[3] = {A_size[0],A_size[1],batch_size};
+    int B_size3[3] = {B_size[0],B_size[1],batch_size};
+    
     std::ostringstream ss;
     int coord[3];
     if(i < A_lin){
-      tensorOffsetUnmap<3>(coord, A_size, i);
+      tensorOffsetUnmap<3>(coord, A_size3, b+batch_size*i);
       ss << "A:";
     }else{
-      tensorOffsetUnmap<3>(coord, B_size, i-A_lin);
+      tensorOffsetUnmap<3>(coord, B_size3, b+batch_size*(i-A_lin));
       ss << "B:";   
     }
     ss << "(" << coord[0] << "," << coord[1] << "," << coord[2] << ")";
     return ss.str();
   }
 
-    
-    
 };
     
 
@@ -72,50 +79,56 @@ void testBatch3tensorPairContractComponent(){
   typedef typename Config::FloatType FloatType;
   
   FloatType nrm = 1./3.141;
+
+  int batch_size=6;
   
   //0 0
   {
     std::cout << "Contract 0 0" << std::endl;
-    int A_sz[3] = {3,4,6};
-    int B_sz[3] = {3,5,6};
-    int C_sz[3] = {4,5,6};
+    int A_sz[2] = {3,4};
+    int B_sz[2] = {3,5};
+    int C_sz[2] = {4,5};
 
     Batch3tensorPairContractComponent<Config> cpt(0,0,nrm);
     Batch3tensorPairContractComponentWrapper<Config> wrp(cpt, A_sz,B_sz,C_sz);
-    testComponentDeriv(wrp);
+    testComponentDeriv(wrp,batch_size);
+    testComponentDiffBatchSizes(wrp);
   }
   //0 1
   {
     std::cout << "Contract 0 1" << std::endl;
-    int A_sz[3] = {3,4,6};
-    int B_sz[3] = {5,3,6};
-    int C_sz[3] = {4,5,6};
+    int A_sz[2] = {3,4};
+    int B_sz[2] = {5,3};
+    int C_sz[2] = {4,5};
 
     Batch3tensorPairContractComponent<Config> cpt(0,1,nrm);
     Batch3tensorPairContractComponentWrapper<Config> wrp(cpt, A_sz,B_sz,C_sz);
-    testComponentDeriv(wrp);
+    testComponentDeriv(wrp,batch_size);
+    testComponentDiffBatchSizes(wrp);
   }
   //1 0
   {
     std::cout << "Contract 1 0" << std::endl;
-    int A_sz[3] = {4,3,6};
-    int B_sz[3] = {3,5,6};
-    int C_sz[3] = {4,5,6};
+    int A_sz[2] = {4,3};
+    int B_sz[2] = {3,5};
+    int C_sz[2] = {4,5};
 
     Batch3tensorPairContractComponent<Config> cpt(1,0,nrm);
     Batch3tensorPairContractComponentWrapper<Config> wrp(cpt, A_sz,B_sz,C_sz);
-    testComponentDeriv(wrp);
+    testComponentDeriv(wrp,batch_size);
+    testComponentDiffBatchSizes(wrp);
   }
   //1 1
   {   
-    int A_sz[3] = {4,3,6};
-    int B_sz[3] = {5,3,6};
-    int C_sz[3] = {4,5,6};
+    int A_sz[2] = {4,3};
+    int B_sz[2] = {5,3};
+    int C_sz[2] = {4,5};
 
     std::cout << "Contract 1 1" << std::endl;
     Batch3tensorPairContractComponent<Config> cpt(1,1,nrm);
     Batch3tensorPairContractComponentWrapper<Config> wrp(cpt, A_sz,B_sz,C_sz);
-    testComponentDeriv(wrp);
+    testComponentDeriv(wrp,batch_size);
+    testComponentDiffBatchSizes(wrp);
   }
   std::cout << "testBatch3tensorPairContractComponent passed" << std::endl;
 }
@@ -128,41 +141,76 @@ struct BatchTensorConcatenateComponentWrapper{
   EXTRACT_CONFIG_TYPES;
   
   BatchTensorConcatenateComponent<Config,TensDim> &cpt;
-  std::vector< std::array<int,TensDim> > in_sz;
+  std::vector< std::array<int,TensDim-1> > in_sz;
+  std::vector<size_t> in_tens_lin_sz;
   size_t lin_sz;
   int N;
-  int out_sz[TensDim];
-  std::vector<Tensor<FloatType,TensDim>* > tmp;
-    
-  BatchTensorConcatenateComponentWrapper(BatchTensorConcatenateComponent<Config,TensDim> &cpt, const std::vector< std::array<int,TensDim> > &in_sz, int concat_dim): cpt(cpt), in_sz(in_sz), N(in_sz.size()), tmp(N){
-    for(int d=0;d<TensDim;d++)      
+  int out_sz[TensDim-1];
+  int concat_dim;
+  
+  BatchTensorConcatenateComponentWrapper(BatchTensorConcatenateComponent<Config,TensDim> &cpt, const std::vector< std::array<int,TensDim-1> > &in_sz, int concat_dim): cpt(cpt), in_sz(in_sz), N(in_sz.size()), concat_dim(concat_dim){
+    for(int d=0;d<TensDim-1;d++)      
       out_sz[d] = in_sz[0][d];
     for(int t=1;t<N;t++)
       out_sz[concat_dim] += in_sz[t][concat_dim];
 
     lin_sz=1;
-    for(int d=0;d<TensDim;d++) lin_sz *= out_sz[d];
-    
-    for(int t=0;t<N;t++) tmp[t] = new Tensor<FloatType,TensDim>(in_sz[t].data());
+    for(int d=0;d<TensDim-1;d++) lin_sz *= out_sz[d];
+
+    in_tens_lin_sz.resize(N);
+    for(int n=0;n<N;n++){
+      in_tens_lin_sz[n]=1;
+      for(int d=0;d<TensDim-1;d++)
+	in_tens_lin_sz[n] *= in_sz[n][d];
+    }
   }
-  ~BatchTensorConcatenateComponentWrapper(){
-    for(int t=0;t<N;t++) delete tmp[t];
+
+  void inputTensSize(int *into, int n, int batch_size){
+    memcpy(into, in_sz[n].data(), (TensDim-1)*sizeof(int));
+    into[TensDim-1] = batch_size;
+  }
+  void outputTensSize(int *into, int batch_size){
+    memcpy(into, out_sz, (TensDim-1)*sizeof(int));
+    into[TensDim-1] = batch_size;
+  }
+  std::vector< Tensor<FloatType,TensDim>* > constructInputTensors(int batch_size){
+    std::vector< Tensor<FloatType,TensDim>* > tens(N);
+    int tsize[TensDim];
+    for(int i=0;i<N;i++){
+      inputTensSize(tsize, i, batch_size);
+      tens[i] = new Tensor<FloatType,TensDim>(tsize);
+    }
+    return tens;
   }
   
   size_t outputLinearSize() const{ return lin_sz; }
   size_t inputLinearSize() const{ return lin_sz; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
-    unflattenNsameDim(tmp.data(),N,in);    
-    Tensor<FloatType,TensDim> out = cpt.value(tmp.data());
-    return flatten(out);
+  Matrix<FloatType> value(const Matrix<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
+    std::vector< Tensor<FloatType,TensDim>* > tens = constructInputTensors(in.size(1));
+    int off = 0;
+    for(int i=0;i<N;i++){
+      unflattenFromBatchVector(*tens[i], in, off);
+      off += in_tens_lin_sz[i];
+    }
+    Tensor<FloatType,TensDim> out = cpt.value(tens.data());
+    for(int i=0;i<N;i++) delete tens[i];
+    return flattenToBatchVector(out);
   }
-  void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
-    Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);
-    Tensor<FloatType,TensDim> above_deriv(out_sz);
-    unflatten(above_deriv,above_deriv_lin);
-    cpt.deriv(std::move(above_deriv), tmp.data());
-    cost_deriv_inputs = flattenNsameDim(tmp.data(),N);
+  void deriv(Vector<FloatType> &cost_deriv_params, int off, Matrix<FloatType> &&_above_deriv_lin, Matrix<FloatType> &cost_deriv_inputs){
+    int batch_size = _above_deriv_lin.size(1);
+    int out_sz_b[TensDim]; outputTensSize(out_sz_b, batch_size);
+    Tensor<FloatType,TensDim> above_deriv = unflattenFromBatchVector<TensDim>(_above_deriv_lin, out_sz_b);
+
+    std::vector< Tensor<FloatType,TensDim>* > tens = constructInputTensors(batch_size);
+    cpt.deriv(std::move(above_deriv), tens.data());
+    cost_deriv_inputs = Matrix<FloatType>(lin_sz,batch_size);
+    int poff = 0;
+    for(int i=0;i<N;i++){
+      flattenToBatchVector(cost_deriv_inputs, *tens[i], poff);
+      delete tens[i];
+      poff += in_tens_lin_sz[i];
+    }
   }
     
   void update(int off, const Vector<FloatType> &new_params){}
@@ -170,8 +218,8 @@ struct BatchTensorConcatenateComponentWrapper{
   inline int nparams() const{ return cpt.nparams(); }
   void getParams(Vector<FloatType> &into, int off){}
 
-  std::string inCoord(size_t i) const{
-    return std::to_string(i);
+  std::string inCoord(size_t i, int b, int batch_size) const{
+    return std::to_string(i)+" "+std::to_string(b);
   }
 
     
@@ -184,63 +232,69 @@ void testBatchTensorConcatenateComponent(){
   typedef typename Config::FloatType FloatType;
 
   //4-tensor
+  int batch_size = 5;
   
   { //contract dim 2
-    std::vector< std::array<int,4> > in_sz({
-	  {2,3,4,5},
-	  {2,3,3,5},
-	  {2,3,6,5} });
+    std::vector< std::array<int,3> > in_sz({
+	  {2,3,4},
+	  {2,3,3},
+	  {2,3,6} });
         
     BatchTensorConcatenateComponent<Config,4> cpt(2,  3);
     BatchTensorConcatenateComponentWrapper<Config,4> wrp(cpt, in_sz, 2);
-    testComponentDeriv(wrp);
+    testComponentDeriv(wrp,batch_size);
+    testComponentDiffBatchSizes(wrp);
   }
 
   { //contract dim 1
-    std::vector< std::array<int,4> > in_sz({
-	{2,4,3,5},
-	{2,3,3,5},
-	{2,6,3,5} });
+    std::vector< std::array<int,3> > in_sz({
+	{2,4,3},
+	{2,3,3},
+	{2,6,3} });
         
     BatchTensorConcatenateComponent<Config,4> cpt(1,  3);
     BatchTensorConcatenateComponentWrapper<Config,4> wrp(cpt, in_sz, 1);
-    testComponentDeriv(wrp);
+    testComponentDeriv(wrp,batch_size);
+    testComponentDiffBatchSizes(wrp);
   }
 
   { //contract dim 0
-    std::vector< std::array<int,4> > in_sz({
-	{4,2,3,5},
-	{3,2,3,5},
-	{6,2,3,5} });
+    std::vector< std::array<int,3> > in_sz({
+	{4,2,3},
+	{3,2,3},
+	{6,2,3} });
         
     BatchTensorConcatenateComponent<Config,4> cpt(0,  3);
     BatchTensorConcatenateComponentWrapper<Config,4> wrp(cpt, in_sz, 0);
-    testComponentDeriv(wrp);
+    testComponentDeriv(wrp,batch_size);
+    testComponentDiffBatchSizes(wrp);
   }
 
 
   //3-tensor
   
   { //contract dim 1
-    std::vector< std::array<int,3> > in_sz({
-	{2,4,5},
-	{2,3,5},
-	{2,6,5} });
+    std::vector< std::array<int,2> > in_sz({
+	{2,4},
+	{2,3},
+	{2,6} });
         
     BatchTensorConcatenateComponent<Config,3> cpt(1,  3);
     BatchTensorConcatenateComponentWrapper<Config,3> wrp(cpt, in_sz, 1);
-    testComponentDeriv(wrp);
+    testComponentDeriv(wrp,batch_size);
+    testComponentDiffBatchSizes(wrp);
   }
 
   { //contract dim 0
-    std::vector< std::array<int,3> > in_sz({
-	{4,2,5},
-	{3,2,5},
-	{6,2,5} });
+    std::vector< std::array<int,2> > in_sz({
+	{4,2},
+	{3,2},
+	{6,2} });
         
     BatchTensorConcatenateComponent<Config,3> cpt(0,  3);
     BatchTensorConcatenateComponentWrapper<Config,3> wrp(cpt, in_sz, 0);
-    testComponentDeriv(wrp);
+    testComponentDeriv(wrp,batch_size);
+    testComponentDiffBatchSizes(wrp);
   }
   
   std::cout << "testBatchTensorConcatenateComponent passed" << std::endl;
@@ -252,31 +306,30 @@ struct ScaleComponentWrapper{
   EXTRACT_CONFIG_TYPES;
   
   ScaleComponent<Config,TensDim> &cpt;
-  int size[TensDim];
+  int size[TensDim-1];
   size_t size_lin;
 
   ScaleComponentWrapper(ScaleComponent<Config,TensDim> &cpt, int const *sz): cpt(cpt){
-    memcpy(size,sz,TensDim*sizeof(int));
+    memcpy(size,sz,(TensDim-1)*sizeof(int));
     size_lin = 1;
-    for(int i=0;i<TensDim;i++)
+    for(int i=0;i<TensDim-1;i++)
       size_lin *= sz[i];
   }
 
   size_t outputLinearSize() const{ return size_lin; }
   size_t inputLinearSize() const{ return size_lin; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
-    Tensor<FloatType,TensDim> T(size);
-    unflatten(T,in);
-    return flatten(cpt.value(T,enable_deriv));
+  Matrix<FloatType> value(const Matrix<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
+    int size_d[TensDim]; memcpy(size_d,size,(TensDim-1)*sizeof(int)); size_d[TensDim-1] = in.size(1);
+    Tensor<FloatType,TensDim> T = unflattenFromBatchVector<TensDim>(in,size_d);
+    return flattenToBatchVector(cpt.value(T,enable_deriv));
   }
-  void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
-    Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);
-    Tensor<FloatType,TensDim> above_deriv(size);
-    unflatten(above_deriv,above_deriv_lin);
+  void deriv(Vector<FloatType> &cost_deriv_params, int off, Matrix<FloatType> &&_above_deriv_lin, Matrix<FloatType> &cost_deriv_inputs){
+    int size_d[TensDim]; memcpy(size_d,size,(TensDim-1)*sizeof(int)); size_d[TensDim-1] = _above_deriv_lin.size(1);
+    Tensor<FloatType,TensDim> above_deriv = unflattenFromBatchVector<TensDim>(_above_deriv_lin,size_d);
     Tensor<FloatType,TensDim> dcost_by_dIn;
     cpt.deriv(cost_deriv_params, off, std::move(above_deriv), dcost_by_dIn);
-    cost_deriv_inputs = flatten(dcost_by_dIn);
+    cost_deriv_inputs = flattenToBatchVector(dcost_by_dIn);
   }
     
   void update(int off, const Vector<FloatType> &new_params){
@@ -290,10 +343,11 @@ struct ScaleComponentWrapper{
     cpt.getParams(into, off);
   }
 
-  std::string inCoord(size_t i) const{
+  std::string inCoord(size_t i, int b, int batch_size) const{
     std::ostringstream ss;
+    int size_b[TensDim]; memcpy(size_b,size,(TensDim-1)*sizeof(int)); size_b[TensDim-1] = batch_size;
     int coord[TensDim];
-    tensorOffsetUnmap<TensDim>(coord, size, i);
+    tensorOffsetUnmap<TensDim>(coord, size, b+batch_size*i);
     ss << "(";
     for(int c=0;c<TensDim;c++)
       ss << coord[c] << (c<TensDim-1 ? ", " : "");
@@ -322,7 +376,8 @@ void testScaleComponent(){
   std::mt19937 rng(1234);
 
   int size[4] = {2,3,4,5};
-  
+  int osize[3] = {size[0],size[1],size[2]};
+  int batch_size = size[3];
   Tensor<FloatType,4> v(size);
   uniformRandom(v,rng);
  
@@ -354,9 +409,10 @@ void testScaleComponent(){
 	std::cout << "use_gamma: " << use_gamma << " use_beta: " << use_beta << std::endl;
 	ScaleComponent<Config,4> cpta(0,size[0],bool(use_gamma),bool(use_beta),gamma,beta);
 	assert(cpta.nparams() == (use_gamma + use_beta) * size[0]);
-	
-	ScaleComponentWrapper<Config,4> wrp(cpta,size);
-	testComponentDeriv(wrp, FloatType(1e-7));
+
+	ScaleComponentWrapper<Config,4> wrp(cpta,osize);
+	testComponentDeriv(wrp,batch_size,FloatType(1e-7));
+	testComponentDiffBatchSizes(wrp);
       }
     }
     
@@ -390,9 +446,10 @@ void testScaleComponent(){
 	std::cout << "use_gamma: " << use_gamma << " use_beta: " << use_beta << std::endl;
 	ScaleComponent<Config,4> cpta(1,size[1],bool(use_gamma),bool(use_beta),gamma,beta);
 	assert(cpta.nparams() == (use_gamma + use_beta) * size[1]);
-	
-	ScaleComponentWrapper<Config,4> wrp(cpta,size);
-	testComponentDeriv(wrp, FloatType(1e-7));
+
+	ScaleComponentWrapper<Config,4> wrp(cpta,osize);
+	testComponentDeriv(wrp,batch_size,FloatType(1e-7));
+	testComponentDiffBatchSizes(wrp);
       }
     }
     
@@ -426,9 +483,10 @@ void testScaleComponent(){
 	std::cout << "use_gamma: " << use_gamma << " use_beta: " << use_beta << std::endl;
 	ScaleComponent<Config,4> cpta(2,size[2],bool(use_gamma),bool(use_beta),gamma,beta);
 	assert(cpta.nparams() == (use_gamma + use_beta) * size[2]);
-	
-	ScaleComponentWrapper<Config,4> wrp(cpta,size);
-	testComponentDeriv(wrp, FloatType(1e-7));
+
+	ScaleComponentWrapper<Config,4> wrp(cpta,osize);
+	testComponentDeriv(wrp,batch_size,FloatType(1e-7));
+	testComponentDiffBatchSizes(wrp);
       }
     }
     
@@ -443,40 +501,40 @@ struct BatchTensorDimensionSliceComponentWrapper{
   EXTRACT_CONFIG_TYPES;
   
   BatchTensorDimensionSliceComponent<Config,TensDim> &cpt;
-  int in_sz[TensDim];
-  int out_sz[TensDim-1];
+  int in_sz[TensDim-1];
+  int out_sz[TensDim-2];
   size_t in_lin_sz;
   size_t out_lin_sz;
 
     
   BatchTensorDimensionSliceComponentWrapper(BatchTensorDimensionSliceComponent<Config,TensDim> &cpt, int const* _in_sz, int const* _out_sz): cpt(cpt){
-    memcpy(in_sz,_in_sz,TensDim*sizeof(int));
-    memcpy(out_sz,_out_sz,(TensDim-1)*sizeof(int));
+    memcpy(in_sz,_in_sz,(TensDim-1)*sizeof(int));
+    memcpy(out_sz,_out_sz,(TensDim-2)*sizeof(int));
     in_lin_sz = 1;
-    for(int d=0;d<TensDim;d++)
+    for(int d=0;d<TensDim-1;d++)
       in_lin_sz *= in_sz[d];
 
     out_lin_sz = 1;
-    for(int d=0;d<TensDim-1;d++)
+    for(int d=0;d<TensDim-2;d++)
       out_lin_sz *= out_sz[d];
   }
   
   size_t outputLinearSize() const{ return out_lin_sz; }
   size_t inputLinearSize() const{ return in_lin_sz; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
-    Tensor<FloatType,TensDim> in_t(in_sz);
-    unflatten(in_t,in); 
-    Tensor<FloatType,TensDim-1> out = cpt.value(in_t);
-    return flatten(out);
+  Matrix<FloatType> value(const Matrix<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
+    batchTensorSize(in_sz_b, TensDim, in_sz, in.size(1));     
+    Tensor<FloatType,TensDim> in_t = unflattenFromBatchVector<TensDim>(in, in_sz_b);
+    return flattenToBatchVector(cpt.value(in_t));
   }
-  void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
-    Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);
-    Tensor<FloatType,TensDim-1> above_deriv(out_sz);
-    unflatten(above_deriv,above_deriv_lin);
-    Tensor<FloatType,TensDim> tmp(in_sz);
+  void deriv(Vector<FloatType> &cost_deriv_params, int off, Matrix<FloatType> &&_above_deriv_lin, Matrix<FloatType> &cost_deriv_inputs){
+    int batch_size = _above_deriv_lin.size(1);
+    batchTensorSize(out_sz_b, TensDim-1, out_sz, batch_size); 
+    batchTensorSize(in_sz_b, TensDim, in_sz, batch_size);     
+    Tensor<FloatType,TensDim-1> above_deriv = unflattenFromBatchVector<TensDim-1>(_above_deriv_lin, out_sz_b);
+    Tensor<FloatType,TensDim> tmp(in_sz_b);
     cpt.deriv(std::move(above_deriv), tmp);
-    cost_deriv_inputs = flatten(tmp);
+    cost_deriv_inputs = flattenToBatchVector(tmp);
   }
     
   void update(int off, const Vector<FloatType> &new_params){}
@@ -484,8 +542,8 @@ struct BatchTensorDimensionSliceComponentWrapper{
   inline int nparams() const{ return cpt.nparams(); }
   void getParams(Vector<FloatType> &into, int off){}
 
-  std::string inCoord(size_t i) const{
-    return std::to_string(i);
+  std::string inCoord(size_t i, int b, int batch_size) const{
+    return std::to_string(i)+","+std::to_string(b);
   }
 
 };
@@ -499,6 +557,7 @@ void testBatchTensorDimensionSliceComponent(){
   std::mt19937 rng(1234);
 
   int size[4] = {2,3,4,5};
+  int batch_size = size[3];
   
   Tensor<FloatType,4> v(size);
   uniformRandom(v,rng);
@@ -518,7 +577,8 @@ void testBatchTensorDimensionSliceComponent(){
 	});
       assert(equal(got,expect,true));
       BatchTensorDimensionSliceComponentWrapper<Config,4> wrp(cpt, v.sizeArray(),expect.sizeArray());
-      testComponentDeriv(wrp);
+      testComponentDeriv(wrp,batch_size);
+      testComponentDiffBatchSizes(wrp);
     }
     
   }
@@ -537,7 +597,8 @@ void testBatchTensorDimensionSliceComponent(){
 	});
       assert(equal(got,expect,true));
       BatchTensorDimensionSliceComponentWrapper<Config,4> wrp(cpt, v.sizeArray(),expect.sizeArray());
-      testComponentDeriv(wrp);
+      testComponentDeriv(wrp,batch_size);
+      testComponentDiffBatchSizes(wrp);
     }
     
   }
@@ -557,7 +618,8 @@ void testBatchTensorDimensionSliceComponent(){
 	});
       assert(equal(got,expect,true));
       BatchTensorDimensionSliceComponentWrapper<Config,4> wrp(cpt, v.sizeArray(),expect.sizeArray());
-      testComponentDeriv(wrp);
+      testComponentDeriv(wrp,batch_size);
+      testComponentDiffBatchSizes(wrp);
     }
     
   }
@@ -597,17 +659,17 @@ struct MatrixTensorContractComponentWrapper{
   EXTRACT_CONFIG_TYPES;
   
   MatrixTensorContractComponent<Config,Dim> &cpt;
-  int in_size[Dim];
+  int in_size[Dim-1];
   size_t in_size_lin;
-  int out_size[Dim];
+  int out_size[Dim-1];
   size_t out_size_lin;
   
 
   MatrixTensorContractComponentWrapper(MatrixTensorContractComponent<Config,Dim> &cpt, int const *in_sz, int const *out_sz): cpt(cpt){
-    memcpy(in_size,in_sz,Dim*sizeof(int));
-    memcpy(out_size,out_sz,Dim*sizeof(int));
+    memcpy(in_size,in_sz,(Dim-1)*sizeof(int));
+    memcpy(out_size,out_sz,(Dim-1)*sizeof(int));
     in_size_lin = out_size_lin = 1;
-    for(int d=0;d<Dim;d++){
+    for(int d=0;d<Dim-1;d++){
       in_size_lin *= in_sz[d];
       out_size_lin *= out_sz[d];
     }
@@ -616,19 +678,17 @@ struct MatrixTensorContractComponentWrapper{
   size_t outputLinearSize() const{ return out_size_lin; }
   size_t inputLinearSize() const{ return in_size_lin; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
-    Tensor<FloatType,Dim> A(in_size);
-    unflatten(A,in);
-    Tensor<FloatType,Dim> C = cpt.value(A,enable_deriv);
-    return flatten(C);
+  Matrix<FloatType> value(const Matrix<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
+    batchTensorSize(in_size_b, Dim, in_size, in.size(1));
+    Tensor<FloatType,Dim> A = unflattenFromBatchVector<Dim>(in, in_size_b);
+    return flattenToBatchVector(cpt.value(A,enable_deriv));
   }
-  void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
-    Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);
-    Tensor<FloatType,Dim> above_deriv(out_size);
-    unflatten(above_deriv,above_deriv_lin);
+  void deriv(Vector<FloatType> &cost_deriv_params, int off, Matrix<FloatType> &&_above_deriv_lin, Matrix<FloatType> &cost_deriv_inputs){
+    batchTensorSize(out_size_b, Dim, out_size, _above_deriv_lin.size(1));
+    Tensor<FloatType,Dim> above_deriv = unflattenFromBatchVector<Dim>(_above_deriv_lin, out_size_b);
     Tensor<FloatType,Dim> dcost_by_dIn;
     cpt.deriv(cost_deriv_params, off , std::move(above_deriv), dcost_by_dIn);
-    cost_deriv_inputs = flatten(dcost_by_dIn);
+    cost_deriv_inputs = flattenToBatchVector(dcost_by_dIn);
   }
     
   void update(int off, const Vector<FloatType> &new_params){  cpt.update(off,new_params); }
@@ -636,10 +696,11 @@ struct MatrixTensorContractComponentWrapper{
   inline int nparams() const{ return cpt.nparams(); }
   void getParams(Vector<FloatType> &into, int off){ cpt.getParams(into,off); }
 
-  std::string inCoord(size_t i) const{
+  std::string inCoord(size_t i, int b, int batch_size) const{
+    batchTensorSize(in_size_b, Dim, in_size, batch_size);
     std::ostringstream ss;
     int coord[Dim];
-    tensorOffsetUnmap<Dim>(coord, in_size, i);
+    tensorOffsetUnmap<Dim>(coord, in_size_b, b+i*batch_size);
     ss << "(";
     for(int d=0;d<Dim;d++)
       ss << coord[d] << (d==Dim-1? ")" : ", ");
@@ -654,6 +715,7 @@ void testMatrixTensorContractComponent(){
     
   int tens_sizes[4] = {2,3,4,5};
   int out_size = 6;
+  int batch_size = tens_sizes[3];
 
   Tensor<FloatType,4> x(tens_sizes);
   uniformRandom(x,rng);
@@ -675,8 +737,8 @@ void testMatrixTensorContractComponent(){
 
   MatrixTensorContractComponentWrapper<Config,4> wrp(cpt, x.sizeArray(),expect.sizeArray());
   std::cout << "Test component deriv" << std::endl;
-  testComponentDeriv(wrp);
-
+  testComponentDeriv(wrp,batch_size);
+  testComponentDiffBatchSizes(wrp);
   std::cout << "testMatrixTensorContractComponent passed" << std::endl;
 }
 

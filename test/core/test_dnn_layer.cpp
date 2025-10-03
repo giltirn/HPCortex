@@ -64,17 +64,17 @@ struct BatchTensorDNNcomponentWrapper{
   EXTRACT_CONFIG_TYPES;
   
   BatchTensorDNNcomponent<Config,Dim, ActivationFunc> &cpt;
-  int in_size[Dim];
+  int in_size[Dim-1];
   size_t in_size_lin;
-  int out_size[Dim];
+  int out_size[Dim-1];
   size_t out_size_lin;
   
 
   BatchTensorDNNcomponentWrapper(BatchTensorDNNcomponent<Config,Dim, ActivationFunc> &cpt, int const *in_sz, int const *out_sz): cpt(cpt){
-    memcpy(in_size,in_sz,Dim*sizeof(int));
-    memcpy(out_size,out_sz,Dim*sizeof(int));
+    memcpy(in_size,in_sz,(Dim-1)*sizeof(int));
+    memcpy(out_size,out_sz,(Dim-1)*sizeof(int));
     in_size_lin = out_size_lin = 1;
-    for(int d=0;d<Dim;d++){
+    for(int d=0;d<Dim-1;d++){
       in_size_lin *= in_sz[d];
       out_size_lin *= out_sz[d];
     }
@@ -83,19 +83,17 @@ struct BatchTensorDNNcomponentWrapper{
   size_t outputLinearSize() const{ return out_size_lin; }
   size_t inputLinearSize() const{ return in_size_lin; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
-    Tensor<FloatType,Dim> A(in_size);
-    unflatten(A,in);
-    Tensor<FloatType,Dim> C = cpt.value(A,enable_deriv);
-    return flatten(C);
+  Matrix<FloatType> value(const Matrix<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
+    batchTensorSize(in_size_b,Dim,in_size,in.size(1));
+    Tensor<FloatType,Dim> A = unflattenFromBatchVector<Dim>(in,in_size_b);
+    return flattenToBatchVector(cpt.value(A,enable_deriv));
   }
-  void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
-    Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);
-    Tensor<FloatType,Dim> above_deriv(out_size);
-    unflatten(above_deriv,above_deriv_lin);
+  void deriv(Vector<FloatType> &cost_deriv_params, int off, Matrix<FloatType> &&_above_deriv_lin, Matrix<FloatType> &cost_deriv_inputs){
+    batchTensorSize(out_size_b,Dim,out_size,_above_deriv_lin.size(1));
+    Tensor<FloatType,Dim> above_deriv = unflattenFromBatchVector<Dim>(_above_deriv_lin,out_size_b);
     Tensor<FloatType,Dim> dcost_by_dIn;
     cpt.deriv(cost_deriv_params, off , std::move(above_deriv), dcost_by_dIn);
-    cost_deriv_inputs = flatten(dcost_by_dIn);
+    cost_deriv_inputs = flattenToBatchVector(dcost_by_dIn);
   }
     
   void update(int off, const Vector<FloatType> &new_params){  cpt.update(off,new_params); }
@@ -103,10 +101,11 @@ struct BatchTensorDNNcomponentWrapper{
   inline int nparams() const{ return cpt.nparams(); }
   void getParams(Vector<FloatType> &into, int off){ cpt.getParams(into,off); }
 
-  std::string inCoord(size_t i) const{
+  std::string inCoord(size_t i,int b,int batch_size) const{
+    batchTensorSize(in_size_b,Dim,in_size,batch_size);
     std::ostringstream ss;
     int coord[Dim];
-    tensorOffsetUnmap<Dim>(coord, in_size, i);
+    tensorOffsetUnmap<Dim>(coord, in_size_b, b+i*batch_size);
     ss << "(";
     for(int d=0;d<Dim;d++)
       ss << coord[d] << (d==Dim-1? ")" : ", ");
@@ -155,7 +154,8 @@ void testBatchTensorDNNcomponentAndLayer(){
 
       BatchTensorDNNcomponentWrapper<Config,4, ActivationFunc> wrp(*cpt, x.sizeArray(),expect.sizeArray());
       std::cout << "Test component deriv" << std::endl;
-      testComponentDeriv(wrp);
+      testComponentDeriv(wrp,tens_sizes[3]);
+      testComponentDiffBatchSizes(wrp);
 
       std::cout << "Test layer deriv" << std::endl;
       if(use_bias){
@@ -247,8 +247,9 @@ void testBatchTensorDNNcomponentAndLayer2D(){
 
     BatchTensorDNNcomponentWrapper<Config,2, ActivationFunc> wrp(*cpt, x.sizeArray(),expect.sizeArray());
     std::cout << "Test component deriv" << std::endl;
-    testComponentDeriv(wrp);
-
+    testComponentDeriv(wrp,tens_sizes[1]);
+    testComponentDiffBatchSizes(wrp);
+    
     std::cout << "Test layer deriv" << std::endl;
     if(use_bias){
       auto m = batch_tensor_dnn_layer<2>(weights, bias, contract_dim, activation, input_layer<Config>());

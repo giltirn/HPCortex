@@ -33,19 +33,18 @@ struct NodeAggregateGlobalSumComponentWrapper{
   size_t outputLinearSize() const{ return graph_flat_size_out; }
   size_t inputLinearSize() const{ return graph_flat_size; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
-    Graph<FloatType> ing(ginit);    
-    unflatten(ing,in);
-    return flatten(cpt.value(ing));
+  Matrix<FloatType> value(const Matrix<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
+    ginit.batch_size = in.size(1);
+    Graph<FloatType> ing = unflattenFromBatchVector(in, ginit);    
+    return flattenToBatchVector(cpt.value(ing));
   }
-  void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
-    Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);
-    Graph<FloatType> above_deriv(ginit_out);
-    unflatten(above_deriv, above_deriv_lin);
+  void deriv(Vector<FloatType> &cost_deriv_params, int off, Matrix<FloatType> &&_above_deriv_lin, Matrix<FloatType> &cost_deriv_inputs){
+    ginit_out.batch_size = _above_deriv_lin.size(1);
+    Graph<FloatType> above_deriv = unflattenFromBatchVector(_above_deriv_lin, ginit_out);
     
-    Graph<FloatType> cost_deriv_inputs_graph(ginit);
+    Graph<FloatType> cost_deriv_inputs_graph;
     cpt.deriv(std::move(above_deriv), cost_deriv_inputs_graph);
-    cost_deriv_inputs = flatten(cost_deriv_inputs_graph);
+    cost_deriv_inputs = flattenToBatchVector(cost_deriv_inputs_graph);
   }
     
   void update(int off, const Vector<FloatType> &new_params){}
@@ -53,7 +52,7 @@ struct NodeAggregateGlobalSumComponentWrapper{
   inline int nparams() const{ return cpt.nparams(); }
   void getParams(Vector<FloatType> &into, int off){}
 
-  std::string inCoord(size_t i) const{
+  std::string inCoord(size_t i, int b, int batch_size) const{
     return "";
   }      
 };
@@ -80,9 +79,9 @@ void testNodeAggregateGlobalSum(){
   Graph<FloatType> esum_expect = expectNodeAggregateGlobalSum(graph);
   assert(equal(esum_got,esum_expect,true));
   
-  NodeAggregateGlobalSumComponentWrapper<Config> wrp(esum_cpt, graph.getInitializer(), esum_got.getInitializer(), flatSize(graph), flatSize(esum_got));  
-  testComponentDeriv(wrp, 1e-4, true);
-  
+  NodeAggregateGlobalSumComponentWrapper<Config> wrp(esum_cpt, graph.getInitializer(), esum_got.getInitializer(), rowsAsBatchVector(graph), rowsAsBatchVector(esum_got));  
+  testComponentDeriv(wrp, ginit.batch_size, 1e-4, true);
+  testComponentDiffBatchSizes(wrp);
   std::cout << "testNodeAggregateGlobalSum passed" << std::endl;
 }
 

@@ -484,6 +484,44 @@ void unflattenNsameDim(Tensor<FloatType,Dim>* const* tens, int N, const Vector<F
   }
 }
 
+
+template<int Dim, typename FloatType>
+int flattenToBatchVector(Matrix<FloatType> &into, const Tensor<FloatType,Dim> &from, int row_off){
+  int batch_size = from.size(Dim-1);
+  assert(into.size(1) == batch_size);
+  int flat_size = 1;
+  for(int i=0;i<Dim-1;i++)
+    flat_size *= from.size(i);
+  assert(row_off + flat_size <= into.size(0));
+
+  autoView(out_v,into,DeviceReadWrite);
+  autoView(in_v,from,DeviceRead);
+  accelerator_for2d(b,batch_size, i,flat_size, 1,{
+      //rely on the fact that the batch index is the fastest moving,  eg. for a 3 tensor   off = b + batch_size*(z + zsize*(y + ysize*x))      i=(z + zsize*(y + ysize*x))
+      out_v(row_off + i,b) = in_v.data()[b + i*batch_size];
+    });
+  return row_off + flat_size;
+}
+
+
+template<int Dim, typename FloatType>
+int unflattenFromBatchVector(Tensor<FloatType,Dim> &into, const Matrix<FloatType> &from, int row_off){
+  int batch_size = into.size(Dim-1);
+  assert(from.size(1) == batch_size);
+  int flat_size = 1;
+  for(int i=0;i<Dim-1;i++)
+    flat_size *= into.size(i);
+  assert(row_off + flat_size <= from.size(0));
+
+  autoView(out_v,into,DeviceWrite);
+  autoView(in_v,from,DeviceRead);
+  accelerator_for2d(b,batch_size, i,flat_size, 1,{
+      out_v.data()[b + i*batch_size] = in_v(row_off + i,b);
+    });
+  return row_off + flat_size;
+}
+
+
 template<int Dim, typename FloatType>
 Matrix<FloatType> flattenToBatchVector(const Tensor<FloatType,Dim> &tens){
   int batch_size = tens.size(Dim-1);

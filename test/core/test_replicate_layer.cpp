@@ -18,45 +18,33 @@ struct ReplicateLayerWrapper{
   int szin;
   int sz1;
   int sz2;
-  int batch_size;
   
-  ReplicateLayerWrapper(ChainType1 &chain1, ChainType1 &chain2, int szin, int sz1, int sz2, int batch_size): chain1(chain1),chain2(chain2),sz1(sz1),sz2(sz2),szin(szin),batch_size(batch_size){
-    size_lin_in = szin * batch_size;
-    size_lin_out = sz1 * batch_size + sz2 * batch_size;
+  ReplicateLayerWrapper(ChainType1 &chain1, ChainType1 &chain2, int szin, int sz1, int sz2): chain1(chain1),chain2(chain2),sz1(sz1),sz2(sz2),szin(szin){
+    size_lin_in = szin;
+    size_lin_out = sz1 + sz2;
   }
 
   size_t outputLinearSize() const{ return size_lin_out; }
   size_t inputLinearSize() const{ return size_lin_in; }
 
-  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
-    Matrix<FloatType> inm(szin,batch_size);
-    unflatten(inm,in);
-    Vector<FloatType> out(size_lin_out);
-    {
-      autoView(out_v,out,HostWrite);
-      auto v1 = chain1.value(inm,enable_deriv);
-      auto v2 = chain2.value(inm,enable_deriv);
-      FloatType* p = out_v.data();
-      p = flatten(p, v1);
-      p = flatten(p, v2);
-    }
+  Matrix<FloatType> value(const Matrix<FloatType> &in, EnableDeriv enable_deriv = DerivNo){    
+    Matrix<FloatType> out(size_lin_out,in.size(1));
+    auto v1 = chain1.value(in,enable_deriv);
+    auto v2 = chain2.value(in,enable_deriv);
+    int off = flattenToBatchVector(out,v1,0);
+    flattenToBatchVector(out,v2,off);
     return out;
   }
-  void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
-    Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);
+  void deriv(Vector<FloatType> &cost_deriv_params, int off, Matrix<FloatType> &&_above_deriv_lin, Matrix<FloatType> &cost_deriv_inputs){
+    int batch_size = _above_deriv_lin.size(1);    
     Matrix<FloatType> above_deriv_1(sz1,batch_size), above_deriv_2(sz2,batch_size);
-    {
-      autoView(above_deriv_lin_v,above_deriv_lin,HostRead);
-      FloatType const* p = above_deriv_lin_v.data();
-      p = unflatten(above_deriv_1, p);
-      p = unflatten(above_deriv_2, p);
-    }
-    Matrix<FloatType> cost_deriv_inputs_m;
-    off = chain1.deriv(cost_deriv_params, off, std::move(above_deriv_1), &cost_deriv_inputs_m);
-    chain2.deriv(cost_deriv_params, off, std::move(above_deriv_2), &cost_deriv_inputs_m);
+    int poff = unflattenFromBatchVector(above_deriv_1, _above_deriv_lin, 0);
+    unflattenFromBatchVector(above_deriv_2, _above_deriv_lin, poff);
 
-    assert(cost_deriv_inputs_m.size(0) == szin && cost_deriv_inputs_m.size(1) == batch_size);
-    cost_deriv_inputs = flatten(cost_deriv_inputs_m);
+    off = chain1.deriv(cost_deriv_params, off, std::move(above_deriv_1), &cost_deriv_inputs);
+    chain2.deriv(cost_deriv_params, off, std::move(above_deriv_2), &cost_deriv_inputs);
+
+    assert(cost_deriv_inputs.size(0) == szin && cost_deriv_inputs.size(1) == batch_size);
   }
     
   void update(int off, const Vector<FloatType> &new_params){
@@ -73,8 +61,8 @@ struct ReplicateLayerWrapper{
     chain2.getParams(into,off);
   }
 
-  std::string inCoord(size_t i) const{
-    return std::to_string(i);
+  std::string inCoord(size_t i,int b,int batch_size) const{
+    return std::to_string(i)+","+std::to_string(b);
   }       
 };
 
@@ -201,9 +189,9 @@ void testReplicateLayer(){
     assert(abs_near(expect2,got2,FloatType(1e-6),true));
   }
 
-  ReplicateLayerWrapper<decltype(chain1),decltype(chain2)> wrp(chain1, chain2, in_sz, sz1, sz2, B);
-  testComponentDeriv(wrp, FloatType(1e-6));
-  
+  ReplicateLayerWrapper<decltype(chain1),decltype(chain2)> wrp(chain1, chain2, in_sz, sz1, sz2);
+  testComponentDeriv(wrp,B, FloatType(1e-6));
+  testComponentDiffBatchSizes(wrp);
   std::cout << "testReplicateLayer passed" << std::endl;
 }
 

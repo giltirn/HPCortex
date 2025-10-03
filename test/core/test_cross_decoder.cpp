@@ -15,51 +15,38 @@ struct CrossDecoderWrapper{
 
   int C;
   int E;
-  int B;
-  int sz[3];
+  int sz[2];
   
-  CrossDecoderWrapper(ChainType &chain, int C, int E, int B): chain(chain), C(C), E(E), B(B){
-    size_lin_in = 2*C*E*B;
-    size_lin_out = C*E*B;
-    sz[0] = C; sz[1] = E; sz[2] = B;
+  CrossDecoderWrapper(ChainType &chain, int C, int E): chain(chain), C(C), E(E){
+    size_lin_in = 2*C*E;
+    size_lin_out = C*E;
+    sz[0] = C; sz[1] = E;
   }
   
   size_t outputLinearSize() const{ return size_lin_out; }
   size_t inputLinearSize() const{ return size_lin_in; }
   
-  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
+  Matrix<FloatType> value(const Matrix<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
     std::pair< Tensor<FloatType,3>, Tensor<FloatType,3> > inm;
-    inm.first = Tensor<FloatType,3>(sz);
-    inm.second = Tensor<FloatType,3>(sz);
-    {
-      autoView(in_v,in,HostRead);
-      FloatType const* p = in_v.data();
-      p = unflatten(inm.first,p);
-      p = unflatten(inm.second,p);
-    }
-    Vector<FloatType> out(size_lin_out);
-    {
-      autoView(out_v,out,HostWrite);
-      auto v = chain.value(inm, enable_deriv);
-      FloatType* p = out_v.data();
-      p = flatten(p, v);
-    }
-    return out;
+    batchTensorSize(sz_b,3,sz,in.size(1));
+    inm.first = Tensor<FloatType,3>(sz_b);
+    inm.second = Tensor<FloatType,3>(sz_b);
+    int off = unflattenFromBatchVector(inm.first,in,0);
+    unflattenFromBatchVector(inm.second,in,off);
+    
+    return flattenToBatchVector(chain.value(inm, enable_deriv));
   }
-  void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
-    Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);
-    Tensor<FloatType,3> above_deriv(sz);
-    unflatten(above_deriv, above_deriv_lin);
+  void deriv(Vector<FloatType> &cost_deriv_params, int off, Matrix<FloatType> &&_above_deriv_lin, Matrix<FloatType> &cost_deriv_inputs){
+    int batch_size = _above_deriv_lin.size(1);
+    batchTensorSize(sz_b,3,sz,batch_size);
+    Tensor<FloatType,3> above_deriv = unflattenFromBatchVector<3>(_above_deriv_lin, sz_b);
 
     std::pair< Tensor<FloatType,3>, Tensor<FloatType,3> > cost_deriv_inputs_m;
-    off = chain.deriv(cost_deriv_params, off, std::move(above_deriv), &cost_deriv_inputs_m);
-    cost_deriv_inputs = Vector<FloatType>(size_lin_in);
-    {
-      autoView(out_v, cost_deriv_inputs,HostWrite);
-      FloatType * p = out_v.data();
-      p = flatten(p, cost_deriv_inputs_m.first);
-      p = flatten(p, cost_deriv_inputs_m.second);
-    }
+    chain.deriv(cost_deriv_params, off, std::move(above_deriv), &cost_deriv_inputs_m);
+
+    cost_deriv_inputs = Matrix<FloatType>(size_lin_in,batch_size);
+    int poff = flattenToBatchVector(cost_deriv_inputs,cost_deriv_inputs_m.first,0);
+    flattenToBatchVector(cost_deriv_inputs,cost_deriv_inputs_m.second,poff);
   }
     
   void update(int off, const Vector<FloatType> &new_params){
@@ -74,8 +61,8 @@ struct CrossDecoderWrapper{
     chain.getParams(into,off);
   }
 
-  std::string inCoord(size_t i) const{
-    return std::to_string(i);
+  std::string inCoord(size_t i,int b,int batch_size) const{
+    return std::to_string(i)+","+std::to_string(b);
   }       
 };
 
@@ -142,9 +129,9 @@ void testCrossDecoder(){
 
   assert(abs_near(got,expect, FloatType(1e-8), true));
   
-  CrossDecoderWrapper<typename std::decay<decltype(xdecoder)>::type> wrp(xdecoder,C,E,B);
-  testComponentDeriv(wrp, FloatType(1e-9), true);
-
+  CrossDecoderWrapper<typename std::decay<decltype(xdecoder)>::type> wrp(xdecoder,C,E);
+  testComponentDeriv(wrp,B, FloatType(1e-9), true);
+  testComponentDiffBatchSizes(wrp);
   std::cout << "testCrossDecoder passed" << std::endl;
 }
 
@@ -219,9 +206,9 @@ void testCrossDecoderMultiBlock(){
 
   assert(abs_near(got,expect, FloatType(1e-8), true));
   
-  CrossDecoderWrapper<typename std::decay<decltype(xdecoder2)>::type> wrp(xdecoder2,C,E,B);
-  testComponentDeriv(wrp, FloatType(1e-9),true);
-
+  CrossDecoderWrapper<typename std::decay<decltype(xdecoder2)>::type> wrp(xdecoder2,C,E);
+  testComponentDeriv(wrp, B, FloatType(1e-9),true);
+  testComponentDiffBatchSizes(wrp);
   std::cout << "testCrossDecoderMultiBlock passed" << std::endl;
 }
 

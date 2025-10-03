@@ -155,6 +155,8 @@ struct Graph{
    * @param from An array of pointers to unbatched graphs of size batch_size
    */
   void insertCompleteBatch(Graph<FloatType> const* const* from);
+
+  int batchSize() const{ return nodes.batchSize(); }
 };
 
 /**
@@ -297,5 +299,65 @@ FloatType const* unflatten(Graph<FloatType> &graph, FloatType const *in_host_ptr
 template<typename FloatType>
 void unflatten(Graph<FloatType> &graph, const Vector<FloatType> &in);
 
+
+/** 
+ * @brief Support for obtaining the number of rows in a graph that has been flattened to a batch-vector
+ */
+template<typename FloatType>
+int rowsAsBatchVector(const Tensor<FloatType,3> &m);
+
+template<typename FloatType>
+int rowsAsBatchVector(const AttributedGraphElements<FloatType> &elem);
+
+template<typename FloatType>
+int rowsAsBatchVector(const Graph<FloatType> &g);
+
+/**
+ * @brief Flatten a graph element collection to a batch-vector (Matrix<FloatType>) where the matrix column count is the batch size
+ * The row count is arbitrary but >= product of the size of all tensor dimensions other than the batch size. The starting output row is provided by row_off.
+ * This is intended to allow stacking of elements into a single batch-matrix
+ * @return Return the output row index one past the end of the written data
+ */
+template<typename FloatType>
+int flattenToBatchVector(Matrix<FloatType> &into, const AttributedGraphElements<FloatType> &elem, int row_off);
+
+/**
+ * @brief Flatten a graph to a batch-vector (Matrix<FloatType>) where the matrix column count is the batch size
+ * The row count is arbitrary but >= product of the size of all tensor dimensions other than the batch size. The starting output row is provided by row_off.
+ * This is intended to allow stacking of elements into a single batch-matrix
+ * @return Return the output row index one past the end of the written data
+ */
+template<typename FloatType>
+int flattenToBatchVector(Matrix<FloatType> &into, const Graph<FloatType> &graph, int row_off);
+
+/**
+ * @brief Flatten a graph to a batch-vector (Matrix<FloatType>) where the matrix column count is the batch size
+ */
+template<typename FloatType>
+Matrix<FloatType> flattenToBatchVector(const Graph<FloatType> &graph);
+
+/**
+ * @brief Unflatten a graph element collection a from a batch-vector (Matrix<FloatType>) where the matrix column count is the batch size 
+ * The row count is arbitrary but >= product of the size of all tensor dimensions other than the batch size. The starting input row is provided by row_off.
+ * This is intended to allow unstacking of graph elements from a single batch-matrix
+ * @return Return the output row index one past the end of the written data
+ */
+template<typename FloatType>
+int unflattenFromBatchVector(AttributedGraphElements<FloatType> &into, const Matrix<FloatType> &from, int row_off);
+
+/**
+ * @brief Unflatten a graph from a batch-vector (Matrix<FloatType>) where the matrix column count is the batch size 
+ * The row count is arbitrary but >= product of the size of all tensor dimensions other than the batch size. The starting input row is provided by row_off.
+ * This is intended to allow unstacking of graphs from a single batch-matrix
+ * @return Return the output row index one past the end of the written data
+ */
+template<typename FloatType>
+int unflattenFromBatchVector(Graph<FloatType> &graph, const Matrix<FloatType> &from, int row_off);
+
+/**
+ * @brief Unflatten a graph from a batch-vector (Matrix<FloatType>)
+ */
+template<typename FloatType>
+Graph<FloatType> unflattenFromBatchVector(const Matrix<FloatType> &in, const GraphInitialize &ginit);
 
 #include "implementation/Graph.tcc"

@@ -80,8 +80,9 @@ void testGCNblock(){
   Graph<FloatType> got = gcn_block.value(graph, DerivNo);
   assert(abs_near(got,expect,FloatType(1e-5),true));
   
-  GraphInGraphOutLayerWrapper<Config, decltype(gcn_block)> wrp(gcn_block, ginit, flatSize(graph));
-  testComponentDeriv(wrp, 1e-4, true);
+  GraphInGraphOutLayerWrapper<Config, decltype(gcn_block)> wrp(gcn_block, ginit, rowsAsBatchVector(graph));
+  testComponentDeriv(wrp, ginit.batch_size, 1e-4, true);
+  testComponentDiffBatchSizes(wrp);
       
   std::cout << "testGCNblock passed" << std::endl;
 }

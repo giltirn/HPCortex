@@ -6,31 +6,30 @@ struct NormComponentWrapper{
   EXTRACT_CONFIG_TYPES;
   
   NormComponent<Config,TensDim> &cpt;
-  int size[TensDim];
+  int size[TensDim-1];
   size_t size_lin;
 
   NormComponentWrapper(NormComponent<Config,TensDim> &cpt, int const *sz): cpt(cpt){
-    memcpy(size,sz,TensDim*sizeof(int));
+    memcpy(size,sz,(TensDim-1)*sizeof(int));
     size_lin = 1;
-    for(int i=0;i<TensDim;i++)
+    for(int i=0;i<TensDim-1;i++)
       size_lin *= sz[i];
   }
 
   size_t outputLinearSize() const{ return size_lin; }
   size_t inputLinearSize() const{ return size_lin; }
  
-  Vector<FloatType> value(const Vector<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
-    Tensor<FloatType,TensDim> T(size);
-    unflatten(T,in);
-    return flatten(cpt.value(T, enable_deriv));
+  Matrix<FloatType> value(const Matrix<FloatType> &in, EnableDeriv enable_deriv = DerivNo){
+    batchTensorSize(size_b, TensDim, size, in.size(1));
+    Tensor<FloatType,TensDim> T = unflattenFromBatchVector<TensDim>(in,size_b);
+    return flattenToBatchVector(cpt.value(T, enable_deriv));
   }
-  void deriv(Vector<FloatType> &cost_deriv_params, int off, Vector<FloatType> &&_above_deriv_lin, Vector<FloatType> &cost_deriv_inputs){
-    Vector<FloatType> above_deriv_lin = std::move(_above_deriv_lin);
-    Tensor<FloatType,TensDim> above_deriv(size);
-    unflatten(above_deriv,above_deriv_lin);
+  void deriv(Vector<FloatType> &cost_deriv_params, int off, Matrix<FloatType> &&_above_deriv_lin, Matrix<FloatType> &cost_deriv_inputs){
+    batchTensorSize(size_b, TensDim, size, _above_deriv_lin.size(1));  
+    Tensor<FloatType,TensDim> above_deriv = unflattenFromBatchVector<TensDim>(_above_deriv_lin, size_b);
     Tensor<FloatType,TensDim> dcost_by_dIn;
     cpt.deriv(std::move(above_deriv), dcost_by_dIn);
-    cost_deriv_inputs = flatten(dcost_by_dIn);
+    cost_deriv_inputs = flattenToBatchVector(dcost_by_dIn);
   }
     
   void update(int off, const Vector<FloatType> &new_params){}
@@ -38,10 +37,11 @@ struct NormComponentWrapper{
   inline int nparams() const{ return cpt.nparams(); }
   void getParams(Vector<FloatType> &into, int off){}
 
-  std::string inCoord(size_t i) const{
+  std::string inCoord(size_t i,int b,int batch_size) const{
+    batchTensorSize(size_b, TensDim, size, batch_size);  
     std::ostringstream ss;
     int coord[TensDim];
-    tensorOffsetUnmap<TensDim>(coord, size, i);
+    tensorOffsetUnmap<TensDim>(coord, size_b, b+i*batch_size);
     ss << "(";
     for(int c=0;c<TensDim;c++)
       ss << coord[c] << (c<TensDim-1 ? ", " : "");
@@ -104,7 +104,8 @@ void testNormComponent(){
 
     NormComponent<Config,4> cpta(0,eps);
     NormComponentWrapper<Config,4> wrp(cpta,size);
-    testComponentDeriv(wrp, FloatType(1e-7));
+    testComponentDeriv(wrp, size[3], FloatType(1e-7));
+    testComponentDiffBatchSizes(wrp);
   }
 
   {
@@ -129,7 +130,8 @@ void testNormComponent(){
 
     NormComponent<Config,4> cpta(1,eps);
     NormComponentWrapper<Config,4> wrp(cpta,size);
-    testComponentDeriv(wrp, FloatType(1e-7));
+    testComponentDeriv(wrp, size[3], FloatType(1e-7));
+    testComponentDiffBatchSizes(wrp);
   }
 
   {
@@ -154,7 +156,8 @@ void testNormComponent(){
 
     NormComponent<Config,4> cpta(2,eps);
     NormComponentWrapper<Config,4> wrp(cpta,size);
-    testComponentDeriv(wrp, FloatType(1e-7));
+    testComponentDeriv(wrp, size[3], FloatType(1e-7));
+    testComponentDiffBatchSizes(wrp);
   }
   
   std::cout << "testNormComponent passed" << std::endl;

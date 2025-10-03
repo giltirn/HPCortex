@@ -511,3 +511,67 @@ void unflatten(Graph<FloatType> &graph, const Vector<FloatType> &in){
   autoView(in_v, in, HostRead);
   unflatten(graph, in_v.data());
 }
+
+
+
+
+template<typename FloatType>
+int rowsAsBatchVector(const Tensor<FloatType,3> &m){
+  return m.size(0)*m.size(1);
+}
+
+template<typename FloatType>
+int rowsAsBatchVector(const AttributedGraphElements<FloatType> &elem){
+  int out = 0;
+  for(int i=0; i<elem.nAttrib();i++)
+    out += rowsAsBatchVector(elem.attributes[i]);
+  return out;
+}
+
+template<typename FloatType>
+int rowsAsBatchVector(const Graph<FloatType> &g){
+  return rowsAsBatchVector(g.nodes) + rowsAsBatchVector(g.edges) + rowsAsBatchVector(g.global);
+}
+
+template<typename FloatType>
+int flattenToBatchVector(Matrix<FloatType> &into, const AttributedGraphElements<FloatType> &elem, int row_off){  
+  for(int i=0;i<elem.nAttrib();i++)
+    row_off = flattenToBatchVector(into, elem.attributes[i], row_off);
+  return row_off;
+}
+template<typename FloatType>
+int flattenToBatchVector(Matrix<FloatType> &into, const Graph<FloatType> &graph, int row_off){
+  row_off = flattenToBatchVector(into, graph.nodes, row_off);
+  row_off = flattenToBatchVector(into, graph.edges, row_off);
+  return flattenToBatchVector(into, graph.global, row_off);
+}
+
+template<typename FloatType>
+Matrix<FloatType> flattenToBatchVector(const Graph<FloatType> &graph){
+  Matrix<FloatType> out(rowsAsBatchVector(graph), graph.batchSize());
+  flattenToBatchVector(out, graph, 0);
+  return out;
+}
+  
+
+template<typename FloatType>
+int unflattenFromBatchVector(AttributedGraphElements<FloatType> &into, const Matrix<FloatType> &from, int row_off){
+  for(int i=0;i<into.nAttrib();i++)
+    row_off = unflattenFromBatchVector(into.attributes[i], from, row_off);
+  return row_off;
+}
+template<typename FloatType>
+int unflattenFromBatchVector(Graph<FloatType> &graph, const Matrix<FloatType> &from, int row_off){
+  row_off = unflattenFromBatchVector(graph.nodes, from, row_off);
+  row_off = unflattenFromBatchVector(graph.edges, from, row_off);
+  return unflattenFromBatchVector(graph.global, from, row_off);
+}
+
+template<typename FloatType>
+Graph<FloatType> unflattenFromBatchVector(const Matrix<FloatType> &in, const GraphInitialize &ginit){
+  assert(ginit.batch_size == in.size(1));
+  Graph<FloatType> out(ginit);
+  assert(in.size(0) == rowsAsBatchVector(out));
+  unflattenFromBatchVector(out,in,0);
+  return out;
+}
