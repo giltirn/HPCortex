@@ -69,7 +69,8 @@
 #endif
 
 
-void     acceleratorInit(void);
+void acceleratorInit(void);
+void acceleratorFinalize();
 void acceleratorReport();
 
 template<typename decompCoordPolicy, int thrDims, int blockDims, int splitBlockSize>

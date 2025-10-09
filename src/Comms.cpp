@@ -44,6 +44,8 @@ void Communicators::setupDDPcommunicator(){
 }
 
 void Communicators::freeCommunicators(){
+  assert(MPIisActive() && "Freeing communicators must be performed while MPI is active");
+  
   if(is_pipeline_leader) assert( MPI_Comm_free(&ddp_comm) == MPI_SUCCESS );
   MPI_Comm_free(&pipeline_comm);
 }
@@ -76,8 +78,9 @@ void Communicators::enableDDPnoPipeliningInternal(){
   ddp_nrank = world_nrank;
 }
 
-Communicators::Communicators(int argc, char** argv){
-  MPI_Init(&argc, &argv);
+Communicators::Communicators(){
+  assert(MPIisActive());
+  
   MPI_Comm_set_errhandler(MPI_COMM_WORLD, MPI_ERRORS_RETURN);
       
   assert( MPI_Comm_rank(MPI_COMM_WORLD, &world_rank) == MPI_SUCCESS );
@@ -98,7 +101,6 @@ Communicators::Communicators(int argc, char** argv){
    
 Communicators::~Communicators(){
   freeCommunicators();
-  MPI_Finalize();
 }
 
 
@@ -190,22 +192,9 @@ void Communicators::reportSetup(){
   }
 }
 
-
-static std::unique_ptr<Communicators> &_communicators_internal(){
-  static std::unique_ptr<Communicators> c;
-  return c;
-}
-
 Communicators & communicators(){
-  auto &c = _communicators_internal();
-  if(!c) throw std::runtime_error("Global Communicators instance has not been initialized");
-  return *c;
-}
-
-void initializeComms(int argc, char** argv){
-  auto &c = _communicators_internal();
-  if(c) return; 
-  c.reset(new Communicators(argc, argv));
+  static Communicators c;
+  return c;
 }
 
 void waitAll(std::vector<CommsRequest> &reqs){
@@ -218,3 +207,12 @@ void waitAll(std::vector<CommsRequest> &reqs){
   }
   reqs.clear();
 }
+
+bool MPIisActive(){
+  int is_init, is_final;
+  assert( MPI_Initialized(&is_init) == MPI_SUCCESS );
+  assert( MPI_Finalized(&is_final) == MPI_SUCCESS );
+  return is_init && !is_final;
+}
+  
+  

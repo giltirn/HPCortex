@@ -15,7 +15,11 @@ CommsRequest LayerIOcontainerImpl<Tensor<FloatType,Dim> >::send(int to, MPI_Comm
   assert(tens);
   tens->lock();
   CommsRequest out;
-  autoView(tens_v,(*tens),HostRead);   
+#ifdef USE_GPU_AWARE_MPI
+  autoView(tens_v,(*tens),DeviceRead);
+#else
+  autoView(tens_v,(*tens),HostRead);
+#endif
   assert( MPI_Isend(tens_v.data(), tens_v.data_len(), getMPIdataType<FloatType>(), to, 0, comm, &out.req) == MPI_SUCCESS );
   out.post.reset(new PostCommActionCallbackUnlock(tens.get()));    
   return out;
@@ -26,7 +30,11 @@ CommsRequest LayerIOcontainerImpl<Tensor<FloatType,Dim> >::recv(int from, MPI_Co
   assert(tens);
   tens->lock();
   CommsRequest out;
-  autoView(tens_v,(*tens),HostWrite);	
+#ifdef USE_GPU_AWARE_MPI
+  autoView(tens_v,(*tens),DeviceWrite);	
+#else
+  autoView(tens_v,(*tens),HostWrite);
+#endif
   assert( MPI_Irecv(tens_v.data(), tens_v.data_len(), getMPIdataType<FloatType>(), from, 0, comm, &out.req) == MPI_SUCCESS );
   out.post.reset(new PostCommActionCallbackUnlock(tens.get()));
   return out;

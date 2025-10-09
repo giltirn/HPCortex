@@ -27,6 +27,10 @@ void acceleratorInit(void){
   cudaStreamCreate(&copyStream);
   cudaStreamCreate(&computeStream);
 }
+void acceleratorFinalize(){
+  cudaStreamDestroy(copyStream);
+  cudaStreamDestroy(computeStream);
+}
 
 void acceleratorReport(){
   int world_nrank = communicators().worldNrank();
@@ -65,6 +69,11 @@ void acceleratorInit(void){
   d=hipStreamCreate(&copyStream);
   d=hipStreamCreate(&computeStream);
 }
+void acceleratorFinalize(){
+  auto d = hipStreamDestroy(copyStream);
+  d = hipStreamDestroy(computeStream);
+}
+
 
 void acceleratorReport(){
   int world_nrank = communicators().worldNrank();
@@ -108,13 +117,20 @@ void acceleratorInit(void){
   computeQueue = new sycl::queue (gpu_devices[device]);
   copyQueue = new sycl::queue (gpu_devices[device]);
 }
+
+void acceleratorFinalize(){
+  delete computeQueue;
+  delete copyQueue;
+}
+
 void acceleratorReport(){
 
 }
 
 #else
 
-void  acceleratorInit(void){}
+void acceleratorInit(void){}
+void acceleratorFinalize(){}
 void acceleratorReport(){}
 
 #endif

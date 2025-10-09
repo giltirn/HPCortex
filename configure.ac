@@ -239,6 +239,16 @@ if test "x$enable_onemkl" != "xno"; then
 
 fi
 
+#Check for --enable-gpu-aware-mpi
+
+AC_ARG_ENABLE([gpu-aware-mpi],
+  [AS_HELP_STRING([--enable-gpu-aware-mpi], [Enable GPU-aware MPI support])],
+  [
+     AC_MSG_NOTICE([Enabling GPU-aware MPI support])  
+     AC_DEFINE([USE_GPU_AWARE_MPI],[1],[Use GPU-aware MPI])
+  ],
+  [enable_gpu_aware_mpi=no])
+
 
 HPCORTEX_CXX="$CXX"
 HPCORTEX_CXXLD="$CXXLD"

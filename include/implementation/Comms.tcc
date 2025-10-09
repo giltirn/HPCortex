@@ -22,20 +22,32 @@ inline void commsBroadcast(FloatType* data, size_t data_len, int from_rank, cons
 
 template<typename FloatType>
 inline void commsBroadcast(Vector<FloatType> &v, int from_rank, const MPI_Comm &comm){
+#ifdef USE_GPU_AWARE_MPI
+  autoView(v_v,v,DeviceReadWrite);
+#else 
   autoView(v_v,v,HostReadWrite);
+#endif
   commsBroadcast(v_v.data(),v_v.data_len(),from_rank,comm);
 }
 
 template<typename FloatType>
 inline void commsBroadcast(Matrix<FloatType> &v, int from_rank, const MPI_Comm &comm){
+#ifdef USE_GPU_AWARE_MPI
+  autoView(v_v,v,DeviceReadWrite);
+#else 
   autoView(v_v,v,HostReadWrite);
+#endif
   commsBroadcast(v_v.data(),v_v.data_len(),from_rank,comm);
 }
 
 
 template<typename FloatType>
 inline void commsReduce(Vector<FloatType> &v, const MPI_Comm &comm){
+#ifdef USE_GPU_AWARE_MPI
+  autoView(v_v,v,DeviceReadWrite);
+#else 
   autoView(v_v,v,HostReadWrite);
+#endif
   commsReduce(v_v.data(),v_v.data_len(),comm);
 }
 

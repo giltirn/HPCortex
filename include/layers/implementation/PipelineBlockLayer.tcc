@@ -25,14 +25,22 @@ void PipelineBlockLayer<LayerOutputType,BelowStore>::initialize(){
 template<typename LayerOutputType, typename BelowStore>
 void PipelineBlockLayer<LayerOutputType,BelowStore>::gatherParameterVector(int to_off, Vector<FloatType> &vec_to, Vector<FloatType> &vec_from) const{
   if(rank != 0){
+#ifdef USE_GPU_AWARE_MPI
+    autoView(vec_from_v, vec_from, DeviceRead);
+#else
     autoView(vec_from_v, vec_from, HostRead);
+#endif
     MPI_Request req;
     assert( MPI_Isend(vec_from_v.data(), vec_from_v.data_len(), getMPIdataType<FloatType>(),
 		      0, 0, communicators().pipelineCommunicator(), &req) == MPI_SUCCESS );
     assert(MPI_Wait(&req, MPI_STATUS_IGNORE) == MPI_SUCCESS);
   }else{
-    //note: the ordering of parameters is *top-down*, so for the pipeline we need to put the last rank first in the output      
+    //note: the ordering of parameters is *top-down*, so for the pipeline we need to put the last rank first in the output
+#ifdef USE_GPU_AWARE_MPI
+    autoView(vec_to_v, vec_to, DeviceReadWrite);
+#else
     autoView(vec_to_v, vec_to, HostReadWrite);
+#endif
     std::vector<MPI_Request> mr(pipeline_depth-1);
     FloatType* cdp = vec_to_v.data() + to_off;
     for(int r=1;r<pipeline_depth;r++){
@@ -43,8 +51,14 @@ void PipelineBlockLayer<LayerOutputType,BelowStore>::gatherParameterVector(int t
     }
     assert(MPI_Waitall(pipeline_depth-1, mr.data(), MPI_STATUSES_IGNORE) == MPI_SUCCESS);
 
+#ifdef USE_GPU_AWARE_MPI
+    autoView(vec_from_v, vec_from, DeviceRead);
+    acceleratorCopyDeviceToDevice(cdp, vec_from_v.data(), vec_from_v.data_len()*sizeof(FloatType));
+#else
     autoView(vec_from_v, vec_from, HostRead);
     memcpy(cdp, vec_from_v.data(), vec_from_v.data_len()*sizeof(FloatType));
+#endif
+
   }
 }
 

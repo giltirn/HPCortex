@@ -1,6 +1,7 @@
 #pragma once
 #include <mpi.h>
 #include <cassert>
+#include <HPCortexConfig.h>
 #include <Tensors.hpp>
 
 //Communicators for batch and pipeline parallelism
@@ -30,7 +31,7 @@ private:
   void enableDDPnoPipeliningInternal();
   
 public:
-  Communicators(int argc, char** argv);
+  Communicators();
   
   ~Communicators();
 
@@ -97,14 +98,16 @@ public:
 //A global Communicators instance should be a singleton
 Communicators & communicators();
 
-//Initialize the library communications
-void initializeComms(int argc, char** argv);
-
 //A unique index for this rank
 inline int UniqueID(){ return communicators().worldRank(); }
 
 template<typename FloatType>
 inline MPI_Datatype getMPIdataType();
+
+/**
+ * @brief Return true if MPI has been initialized and not yet finalized
+ */
+bool MPIisActive();
 
 //MPI reduction
 template<typename FloatType>
